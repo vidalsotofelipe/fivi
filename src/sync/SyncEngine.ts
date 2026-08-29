@@ -18,7 +18,13 @@
 import { FiviDatabase, db as defaultDb } from "@/data/db";
 import type { RemotePort } from "./RemotePort";
 import type { SyncState } from "./types";
-import { countPending, getPendingItems, markStatus, purgeSynced } from "./queue";
+import {
+  countPending,
+  getPendingItems,
+  markStatus,
+  purgeSynced,
+  requeueStaleSyncing,
+} from "./queue";
 
 export interface SyncEngineOptions {
   remote: RemotePort;
@@ -132,11 +138,16 @@ export class SyncEngine {
     }
 
     this.inFlight = true;
-    this.emit({ syncing: true, last_error: null });
 
     try {
+      // Recupera operaciones que quedaron a medias en una corrida anterior.
+      await requeueStaleSyncing(this.db);
+
       const pending = await getPendingItems(this.db);
+      // Sólo mostramos "sincronizando" si hay algo real que enviar; así el
+      // indicador de la UI no parpadea en cada corrida de fondo.
       if (pending.length > 0) {
+        this.emit({ syncing: true, last_error: null });
         await markStatus(
           pending.map((p) => p.id),
           "syncing",

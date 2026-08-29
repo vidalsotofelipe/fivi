@@ -24,6 +24,28 @@ export async function getPendingItems(
     .sort((a, b) => a.created_at.localeCompare(b.created_at));
 }
 
+/**
+ * Devuelve a `pending` los items que quedaron en `syncing` de una corrida
+ * anterior interrumpida (p. ej. la app se cerró o navegó mientras sincronizaba).
+ * Seguro de llamar al inicio de cada corrida: `syncNow` no corre en paralelo
+ * consigo mismo, así que cualquier `syncing` presente ya es viejo.
+ */
+export async function requeueStaleSyncing(
+  database: FiviDatabase = defaultDb,
+): Promise<number> {
+  const stale = await database.sync_queue
+    .where("sync_status")
+    .equals("syncing")
+    .toArray();
+  if (stale.length === 0) return 0;
+  await database.transaction("rw", database.sync_queue, async () => {
+    for (const item of stale) {
+      await database.sync_queue.put({ ...item, sync_status: "pending" });
+    }
+  });
+  return stale.length;
+}
+
 export async function countPending(
   database: FiviDatabase = defaultDb,
 ): Promise<number> {

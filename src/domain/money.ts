@@ -104,6 +104,20 @@ export function formatMoney(
 }
 
 /**
+ * Convierte unidades mínimas a un texto editable, sin separador de miles y con
+ * el separador decimal de la moneda. El resultado es re-parseable con
+ * `toMinorUnits`. Útil para precargar formularios de edición.
+ */
+export function minorToRawInput(minor: number, code: CurrencyCode): string {
+  const info = getCurrencyInfo(code);
+  return new Intl.NumberFormat(info.locale, {
+    useGrouping: false,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: info.decimal_digits,
+  }).format(fromMinorUnits(minor, code));
+}
+
+/**
  * Reparte `totalMinor` (entero) entre `n` porciones lo más iguales posible.
  * Devuelve un array de longitud `n` con la suma EXACTAMENTE igual a `totalMinor`.
  * Las unidades sobrantes se asignan a las primeras porciones (determinístico).

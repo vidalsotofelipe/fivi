@@ -4,6 +4,7 @@ import {
   formatMoney,
   fromMinorUnits,
   minorFromDecimal,
+  minorToRawInput,
   toMinorUnits,
 } from "@/domain/money";
 
@@ -45,6 +46,21 @@ describe("toMinorUnits (parseo de texto del usuario)", () => {
   it("rechaza entradas no numéricas", () => {
     expect(() => toMinorUnits("abc", "ARS")).toThrow();
     expect(() => toMinorUnits("", "ARS")).toThrow();
+  });
+});
+
+describe("minorToRawInput", () => {
+  it("produce texto re-parseable con toMinorUnits en cada moneda", () => {
+    for (const code of ["ARS", "USD", "EUR", "BRL", "CLP", "GBP"]) {
+      for (const minor of [0, 5, 100, 12345, 1000000]) {
+        const raw = minorToRawInput(minor, code);
+        expect(toMinorUnits(raw, code)).toBe(minor);
+      }
+    }
+  });
+
+  it("no incluye separador de miles", () => {
+    expect(minorToRawInput(123456789, "ARS")).not.toContain(".");
   });
 });
 

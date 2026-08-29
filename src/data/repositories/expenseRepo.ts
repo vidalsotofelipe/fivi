@@ -111,6 +111,14 @@ export async function listExpenses(
     .sort((a, b) => b.expense_date.localeCompare(a.expense_date));
 }
 
+export async function getExpense(
+  id: string,
+  database: FiviDatabase = defaultDb,
+): Promise<Expense | undefined> {
+  const e = await database.expenses.get(id);
+  return e && isLive(e) ? e : undefined;
+}
+
 export async function getExpenseShares(
   expenseId: string,
   database: FiviDatabase = defaultDb,
@@ -152,6 +160,95 @@ export async function updateExpenseMeta(
     id,
     next as Partial<Omit<Expense, keyof Expense>>,
     database,
+  );
+}
+
+/**
+ * Edición completa de un gasto: actualiza los campos y vuelve a calcular el
+ * reparto. Las porciones viejas se marcan como borradas (tombstone) y se crean
+ * las nuevas, todo en una transacción.
+ */
+export async function replaceExpense(
+  id: string,
+  input: {
+    description: string;
+    amount_minor_units: number;
+    paid_by: string;
+    participant_ids: string[];
+    expense_date: IsoDate;
+    split_strategy?: SplitStrategy;
+  },
+  database: FiviDatabase = defaultDb,
+): Promise<{ expense: Expense; shares: ExpenseParticipant[] }> {
+  const description = input.description.trim();
+  if (!description) throw new Error("La descripción del gasto es obligatoria");
+  if (
+    !Number.isInteger(input.amount_minor_units) ||
+    input.amount_minor_units <= 0
+  ) {
+    throw new Error("El monto del gasto debe ser un entero positivo");
+  }
+  if (input.participant_ids.length === 0) {
+    throw new Error("El gasto debe dividirse entre al menos un participante");
+  }
+
+  const strategy: SplitStrategy = input.split_strategy ?? { kind: "equal" };
+  const computed = computeShares(
+    input.amount_minor_units,
+    input.participant_ids,
+    strategy,
+  );
+
+  return database.transaction(
+    "rw",
+    database.expenses,
+    database.expense_participants,
+    database.sync_queue,
+    async () => {
+      const expense = await updateRecord<Expense>(
+        database.expenses,
+        "expense",
+        id,
+        {
+          description,
+          amount_minor_units: input.amount_minor_units,
+          paid_by: input.paid_by,
+          expense_date: input.expense_date,
+          split_strategy: strategy,
+        },
+        database,
+      );
+
+      const previous = await database.expense_participants
+        .where("expense_id")
+        .equals(id)
+        .toArray();
+      for (const s of previous.filter(isLive)) {
+        await softDeleteRecord<ExpenseParticipant>(
+          database.expense_participants,
+          "expense_participant",
+          s.id,
+          database,
+        );
+      }
+
+      const shares: ExpenseParticipant[] = [];
+      for (const s of computed) {
+        shares.push(
+          await createRecord<ExpenseParticipant>(
+            database.expense_participants,
+            "expense_participant",
+            {
+              expense_id: id,
+              participant_id: s.participant_id,
+              share_minor_units: s.share_minor_units,
+            },
+            database,
+          ),
+        );
+      }
+      return { expense, shares };
+    },
   );
 }
 

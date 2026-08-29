@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ServiceWorkerRegister } from "./sw-register";
+import { SyncProvider } from "@/components/SyncProvider";
 
 export const metadata: Metadata = {
   title: "fivi — gastos compartidos",
@@ -29,7 +30,7 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body className="font-sans antialiased">
-        {children}
+        <SyncProvider>{children}</SyncProvider>
         <ServiceWorkerRegister />
       </body>
     </html>

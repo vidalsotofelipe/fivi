@@ -67,7 +67,9 @@ RLS y políticas se definirán junto con la sincronización real.
 
 ## 4. Flujo de usuario
 
-Pantallas (sección 11), a implementar en la etapa siguiente:
+Pantallas (sección 11), implementadas como rutas del App Router
+(`/`, `/nuevo`, `/g/[groupId]`, `/g/[groupId]/gastos`, `.../gastos/nuevo`,
+`.../gastos/[expenseId]`, `.../balance`, `.../pagos/nuevo`, `.../config`):
 
 ```
 Inicio (grupos recientes)
@@ -80,7 +82,11 @@ Inicio (grupos recientes)
 ```
 
 Regla de interacción transversal (sección 20): toda acción se refleja
-**inmediatamente**; nunca se espera al servidor para mostrar el resultado.
+**inmediatamente**; nunca se espera al servidor para mostrar el resultado. La
+UI lee de IndexedDB con `useLiveQuery` (`src/lib/db-hooks.ts`): al escribir en
+local, la pantalla se re-renderiza sola. El estado del grupo + participantes se
+carga una vez en `g/[groupId]/layout.tsx` y se comparte por contexto
+(`GroupProvider`).
 
 ## 5. Estrategia PWA
 

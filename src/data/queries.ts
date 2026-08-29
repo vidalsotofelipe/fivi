@@ -17,7 +17,7 @@ import type {
 import { computeBalances, totalSpentMinor } from "@/domain/balances";
 import { simplifyDebts } from "@/domain/settlement";
 import { FiviDatabase, db as defaultDb } from "./db";
-import { getGroup } from "./repositories/groupRepo";
+import { getGroup, listGroups } from "./repositories/groupRepo";
 import { listParticipants } from "./repositories/participantRepo";
 import { listExpenses, listGroupShares } from "./repositories/expenseRepo";
 import { listPayments } from "./repositories/paymentRepo";
@@ -32,6 +32,38 @@ export interface GroupSummary {
     | { type: "expense"; date: string; data: Expense }
     | { type: "payment"; date: string; data: Payment }
   >;
+}
+
+export interface GroupListItem {
+  group: Group;
+  total_spent_minor: number;
+  participant_count: number;
+}
+
+/** Grupos vivos con su total gastado, para la pantalla inicial (sección 28). */
+export async function listGroupsWithTotals(
+  database: FiviDatabase = defaultDb,
+): Promise<GroupListItem[]> {
+  const groups = await listGroups(database);
+  return Promise.all(
+    groups.map(async (group) => {
+      const [expenses, participants] = await Promise.all([
+        listExpenses(group.id, database),
+        listParticipants(group.id, database),
+      ]);
+      return {
+        group,
+        total_spent_minor: totalSpentMinor(
+          expenses.map((e) => ({
+            id: e.id,
+            paid_by: e.paid_by,
+            amount_minor_units: e.amount_minor_units,
+          })),
+        ),
+        participant_count: participants.length,
+      };
+    }),
+  );
 }
 
 export async function getGroupSummary(

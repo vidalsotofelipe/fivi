@@ -1,33 +1,67 @@
+"use client";
+
 /**
- * Home placeholder (sección 28: pantalla inicial con grupos recientes).
- *
- * Las pantallas del producto se implementan en la siguiente etapa. Por ahora
- * esta página sólo confirma que el scaffold, Tailwind y la PWA funcionan.
+ * Pantalla inicial (secciones 28 y 11): lista de grupos recientes + crear grupo.
  */
+import Link from "next/link";
+import { AppShell } from "@/components/AppShell";
+import { LinkButton } from "@/components/Button";
+import { EmptyState, Loading } from "@/components/EmptyState";
+import { MoneyText } from "@/components/MoneyText";
+import { useGroups } from "@/lib/db-hooks";
+
 export default function HomePage() {
+  const groups = useGroups();
+
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col gap-6 px-5 py-10">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-3xl font-semibold tracking-tight">fivi</h1>
-        <p className="text-sm opacity-70">
-          Dividí gastos entre un grupo. Rápida, mobile-first y funciona sin
-          conexión.
-        </p>
-      </header>
-
-      <section className="rounded-2xl border border-black/10 p-5 dark:border-white/10">
-        <h2 className="text-sm font-medium opacity-60">Estado del proyecto</h2>
-        <ul className="mt-3 space-y-2 text-sm">
-          <li>✓ Dominio: dinero, división, balances y simplificación de deudas</li>
-          <li>✓ Datos locales: IndexedDB (Dexie) + cola de sincronización</li>
-          <li>✓ Sincronización: motor desacoplado detrás de un puerto</li>
-          <li>◻ Pantallas del producto — próxima etapa</li>
-        </ul>
-      </section>
-
-      <p className="text-xs opacity-50">
-        Ver <code>docs/ARCHITECTURE.md</code> para el diseño completo.
-      </p>
-    </main>
+    <AppShell title="fivi">
+      {groups === undefined ? (
+        <Loading />
+      ) : groups.length === 0 ? (
+        <EmptyState
+          title="Todavía no tenés grupos"
+          description="Creá un grupo para empezar a cargar gastos compartidos."
+          action={
+            <LinkButton href="/nuevo" className="mt-1">
+              Crear grupo
+            </LinkButton>
+          }
+        />
+      ) : (
+        <>
+          <h2 className="text-sm font-medium opacity-60">Mis grupos</h2>
+          <ul className="flex flex-col gap-2">
+            {groups.map(({ group, total_spent_minor, participant_count }) => (
+              <li key={group.id}>
+                <Link
+                  href={`/g/${group.id}`}
+                  className="flex items-center justify-between gap-3 rounded-2xl border border-black/10 px-4 py-4 hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/5"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium">
+                      {group.name}
+                    </span>
+                    <span className="block text-xs opacity-55">
+                      {group.currency_code} ·{" "}
+                      {participant_count === 0
+                        ? "sin participantes"
+                        : `${participant_count} participante${participant_count === 1 ? "" : "s"}`}
+                    </span>
+                  </span>
+                  <MoneyText
+                    minor={total_spent_minor}
+                    currency={group.currency_code}
+                    className="shrink-0 font-medium tabular-nums"
+                  />
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <LinkButton href="/nuevo" full variant="secondary" className="mt-2">
+            Crear grupo
+          </LinkButton>
+        </>
+      )}
+    </AppShell>
   );
 }

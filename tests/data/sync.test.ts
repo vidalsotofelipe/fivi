@@ -3,7 +3,12 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { FiviDatabase } from "@/data/db";
 import { newId } from "@/data/ids";
 import * as groupRepo from "@/data/repositories/groupRepo";
-import { countPending, getPendingItems } from "@/sync/queue";
+import {
+  countPending,
+  getPendingItems,
+  markStatus,
+  requeueStaleSyncing,
+} from "@/sync/queue";
 import { createStubRemote } from "@/sync/stubRemote";
 import { SyncEngine } from "@/sync/SyncEngine";
 
@@ -19,6 +24,20 @@ describe("cola de sincronización", () => {
     await groupRepo.createGroup({ name: "G", currency_code: "ARS" }, db);
     expect(await countPending(db)).toBe(1);
     const pending = await getPendingItems(db);
+    expect(pending[0]?.sync_status).toBe("pending");
+  });
+
+  it("recupera items que quedaron en 'syncing' tras una interrupción", async () => {
+    await groupRepo.createGroup({ name: "G", currency_code: "ARS" }, db);
+    const [item] = await getPendingItems(db);
+    await markStatus([item!.id], "syncing", db);
+    // Sin recuperación, un item en 'syncing' no lo devuelve getPendingItems.
+    expect(await getPendingItems(db)).toHaveLength(0);
+
+    const recovered = await requeueStaleSyncing(db);
+    expect(recovered).toBe(1);
+    const pending = await getPendingItems(db);
+    expect(pending).toHaveLength(1);
     expect(pending[0]?.sync_status).toBe("pending");
   });
 });
