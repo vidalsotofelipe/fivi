@@ -26,6 +26,14 @@ Etapa 2 — **pantallas del producto** ✅
   participantes, eliminar grupo.
 - UI reactiva con `useLiveQuery` (Optimistic UI) + indicador de estado de sync.
 
+Etapa 4 — **formas de dividir un gasto** ✅
+
+- `equal` (partes iguales), `amount` (monto fijo por persona), `percent`
+  (porcentajes), `shares` (partes / proporciones). Todas suman exacto el total.
+- `distributeByWeights` (método del resto mayor) para % y partes.
+- `ExpenseForm` con selector de 4 modos, inputs por participante, validación y
+  preview en vivo; el detalle del gasto muestra la estrategia usada.
+
 Etapa 3 — **backend Supabase** ✅
 
 - `supabaseRemote`: `push` (upsert por tabla), `pull` incremental por
@@ -42,8 +50,8 @@ Pendiente
 
 - ⬜ Aplicar las migraciones contra un proyecto Supabase real y probar el
   camino cloud end to end (requiere credenciales).
-- ⬜ Verificar el service worker en Chrome/Edge.
-- ⬜ Estrategias de división no equitativas (montos, %, proporciones).
+- ⬜ Verificar el service worker en Chrome/Edge (el navegador embebido no lo
+  registra).
 
 El diseño completo está en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 

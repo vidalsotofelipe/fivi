@@ -203,6 +203,25 @@ permite.
 - `supabaseRemote.pull`: filas con `updated_at > since` por `group_id`; las
   `expense_participants` (sin `group_id`) se traen por `expense_id`.
 
+## 8c. Formas de dividir un gasto (sección 5)
+
+`src/domain/split.ts` → `computeShares(totalMinor, participantIds, strategy)`.
+`SplitStrategy` es una unión discriminada; **todas** garantizan que las
+porciones suman exactamente el total.
+
+| `kind`    | Entrada                              | Cálculo |
+| --------- | ----------------------------------- | ------- |
+| `equal`   | —                                   | `distributeMinor` (base + resto a los primeros ids) |
+| `amount`  | monto por participante (min. units) | son las porciones; se valida que sumen el total |
+| `percent` | porcentaje por participante         | `distributeByWeights` (resto mayor / Hamilton) |
+| `shares`  | peso o cantidad de partes           | `distributeByWeights` — sólo importan las proporciones |
+
+`percent` y `shares` comparten el motor (`distributeByWeights`): reparte en
+proporción a los pesos y asigna las unidades sobrantes a las fracciones más
+grandes, con desempate por índice → determinístico. La UI
+(`components/ExpenseForm.tsx`) tiene un selector de 4 opciones e inputs por
+participante; usa el mismo `computeShares` para validar y previsualizar en vivo.
+
 ## 9. Algoritmo de balances
 
 `src/domain/balances.ts`, funciones puras (sección 35):
@@ -288,15 +307,18 @@ Alias `@/*` → `src/*` (tsconfig + vitest).
 
 `npm run test` (Vitest). Cubierto en esta etapa (sección 36):
 
-- División: 2 y 4 personas; quien paga participa / no participa; división con
-  redondeo con suma exacta; determinismo.
+- División: `equal` (2 y 4 personas, redondeo con suma exacta, determinismo);
+  `amount` (usa los montos / rechaza si no suman el total / no negativos);
+  `percent` y `shares` (`distributeByWeights`: proporciones, resto mayor,
+  determinismo, rechaza suma cero). `computeShares` siempre suma el total.
 - Balances: varios gastos acumulados; pagos parciales y completos; participante
   con balance cero; suma-cero con divisiones no exactas.
 - Simplificación: caso del brief (4 personas → 3 transferencias); ≤ n−1;
   determinismo; el grupo queda saldado.
 - Monedas: parseo y formato con distinta cantidad de decimales (CLP vs USD).
 - Datos: crear offline genera fila + op `pending` en `sync_queue`; soft delete
-  setea `deleted_at` y encola `DELETE`; `version` incrementa en updates.
+  setea `deleted_at` y encola `DELETE`; `version` incrementa en updates; gasto
+  con `split_strategy: amount` guarda porciones exactas y rechaza si no suman.
 - Sync: `SyncEngine` + `stubRemote` procesa la cola y deja `pending_count = 0`;
   marca `error` + `attempts` en rechazos; recupera items en `syncing`; aplica
   en local los cambios del pull.
@@ -307,8 +329,8 @@ Alias `@/*` → `src/*` (tsconfig + vitest).
   `upsert`; `pull` mapea filas a `RemoteChange` y filtra por `since`.
 
 Pendiente: probar el camino real contra un proyecto Supabase (requiere
-credenciales); verificar el service worker en Chrome/Edge; estrategias de
-división no equitativas.
+credenciales); verificar el service worker en Chrome/Edge (el navegador
+embebido no registra SW).
 
 ---
 

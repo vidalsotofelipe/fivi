@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  distributeByWeights,
   distributeMinor,
   formatMoney,
   fromMinorUnits,
@@ -99,5 +100,32 @@ describe("distributeMinor (reparto determinístico)", () => {
   it("valida argumentos", () => {
     expect(() => distributeMinor(10.5, 2)).toThrow();
     expect(() => distributeMinor(100, 0)).toThrow();
+  });
+});
+
+describe("distributeByWeights (método del resto mayor)", () => {
+  it("reparte en proporción a los pesos y suma el total", () => {
+    expect(distributeByWeights(10000, [1, 1, 2])).toEqual([2500, 2500, 5000]);
+    expect(distributeByWeights(10, [1, 1, 1])).toEqual([4, 3, 3]);
+  });
+
+  it("la suma es siempre exacta", () => {
+    for (const total of [1, 7, 9999, 123457]) {
+      for (const w of [[1, 2, 3], [10, 10, 10, 1], [33.33, 33.33, 33.34]]) {
+        const parts = distributeByWeights(total, w);
+        expect(parts.reduce((a, b) => a + b, 0)).toBe(total);
+      }
+    }
+  });
+
+  it("es determinístico ante empates de fracción", () => {
+    expect(distributeByWeights(100, [1, 1, 1])).toEqual(
+      distributeByWeights(100, [1, 1, 1]),
+    );
+  });
+
+  it("rechaza pesos negativos o suma cero", () => {
+    expect(() => distributeByWeights(100, [1, -1])).toThrow();
+    expect(() => distributeByWeights(100, [0, 0])).toThrow();
   });
 });

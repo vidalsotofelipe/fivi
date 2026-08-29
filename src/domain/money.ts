@@ -142,3 +142,45 @@ export function distributeMinor(totalMinor: number, n: number): number[] {
   }
   return out;
 }
+
+/**
+ * Reparte `totalMinor` (entero) en proporción a `weights` (pesos no negativos:
+ * porcentajes, partes, cantidades…). Devuelve enteros que suman EXACTAMENTE
+ * `totalMinor`, usando el método del resto mayor (Hamilton) con desempate por
+ * índice para que el resultado sea determinístico.
+ */
+export function distributeByWeights(
+  totalMinor: number,
+  weights: number[],
+): number[] {
+  if (!Number.isInteger(totalMinor)) {
+    throw new Error(`distributeByWeights requiere un entero, recibió ${totalMinor}`);
+  }
+  if (weights.length === 0) {
+    throw new Error("distributeByWeights requiere al menos un peso");
+  }
+  if (weights.some((w) => !Number.isFinite(w) || w < 0)) {
+    throw new Error("Los pesos deben ser números no negativos");
+  }
+  const sumW = weights.reduce((a, b) => a + b, 0);
+  if (sumW <= 0) {
+    throw new Error("La suma de los pesos debe ser mayor que cero");
+  }
+
+  const sign = totalMinor < 0 ? -1 : 1;
+  const abs = Math.abs(totalMinor);
+  const exact = weights.map((w) => (abs * w) / sumW);
+  const out = exact.map((x) => Math.floor(x));
+  let remainder = abs - out.reduce((a, b) => a + b, 0);
+
+  const order = exact
+    .map((x, i) => ({ i, frac: x - Math.floor(x) }))
+    .sort((a, b) => b.frac - a.frac || a.i - b.i);
+  for (let k = 0; k < order.length && remainder > 0; k++) {
+    const idx = order[k]!.i;
+    out[idx] = (out[idx] ?? 0) + 1;
+    remainder--;
+  }
+
+  return out.map((v) => sign * v);
+}

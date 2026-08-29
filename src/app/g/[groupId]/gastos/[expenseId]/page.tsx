@@ -14,6 +14,7 @@ import { useExpenseWithShares } from "@/lib/db-hooks";
 import { db } from "@/data/db";
 import { deleteExpense, replaceExpense } from "@/data/repositories/expenseRepo";
 import { formatMoney } from "@/domain/money";
+import { splitStrategyLabel } from "@/domain/split";
 import { formatDate } from "@/lib/format";
 
 export default function ExpenseDetailPage() {
@@ -63,6 +64,7 @@ export default function ExpenseDetailPage() {
             paid_by: expense.paid_by,
             participant_ids: data.shares.map((s) => s.participant_id),
             expense_date: expense.expense_date,
+            split_strategy: expense.split_strategy,
           }}
           onSubmit={async (values) => {
             await replaceExpense(expense.id, values, db);
@@ -87,7 +89,8 @@ export default function ExpenseDetailPage() {
 
       <section className="flex flex-col gap-2">
         <h2 className="text-sm font-medium opacity-60">
-          Dividido entre ({data.shares.length})
+          Dividido entre ({data.shares.length}) ·{" "}
+          {splitStrategyLabel(expense.split_strategy)}
         </h2>
         <ul className="divide-y divide-black/5 dark:divide-white/10">
           {data.shares.map((s) => (

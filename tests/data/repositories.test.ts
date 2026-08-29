@@ -169,6 +169,59 @@ describe("expenseRepo", () => {
     expect(q.some((i) => i.operation === "DELETE")).toBe(true);
   });
 
+  it("crea un gasto con división por montos y guarda las porciones exactas", async () => {
+    const g = await groupRepo.createGroup(
+      { name: "G", currency_code: "ARS" },
+      db,
+    );
+    const a = await participantRepo.addParticipant(g.id, "A", db);
+    const b = await participantRepo.addParticipant(g.id, "B", db);
+    const { shares } = await expenseRepo.createExpense(
+      {
+        group_id: g.id,
+        description: "Regalo",
+        amount_minor_units: 10000,
+        paid_by: a.id,
+        participant_ids: [a.id, b.id],
+        split_strategy: {
+          kind: "amount",
+          amounts: { [a.id]: 7000, [b.id]: 3000 },
+        },
+      },
+      db,
+    );
+    const byId = Object.fromEntries(
+      shares.map((s) => [s.participant_id, s.share_minor_units]),
+    );
+    expect(byId[a.id]).toBe(7000);
+    expect(byId[b.id]).toBe(3000);
+  });
+
+  it("rechaza una división por montos que no suma el total", async () => {
+    const g = await groupRepo.createGroup(
+      { name: "G", currency_code: "ARS" },
+      db,
+    );
+    const a = await participantRepo.addParticipant(g.id, "A", db);
+    const b = await participantRepo.addParticipant(g.id, "B", db);
+    await expect(
+      expenseRepo.createExpense(
+        {
+          group_id: g.id,
+          description: "X",
+          amount_minor_units: 10000,
+          paid_by: a.id,
+          participant_ids: [a.id, b.id],
+          split_strategy: {
+            kind: "amount",
+            amounts: { [a.id]: 4000, [b.id]: 4000 },
+          },
+        },
+        db,
+      ),
+    ).rejects.toThrow(/no suman el total/);
+  });
+
   it("rechaza montos no enteros o no positivos", async () => {
     const g = await groupRepo.createGroup(
       { name: "G", currency_code: "ARS" },

@@ -1,25 +1,20 @@
 /**
  * Cálculo del reparto de un gasto (secciones 4, 5 y 26 del documento).
  *
- * Para el MVP sólo se implementa la división equitativa. La firma acepta una
- * `SplitStrategy` para dejar el punto de extensión, pero las estrategias no
- * equitativas lanzan `NotImplementedError` por ahora.
+ * Estrategias implementadas:
+ *  - `equal`   — partes iguales.
+ *  - `amount`  — un monto fijo por participante (deben sumar el total).
+ *  - `percent` — un porcentaje por participante.
+ *  - `shares`  — un peso / cantidad de partes por participante.
  *
- * Invariante central: la suma de las porciones es EXACTAMENTE igual al total.
- * El remanente de una división no exacta se asigna de forma determinística a
- * los participantes ordenados por id, de modo que todos los dispositivos
- * obtengan el mismo resultado.
+ * Invariante central en todas: la suma de las porciones es EXACTAMENTE igual al
+ * total. El remanente de una división no exacta se reparte de forma
+ * determinística (participantes ordenados por id) para que todos los
+ * dispositivos obtengan el mismo resultado.
  */
 
 import type { SplitStrategy } from "./types";
-import { distributeMinor } from "./money";
-
-export class NotImplementedError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "NotImplementedError";
-  }
-}
+import { distributeByWeights, distributeMinor } from "./money";
 
 /** Porción asignada a un participante, en unidades mínimas enteras. */
 export interface Share {
@@ -27,19 +22,19 @@ export interface Share {
   share_minor_units: number;
 }
 
-/**
- * Divide `totalMinor` en partes iguales entre `participantIds`.
- * Los ids se ordenan antes de repartir para que el reparto del remanente sea
- * estable y reproducible.
- */
+function orderedIds(participantIds: string[]): string[] {
+  if (participantIds.length === 0) {
+    throw new Error("El gasto debe dividirse entre al menos un participante");
+  }
+  return [...participantIds].sort((a, b) => a.localeCompare(b));
+}
+
+/** Divide `totalMinor` en partes iguales entre `participantIds`. */
 export function splitEqually(
   totalMinor: number,
   participantIds: string[],
 ): Share[] {
-  if (participantIds.length === 0) {
-    throw new Error("splitEqually requiere al menos un participante");
-  }
-  const ordered = [...participantIds].sort((a, b) => a.localeCompare(b));
+  const ordered = orderedIds(participantIds);
   const amounts = distributeMinor(totalMinor, ordered.length);
   return ordered.map((participant_id, i) => ({
     participant_id,
@@ -48,9 +43,51 @@ export function splitEqually(
 }
 
 /**
- * Punto de entrada genérico. Resuelve el reparto según la estrategia del gasto.
- * Hoy sólo `equal`; el resto queda preparado para una versión futura.
+ * Cada participante asume un monto fijo (en unidades mínimas). Los montos deben
+ * sumar exactamente el total del gasto.
  */
+export function splitByAmounts(
+  totalMinor: number,
+  participantIds: string[],
+  amounts: Record<string, number>,
+): Share[] {
+  const ordered = orderedIds(participantIds);
+  const shares = ordered.map((participant_id) => {
+    const value = Math.round(amounts[participant_id] ?? 0);
+    if (value < 0) {
+      throw new Error("Los montos asignados no pueden ser negativos");
+    }
+    return { participant_id, share_minor_units: value };
+  });
+  const sum = shares.reduce((acc, s) => acc + s.share_minor_units, 0);
+  if (sum !== totalMinor) {
+    throw new Error(
+      `Los montos asignados no suman el total del gasto (asignado ${sum}, total ${totalMinor})`,
+    );
+  }
+  return shares;
+}
+
+/**
+ * Reparte el total en proporción a un peso por participante. Se usa tanto para
+ * porcentajes como para "partes" / cantidades: sólo importan las proporciones
+ * relativas, no la escala.
+ */
+export function splitByWeights(
+  totalMinor: number,
+  participantIds: string[],
+  weights: Record<string, number>,
+): Share[] {
+  const ordered = orderedIds(participantIds);
+  const values = ordered.map((id) => weights[id] ?? 0);
+  const amounts = distributeByWeights(totalMinor, values);
+  return ordered.map((participant_id, i) => ({
+    participant_id,
+    share_minor_units: amounts[i]!,
+  }));
+}
+
+/** Resuelve el reparto según la estrategia del gasto. */
 export function computeShares(
   totalMinor: number,
   participantIds: string[],
@@ -60,14 +97,28 @@ export function computeShares(
     case "equal":
       return splitEqually(totalMinor, participantIds);
     case "amount":
+      return splitByAmounts(totalMinor, participantIds, strategy.amounts);
     case "percent":
+      return splitByWeights(totalMinor, participantIds, strategy.percents);
     case "shares":
-      throw new NotImplementedError(
-        `La estrategia de división "${strategy.kind}" todavía no está implementada`,
-      );
+      return splitByWeights(totalMinor, participantIds, strategy.shares);
     default: {
       const _exhaustive: never = strategy;
       throw new Error(`Estrategia desconocida: ${JSON.stringify(_exhaustive)}`);
     }
+  }
+}
+
+/** Etiqueta corta para mostrar en la UI. */
+export function splitStrategyLabel(strategy: SplitStrategy): string {
+  switch (strategy.kind) {
+    case "equal":
+      return "Partes iguales";
+    case "amount":
+      return "Montos personalizados";
+    case "percent":
+      return "Porcentajes";
+    case "shares":
+      return "Partes";
   }
 }
