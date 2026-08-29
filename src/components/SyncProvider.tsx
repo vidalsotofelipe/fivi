@@ -29,6 +29,7 @@ const INITIAL: SyncStatus = {
   pending_count: 0,
   last_synced_at: null,
   last_error: null,
+  hydrating_group_ids: [],
   backend: "local",
 };
 
@@ -67,6 +68,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         remote: createStubRemote({ latencyMs: 400 }),
         database: db,
         pollIntervalMs: 20_000,
+        cloudMode: Boolean(supabaseConfig),
       }),
   );
 
@@ -82,13 +84,15 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       ])
         .then(([{ createSupabaseRemote }, { getSupabaseClient }]) => {
           if (!cancelled) {
-            engine.setRemote(
+            void engine.setRemote(
               createSupabaseRemote(getSupabaseClient(supabaseConfig)),
             );
           }
         })
         .catch((err) => {
           console.warn("No se pudo cargar el remoto Supabase:", err);
+          // No dejar grupos "cargando" para siempre si el import falló.
+          void engine.markRemoteReady();
         });
     }
 

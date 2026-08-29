@@ -30,6 +30,12 @@ export interface SyncEngineOptions {
   database?: FiviDatabase;
   /** Intervalo del polling suave mientras la app está abierta (ms). 0 lo desactiva. */
   pollIntervalMs?: number;
+  /**
+   * `true` si el remoto real (Supabase) va a entrar por `setRemote` más tarde.
+   * Hasta que eso pase, los grupos pedidos por enlace siguen "hydrating" (la UI
+   * no dice "no existe" mientras carga el remoto).
+   */
+  cloudMode?: boolean;
 }
 
 type Listener = (state: SyncState) => void;
@@ -52,6 +58,7 @@ export class SyncEngine {
   private reconcileTimer: ReturnType<typeof setTimeout> | null = null;
   private running = false;
   private inFlight = false;
+  private rerunRequested = false;
   private boundTriggers: Array<[string, EventTarget, EventListener]> = [];
 
   private subscription: RemoteSubscription | null = null;
@@ -64,6 +71,10 @@ export class SyncEngine {
   private trackedGroupIds = new Set<string>();
   /** Fuerza que el próximo pull sea completo (since=null), p. ej. al abrir un grupo nuevo por enlace. */
   private forceFullPull = false;
+  /** Grupos pedidos por enlace todavía sin su primer pull real. */
+  private hydratingGroups = new Set<string>();
+  /** `true` cuando el remoto que se va a usar ya está listo (o no hay swap pendiente). */
+  private remoteReady: boolean;
 
   private state: SyncState = {
     online: detectOnline(),
@@ -71,12 +82,14 @@ export class SyncEngine {
     pending_count: 0,
     last_synced_at: null,
     last_error: null,
+    hydrating_group_ids: [],
   };
 
   constructor(opts: SyncEngineOptions) {
     this.remote = opts.remote;
     this.db = opts.database ?? defaultDb;
     this.pollIntervalMs = opts.pollIntervalMs ?? 30_000;
+    this.remoteReady = !opts.cloudMode;
   }
 
   getState(): SyncState {
@@ -88,13 +101,23 @@ export class SyncEngine {
    * Supabase cuando termina de cargar). Rehace la suscripción y fuerza un pull
    * completo.
    */
-  setRemote(remote: RemotePort): void {
+  setRemote(remote: RemotePort): Promise<SyncState> {
     this.remote = remote;
     this.subscription?.unsubscribe();
     this.subscription = null;
     this.subscribedKey = "";
+    return this.markRemoteReady();
+  }
+
+  /**
+   * Marca el remoto como listo (lo llama `setRemote`, o el `SyncProvider` si la
+   * carga diferida de Supabase falla, para no dejar grupos "cargando" para
+   * siempre). Fuerza un pull completo.
+   */
+  markRemoteReady(): Promise<SyncState> {
+    this.remoteReady = true;
     this.forceFullPull = true;
-    void this.syncNow();
+    return this.syncNow();
   }
 
   subscribe(listener: Listener): () => void {
@@ -163,7 +186,9 @@ export class SyncEngine {
   trackGroup(groupId: string): void {
     if (this.trackedGroupIds.has(groupId)) return;
     this.trackedGroupIds.add(groupId);
+    this.hydratingGroups.add(groupId);
     this.forceFullPull = true;
+    this.emit({ hydrating_group_ids: [...this.hydratingGroups] });
     void this.syncNow();
   }
 
@@ -199,7 +224,12 @@ export class SyncEngine {
    * aplicación local. Es reentrante-seguro.
    */
   async syncNow(): Promise<SyncState> {
-    if (this.inFlight) return this.getState();
+    // Si ya hay una corrida en curso, pedir otra al terminar (así un
+    // `trackGroup` / `setRemote` disparado durante un sync igual se procesa).
+    if (this.inFlight) {
+      this.rerunRequested = true;
+      return this.getState();
+    }
     if (!detectOnline()) {
       this.emit({ online: false, pending_count: await countPending(this.db) });
       return this.getState();
@@ -243,11 +273,17 @@ export class SyncEngine {
       await purgeSynced(this.db);
       this.refreshSubscription(groupIds);
 
+      // Un pull real terminó: los grupos pedidos por enlace ya no están "cargando".
+      if (this.remoteReady && this.hydratingGroups.size > 0) {
+        this.hydratingGroups.clear();
+      }
+
       this.emit({
         syncing: false,
         online: true,
         pending_count: await countPending(this.db),
         last_synced_at: startedAt,
+        hydrating_group_ids: [...this.hydratingGroups],
       });
     } catch (err) {
       this.emit({
@@ -257,6 +293,11 @@ export class SyncEngine {
       });
     } finally {
       this.inFlight = false;
+    }
+
+    if (this.rerunRequested) {
+      this.rerunRequested = false;
+      return this.syncNow();
     }
 
     return this.getState();

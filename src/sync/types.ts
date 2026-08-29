@@ -38,6 +38,11 @@ export interface SyncState {
   pending_count: number;
   last_synced_at: string | null;
   last_error: string | null;
+  /**
+   * Grupos pedidos por enlace que todavía no terminaron su primer pull desde el
+   * servidor. La UI muestra "cargando" en vez de "no existe" mientras estén acá.
+   */
+  hydrating_group_ids: string[];
 }
 
 /** Cambio remoto recibido durante un pull. */

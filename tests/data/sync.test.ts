@@ -156,6 +156,54 @@ describe("SyncEngine con stubRemote", () => {
     );
   });
 
+  it("mantiene el grupo 'hydrating' hasta que el remoto real hace el pull (cloudMode)", async () => {
+    const remoteGroup: Group = {
+      id: newId(),
+      name: "Grupo remoto",
+      description: null,
+      currency_code: "USD",
+      created_at: "2026-08-01T00:00:00.000Z",
+      updated_at: "2026-08-01T00:00:00.000Z",
+      version: 1,
+      deleted_at: null,
+    };
+    const realRemote: RemotePort = {
+      push: async () => ({ accepted_ids: [], rejected: [] }),
+      pull: async ({ group_ids }) =>
+        group_ids.includes(remoteGroup.id)
+          ? [
+              {
+                entity_type: "group",
+                entity_id: remoteGroup.id,
+                payload: remoteGroup,
+                updated_at: remoteGroup.updated_at,
+                version: remoteGroup.version,
+                deleted_at: null,
+              },
+            ]
+          : [],
+    };
+
+    const engine = new SyncEngine({
+      remote: createStubRemote(),
+      database: db,
+      pollIntervalMs: 0,
+      cloudMode: true,
+    });
+
+    engine.trackGroup(remoteGroup.id);
+    await new Promise((r) => setTimeout(r, 20)); // deja correr el sync con stub
+    // Con el stub todavía activo, el grupo sigue "cargando".
+    expect(engine.getState().hydrating_group_ids).toContain(remoteGroup.id);
+    expect(await db.groups.count()).toBe(0);
+
+    // Entra el remoto real: se hace el pull y deja de estar "cargando".
+    await engine.setRemote(realRemote);
+    await new Promise((r) => setTimeout(r, 20)); // por si hubo re-run encolado
+    expect(engine.getState().hydrating_group_ids).not.toContain(remoteGroup.id);
+    expect((await db.groups.get(remoteGroup.id))?.name).toBe("Grupo remoto");
+  });
+
   it("expone el estado a los suscriptores", async () => {
     const engine = new SyncEngine({
       remote: createStubRemote(),
