@@ -1,0 +1,20 @@
+{
+  "name": "fivi — gastos compartidos",
+  "short_name": "fivi",
+  "description": "Dividí gastos entre un grupo de personas. Funciona sin conexión.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fafafa",
+  "theme_color": "#111827",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
