@@ -95,14 +95,20 @@ carga una vez en `g/[groupId]/layout.tsx` y se comparte por contexto
   `theme_color`, iconos PNG 192/512 + maskable 512 + SVG. Los PNG se generan con
   `npm run gen:icons` (encoder a mano, sin tooling de imágenes).
 - `public/sw.js` (hecho a mano, sin dependencias):
-  - `install`: precache del app shell (`/`, manifest) + `skipWaiting`.
+  - `install`: precache del app shell (`/`, `/nuevo`, manifest) + `skipWaiting`.
   - `activate`: borra caches viejas + `clients.claim`.
   - `fetch`:
-    - navegaciones → **network-first** con fallback a cache y a `/`;
+    - navegaciones y RSC de **rutas de grupo** (`/g/<id>/…`) → network-first con
+      **clave de cache normalizada** a `/g/_/…`. Como toda la página es client
+      component y el id se lee en runtime, un único shell sirve para todos los
+      grupos → con una visita quedan disponibles offline **todos** los grupos.
+    - otras navegaciones → network-first con fallback a `/`;
     - `/_next/static/*` → **cache-first** (assets inmutables);
     - resto → **stale-while-revalidate**.
   - Los **datos no se cachean acá**: viven en IndexedDB.
-- Registro en `src/app/sw-register.tsx`, sólo en producción.
+- Registro en `src/app/sw-register.tsx`, sólo en producción. Al activarse, si hay
+  conexión, "prewarmea" los shells de grupo (`fetch` a `/g/<placeholder>/…`) para
+  que la normalización cachee `/g/_/…` sin necesidad de haber abierto un grupo.
 - Actualización: al publicar una versión nueva cambia `VERSION` en `sw.js`; el
   SW nuevo hace `skipWaiting` + `clients.claim`. (Mejora futura: aviso "hay una
   versión nueva, recargar".)
@@ -202,6 +208,15 @@ permite.
   borrados viajan como filas con `deleted_at`).
 - `supabaseRemote.pull`: filas con `updated_at > since` por `group_id`; las
   `expense_participants` (sin `group_id`) se traen por `expense_id`.
+- **Acceso por enlace** (sección 31): el pull sólo alcanza los grupos que el
+  cliente conoce. `GroupLayout` llama `requestGroup(id)` al montar; el motor
+  (`SyncEngine.trackGroup`) suma ese id a los pulls y fuerza un pull completo,
+  así abrir `/g/<id>` en un dispositivo nuevo trae el grupo entero.
+- El remoto se cambia en caliente con `SyncEngine.setRemote` (stub → Supabase
+  cuando termina el import diferido), sin recrear el motor.
+- **Verificado** contra un proyecto Supabase real: push (grupo + participantes +
+  gasto + porciones), pull en dispositivo nuevo por enlace, Realtime (cambio
+  externo → UI en vivo) y edición cliente → servidor.
 
 ## 8c. Formas de dividir un gasto (sección 5)
 

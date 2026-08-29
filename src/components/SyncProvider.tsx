@@ -5,7 +5,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -14,7 +13,6 @@ import { db } from "@/data/db";
 import { SyncEngine } from "@/sync/SyncEngine";
 import { createStubRemote } from "@/sync/stubRemote";
 import { countPending } from "@/sync/queue";
-import type { RemotePort } from "@/sync/RemotePort";
 import type { SyncState } from "@/sync/types";
 import { readSupabaseConfig } from "@/lib/supabaseConfig";
 
@@ -36,77 +34,101 @@ const INITIAL: SyncStatus = {
 
 const SyncContext = createContext<SyncStatus>(INITIAL);
 
+export interface SyncActions {
+  /** Pide sincronizar un grupo aunque no esté en la base local (acceso por enlace). */
+  requestGroup: (groupId: string) => void;
+}
+
+const SyncActionsContext = createContext<SyncActions>({ requestGroup: () => {} });
+
 const supabaseConfig = readSupabaseConfig();
 
 /**
  * Arranca el motor de sincronización una vez para toda la app y expone su
- * estado. El `pending_count` se lee en vivo de IndexedDB para que el indicador
- * reaccione al instante (Optimistic UI, sección 20).
+ * estado. El `pending_count` se lee en vivo de IndexedDB (Optimistic UI,
+ * sección 20).
  *
- * El remoto arranca como `stubRemote` (sin red). Si hay credenciales de
- * Supabase, el módulo pesado (`@supabase/supabase-js`) se carga de forma
- * diferida y el motor se reinicia con el remoto real, sin inflar el bundle de
- * quienes trabajan sólo en local.
+ * El motor arranca con `stubRemote` (sin red). Si hay credenciales de Supabase,
+ * `@supabase/supabase-js` se carga de forma diferida y el remoto se cambia en
+ * caliente con `engine.setRemote` — sin recrear el motor, para no perder el
+ * estado ni los grupos que la UI ya pidió.
  */
 export function SyncProvider({ children }: { children: ReactNode }) {
   const [engineState, setEngineState] = useState<SyncState>(INITIAL);
-  const [remote, setRemote] = useState<RemotePort>(() =>
-    createStubRemote({ latencyMs: 400 }),
-  );
-  const engineRef = useRef<SyncEngine | null>(null);
   const backend: SyncBackend = supabaseConfig ? "cloud" : "local";
   const pending = useLiveQuery(() => countPending(db), [], 0);
 
-  // Carga diferida del remoto Supabase.
-  useEffect(() => {
-    if (!supabaseConfig) return;
-    let cancelled = false;
-    void Promise.all([
-      import("@/sync/supabaseRemote"),
-      import("@/lib/supabase"),
-    ]).then(([{ createSupabaseRemote }, { getSupabaseClient }]) => {
-      if (!cancelled) {
-        setRemote(() => createSupabaseRemote(getSupabaseClient(supabaseConfig)));
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // Se crea en el render (no en un efecto) para que ya exista cuando los efectos
+  // de los componentes hijos —que corren antes que el del padre— llamen a
+  // `requestGroup`.
+  const [engine] = useState(
+    () =>
+      new SyncEngine({
+        remote: createStubRemote({ latencyMs: 400 }),
+        database: db,
+        pollIntervalMs: 20_000,
+      }),
+  );
 
   useEffect(() => {
-    const engine = new SyncEngine({
-      remote,
-      database: db,
-      pollIntervalMs: 20_000,
-    });
-    engineRef.current = engine;
     const unsubscribe = engine.subscribe(setEngineState);
     engine.start();
+
+    let cancelled = false;
+    if (supabaseConfig) {
+      void Promise.all([
+        import("@/sync/supabaseRemote"),
+        import("@/lib/supabase"),
+      ])
+        .then(([{ createSupabaseRemote }, { getSupabaseClient }]) => {
+          if (!cancelled) {
+            engine.setRemote(
+              createSupabaseRemote(getSupabaseClient(supabaseConfig)),
+            );
+          }
+        })
+        .catch((err) => {
+          console.warn("No se pudo cargar el remoto Supabase:", err);
+        });
+    }
+
     return () => {
+      cancelled = true;
       unsubscribe();
       engine.stop();
-      engineRef.current = null;
     };
-  }, [remote]);
+  }, [engine]);
 
   useEffect(() => {
     if (pending > 0) {
-      const t = setTimeout(() => void engineRef.current?.syncNow(), 300);
+      const t = setTimeout(() => void engine.syncNow(), 300);
       return () => clearTimeout(t);
     }
-  }, [pending]);
+  }, [engine, pending]);
 
   const value = useMemo<SyncStatus>(
     () => ({ ...engineState, pending_count: pending, backend }),
     [engineState, pending, backend],
   );
 
+  const actions = useMemo<SyncActions>(
+    () => ({ requestGroup: (groupId) => engine.trackGroup(groupId) }),
+    [engine],
+  );
+
   return (
-    <SyncContext.Provider value={value}>{children}</SyncContext.Provider>
+    <SyncContext.Provider value={value}>
+      <SyncActionsContext.Provider value={actions}>
+        {children}
+      </SyncActionsContext.Provider>
+    </SyncContext.Provider>
   );
 }
 
 export function useSyncState(): SyncStatus {
   return useContext(SyncContext);
+}
+
+export function useSyncActions(): SyncActions {
+  return useContext(SyncActionsContext);
 }

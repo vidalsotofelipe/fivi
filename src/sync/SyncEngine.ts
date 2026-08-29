@@ -43,7 +43,7 @@ function detectOnline(): boolean {
 }
 
 export class SyncEngine {
-  private readonly remote: RemotePort;
+  private remote: RemotePort;
   private readonly db: FiviDatabase;
   private readonly pollIntervalMs: number;
 
@@ -56,6 +56,14 @@ export class SyncEngine {
 
   private subscription: RemoteSubscription | null = null;
   private subscribedKey = "";
+
+  /**
+   * Grupos que la UI pidió explícitamente (p. ej. se abrió `/g/<id>` por enlace
+   * y todavía no están en la base local). Se incluyen en cada pull.
+   */
+  private trackedGroupIds = new Set<string>();
+  /** Fuerza que el próximo pull sea completo (since=null), p. ej. al abrir un grupo nuevo por enlace. */
+  private forceFullPull = false;
 
   private state: SyncState = {
     online: detectOnline(),
@@ -73,6 +81,20 @@ export class SyncEngine {
 
   getState(): SyncState {
     return { ...this.state };
+  }
+
+  /**
+   * Cambia el repositorio remoto en caliente (p. ej. el stub inicial pasa a ser
+   * Supabase cuando termina de cargar). Rehace la suscripción y fuerza un pull
+   * completo.
+   */
+  setRemote(remote: RemotePort): void {
+    this.remote = remote;
+    this.subscription?.unsubscribe();
+    this.subscription = null;
+    this.subscribedKey = "";
+    this.forceFullPull = true;
+    void this.syncNow();
   }
 
   subscribe(listener: Listener): () => void {
@@ -132,6 +154,17 @@ export class SyncEngine {
     this.subscription?.unsubscribe();
     this.subscription = null;
     this.subscribedKey = "";
+  }
+
+  /**
+   * Pide que un grupo entre en la sincronización aunque todavía no exista
+   * localmente (acceso por enlace, sección 31). Dispara un pull.
+   */
+  trackGroup(groupId: string): void {
+    if (this.trackedGroupIds.has(groupId)) return;
+    this.trackedGroupIds.add(groupId);
+    this.forceFullPull = true;
+    void this.syncNow();
   }
 
   /** Debounce de un pull de reconciliación tras un evento Realtime. */
@@ -195,15 +228,17 @@ export class SyncEngine {
         }
       }
 
-      const groupIds = (await this.db.groups.toArray())
+      const localGroupIds = (await this.db.groups.toArray())
         .filter((g) => g.deleted_at === null)
         .map((g) => g.id);
+      const groupIds = [
+        ...new Set([...localGroupIds, ...this.trackedGroupIds]),
+      ];
 
-      const changes = await this.remote.pull({
-        group_ids: groupIds,
-        since: this.state.last_synced_at,
-      });
+      const since = this.forceFullPull ? null : this.state.last_synced_at;
+      const changes = await this.remote.pull({ group_ids: groupIds, since });
       await applyRemoteChanges(changes, this.db);
+      this.forceFullPull = false;
 
       await purgeSynced(this.db);
       this.refreshSubscription(groupIds);

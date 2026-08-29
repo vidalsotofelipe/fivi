@@ -111,6 +111,51 @@ describe("SyncEngine con stubRemote", () => {
     );
   });
 
+  it("trackGroup trae por enlace un grupo que no está local", async () => {
+    const remoteGroup: Group = {
+      id: newId(),
+      name: "Grupo compartido por enlace",
+      description: null,
+      currency_code: "USD",
+      created_at: "2026-08-01T00:00:00.000Z",
+      updated_at: "2026-08-01T00:00:00.000Z",
+      version: 1,
+      deleted_at: null,
+    };
+    const pulled: Array<{ group_ids: string[]; since: string | null }> = [];
+    const remote: RemotePort = {
+      push: async () => ({ accepted_ids: [], rejected: [] }),
+      pull: async (params) => {
+        pulled.push(params);
+        return params.group_ids.includes(remoteGroup.id)
+          ? [
+              {
+                entity_type: "group",
+                entity_id: remoteGroup.id,
+                payload: remoteGroup,
+                updated_at: remoteGroup.updated_at,
+                version: remoteGroup.version,
+                deleted_at: null,
+              },
+            ]
+          : [];
+      },
+    };
+
+    const engine = new SyncEngine({ remote, database: db, pollIntervalMs: 0 });
+    await engine.syncNow(); // sin grupos locales -> pull vacío
+    expect(await db.groups.count()).toBe(0);
+
+    engine.trackGroup(remoteGroup.id);
+    await new Promise((r) => setTimeout(r, 10)); // deja correr el syncNow disparado
+
+    expect(pulled.at(-1)?.group_ids).toContain(remoteGroup.id);
+    expect(pulled.at(-1)?.since).toBeNull(); // pull completo al abrir por enlace
+    expect((await db.groups.get(remoteGroup.id))?.name).toBe(
+      "Grupo compartido por enlace",
+    );
+  });
+
   it("expone el estado a los suscriptores", async () => {
     const engine = new SyncEngine({
       remote: createStubRemote(),

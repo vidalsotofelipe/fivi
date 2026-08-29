@@ -46,12 +46,19 @@ Etapa 3 — **backend Supabase** ✅
   carga de forma diferida (no infla el bundle si no hay credenciales).
 - Migración `0002_sync_and_policies.sql` (Realtime + RLS). Iconos PNG.
 
+Etapa 5 — **verificación cloud + offline** ✅
+
+- Camino Supabase probado end to end contra un proyecto real: push, pull en
+  dispositivo nuevo abriendo el enlace `/g/<id>`, Realtime (cambio externo →
+  UI en vivo) y edición cliente → servidor.
+- `SyncEngine.trackGroup` + `requestGroup`: abrir un grupo por enlace en un
+  dispositivo sin datos lo trae del servidor.
+- Service worker verificado en Chrome real; caché de rutas de grupo
+  normalizada (`/g/_/…`) para que funcionen sin conexión sin haberlas visitado.
+
 Pendiente
 
-- ⬜ Aplicar las migraciones contra un proyecto Supabase real y probar el
-  camino cloud end to end (requiere credenciales).
-- ⬜ Verificar el service worker en Chrome/Edge (el navegador embebido no lo
-  registra).
+- ⬜ Endurecer RLS con auth/roles (hoy es permisiva para `anon`, MVP sin cuentas).
 
 El diseño completo está en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
