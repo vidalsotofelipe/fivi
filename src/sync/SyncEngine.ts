@@ -1,23 +1,22 @@
 /**
- * Motor de sincronización (secciones 16, 17, 20, 21).
+ * Motor de sincronización (secciones 16, 17, 20, 21, 32).
  *
  * Responsabilidades:
  *  - Procesar la cola local (`sync_queue`) enviando las operaciones pendientes
- *    al `RemotePort` cuando hay conexión.
- *  - Traer cambios remotos (pull) y dejarlos listos para aplicar.
+ *    al `RemotePort` cuando hay conexión (push).
+ *  - Traer cambios remotos (pull) y aplicarlos en la base local con
+ *    `applyRemoteChanges` (LWW por `updated_at`).
+ *  - Mantener una suscripción Realtime a los grupos abiertos: cada evento
+ *    aplica el cambio recibido y dispara un pull de reconciliación.
  *  - Exponer un estado agregado para que la UI lo muestre de forma discreta.
  *
  * No depende de React. La capa de UI se suscribe con `subscribe()`.
- *
- * En esta etapa la aplicación de cambios remotos y la resolución de conflictos
- * están fuera de alcance: el pull se ejecuta pero su resultado sólo se cuenta.
- * La estrategia de conflictos (LWW por `updated_at` + `version`) está descrita
- * en docs/ARCHITECTURE.md.
  */
 
 import { FiviDatabase, db as defaultDb } from "@/data/db";
-import type { RemotePort } from "./RemotePort";
+import type { RemotePort, RemoteSubscription } from "./RemotePort";
 import type { SyncState } from "./types";
+import { applyRemoteChanges } from "./applyRemoteChanges";
 import {
   countPending,
   getPendingItems,
@@ -50,9 +49,13 @@ export class SyncEngine {
 
   private listeners = new Set<Listener>();
   private timer: ReturnType<typeof setInterval> | null = null;
+  private reconcileTimer: ReturnType<typeof setTimeout> | null = null;
   private running = false;
   private inFlight = false;
   private boundTriggers: Array<[string, EventTarget, EventListener]> = [];
+
+  private subscription: RemoteSubscription | null = null;
+  private subscribedKey = "";
 
   private state: SyncState = {
     online: detectOnline(),
@@ -119,16 +122,48 @@ export class SyncEngine {
   stop(): void {
     this.running = false;
     if (this.timer) clearInterval(this.timer);
+    if (this.reconcileTimer) clearTimeout(this.reconcileTimer);
     this.timer = null;
+    this.reconcileTimer = null;
     for (const [name, target, fn] of this.boundTriggers) {
       target.removeEventListener(name, fn);
     }
     this.boundTriggers = [];
+    this.subscription?.unsubscribe();
+    this.subscription = null;
+    this.subscribedKey = "";
+  }
+
+  /** Debounce de un pull de reconciliación tras un evento Realtime. */
+  private scheduleReconcile(): void {
+    if (this.reconcileTimer) clearTimeout(this.reconcileTimer);
+    this.reconcileTimer = setTimeout(() => void this.syncNow(), 800);
+  }
+
+  /** (Re)suscribe Realtime si cambió el conjunto de grupos abiertos. */
+  private refreshSubscription(groupIds: string[]): void {
+    if (!this.remote.subscribe || !this.running) return;
+    const key = [...groupIds].sort().join(",");
+    if (key === this.subscribedKey) return;
+
+    this.subscription?.unsubscribe();
+    this.subscribedKey = key;
+    this.subscription =
+      groupIds.length > 0
+        ? this.remote.subscribe({
+            group_ids: groupIds,
+            onChange: (changes) => {
+              void applyRemoteChanges(changes, this.db)
+                .then(() => this.scheduleReconcile())
+                .catch(() => this.scheduleReconcile());
+            },
+          })
+        : null;
   }
 
   /**
-   * Procesa la cola una vez: push de pendientes + pull de cambios remotos.
-   * Es reentrante-seguro: si ya hay una corrida en curso, no hace nada.
+   * Procesa la cola una vez: push de pendientes + pull de cambios remotos +
+   * aplicación local. Es reentrante-seguro.
    */
   async syncNow(): Promise<SyncState> {
     if (this.inFlight) return this.getState();
@@ -138,14 +173,14 @@ export class SyncEngine {
     }
 
     this.inFlight = true;
+    // Marca temporal previa: lo que se escriba durante esta corrida entra en el
+    // próximo pull (evita perder filas por la ventana de tiempo).
+    const startedAt = new Date().toISOString();
 
     try {
-      // Recupera operaciones que quedaron a medias en una corrida anterior.
       await requeueStaleSyncing(this.db);
 
       const pending = await getPendingItems(this.db);
-      // Sólo mostramos "sincronizando" si hay algo real que enviar; así el
-      // indicador de la UI no parpadea en cada corrida de fondo.
       if (pending.length > 0) {
         this.emit({ syncing: true, last_error: null });
         await markStatus(
@@ -160,22 +195,24 @@ export class SyncEngine {
         }
       }
 
-      // Pull: en esta etapa sólo se ejecuta; aplicar cambios queda pendiente.
       const groupIds = (await this.db.groups.toArray())
         .filter((g) => g.deleted_at === null)
         .map((g) => g.id);
-      await this.remote.pull({
+
+      const changes = await this.remote.pull({
         group_ids: groupIds,
         since: this.state.last_synced_at,
       });
+      await applyRemoteChanges(changes, this.db);
 
       await purgeSynced(this.db);
+      this.refreshSubscription(groupIds);
 
       this.emit({
         syncing: false,
         online: true,
         pending_count: await countPending(this.db),
-        last_synced_at: new Date().toISOString(),
+        last_synced_at: startedAt,
       });
     } catch (err) {
       this.emit({

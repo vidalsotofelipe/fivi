@@ -26,12 +26,33 @@ Etapa 2 — **pantallas del producto** ✅
   participantes, eliminar grupo.
 - UI reactiva con `useLiveQuery` (Optimistic UI) + indicador de estado de sync.
 
+Etapa 3 — **backend Supabase** ✅
+
+- `supabaseRemote`: `push` (upsert por tabla), `pull` incremental por
+  `updated_at`, `subscribe` (Realtime por grupo).
+- `applyRemoteChanges`: merge de cambios remotos en IndexedDB con
+  last-write-wins por `updated_at` + tombstones, sin re-encolar.
+- `SyncEngine` aplica el pull, recupera ops interrumpidas y maneja la
+  suscripción Realtime con reconciliación por pull.
+- Selección automática cloud / local por variables de entorno; Supabase se
+  carga de forma diferida (no infla el bundle si no hay credenciales).
+- Migración `0002_sync_and_policies.sql` (Realtime + RLS). Iconos PNG.
+
 Pendiente
 
-- ⬜ `RemotePort` real contra Supabase (push/pull + Realtime + conflictos).
-- ⬜ Iconos PNG y verificación del service worker en navegador real.
+- ⬜ Aplicar las migraciones contra un proyecto Supabase real y probar el
+  camino cloud end to end (requiere credenciales).
+- ⬜ Verificar el service worker en Chrome/Edge.
+- ⬜ Estrategias de división no equitativas (montos, %, proporciones).
 
 El diseño completo está en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+## Activar Supabase
+
+Copiá `.env.example` a `.env.local`, completá `NEXT_PUBLIC_SUPABASE_URL` y
+`NEXT_PUBLIC_SUPABASE_ANON_KEY`, aplicá `supabase/migrations/` y habilitá
+Realtime para `groups`, `participants`, `expenses`, `payments`. Sin esas
+variables la app funciona igual, 100% local.
 
 ## Scripts
 
@@ -49,11 +70,12 @@ npm run build      # build de producción
 ```
 src/domain/       funciones puras (sin React / Dexie / Supabase)
 src/data/         Dexie + repositorios + consultas
-src/sync/         cola, RemotePort, stub y SyncEngine
-src/lib/          hooks reactivos (useLiveQuery) y formato
+src/sync/         cola, RemotePort, stub, supabaseRemote, applyRemoteChanges, SyncEngine
+src/lib/          hooks reactivos (useLiveQuery), config de Supabase, formato
 src/components/    UI (AppShell, formularios, listas, SyncProvider)
 src/app/          Next.js App Router (rutas /g/[groupId]/…)
-supabase/         migración SQL del servidor (todavía sin aplicar)
+supabase/         migraciones SQL del servidor
+scripts/          gen-icons.mjs (iconos PNG de la PWA)
 tests/            unit tests
 ```
 

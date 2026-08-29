@@ -11,7 +11,7 @@
  * Los datos NO se cachean acá: viven en IndexedDB y los maneja la app.
  */
 
-const VERSION = "v1";
+const VERSION = "v2";
 const APP_SHELL = `fivi-shell-${VERSION}`;
 const RUNTIME = `fivi-runtime-${VERSION}`;
 const SHELL_URLS = ["/", "/manifest.webmanifest"];

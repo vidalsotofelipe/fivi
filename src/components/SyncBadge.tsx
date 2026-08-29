@@ -7,12 +7,15 @@ import { useSyncState } from "./SyncProvider";
  * funciones; sólo informa.
  */
 export function SyncBadge() {
-  const { online, syncing, pending_count, last_error } = useSyncState();
+  const { backend, online, syncing, pending_count, last_error } = useSyncState();
 
   let dot = "bg-emerald-500";
   let label = "Sincronizado";
 
-  if (last_error) {
+  if (backend === "local") {
+    dot = "bg-gray-400";
+    label = "En este dispositivo";
+  } else if (last_error) {
     dot = "bg-amber-500";
     label = "Error de sincronización";
   } else if (!online) {
@@ -32,7 +35,11 @@ export function SyncBadge() {
   return (
     <span
       className="flex items-center gap-1.5 whitespace-nowrap text-xs opacity-60"
-      title={label}
+      title={
+        backend === "local"
+          ? "Sin servidor configurado: los datos viven sólo en este dispositivo."
+          : label
+      }
     >
       <span className={`h-2 w-2 shrink-0 rounded-full ${dot}`} />
       <span>{label}</span>

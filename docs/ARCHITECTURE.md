@@ -58,12 +58,13 @@ mínima de la moneda del grupo.
 
 ## 3. Modelo de datos remoto
 
-Postgres en Supabase, espejo del modelo local. SQL completo en
-`supabase/migrations/0001_init.sql` (listo, **no aplicado** en esta etapa).
-Tablas: `groups`, `participants`, `expenses`, `expense_participants`,
-`payments`, con los mismos campos + `version` + `deleted_at`, PK `uuid` generada
-en el cliente, índices por `group_id` y `updated_at` (para el pull incremental).
-RLS y políticas se definirán junto con la sincronización real.
+Postgres en Supabase, espejo del modelo local. Migraciones en
+`supabase/migrations/`: `0001_init.sql` (tablas `groups`, `participants`,
+`expenses`, `expense_participants`, `payments` con los mismos campos +
+`version` + `deleted_at`, PK `uuid` del cliente, índices por `group_id` y
+`updated_at`) y `0002_sync_and_policies.sql` (Realtime + RLS permisiva para
+`anon`). Detalle en §8b. Falta aplicarlas contra un proyecto real (requiere
+credenciales); la app funciona 100% local mientras tanto.
 
 ## 4. Flujo de usuario
 
@@ -90,8 +91,9 @@ carga una vez en `g/[groupId]/layout.tsx` y se comparte por contexto
 
 ## 5. Estrategia PWA
 
-- `public/manifest.webmanifest`: `display: standalone`, `start_url: /`, icono
-  SVG `any maskable`, `theme_color`.
+- `public/manifest.webmanifest`: `display: standalone`, `start_url: /`,
+  `theme_color`, iconos PNG 192/512 + maskable 512 + SVG. Los PNG se generan con
+  `npm run gen:icons` (encoder a mano, sin tooling de imágenes).
 - `public/sw.js` (hecho a mano, sin dependencias):
   - `install`: precache del app shell (`/`, manifest) + `skipWaiting`.
   - `activate`: borra caches viejas + `clients.claim`.
@@ -128,18 +130,36 @@ datos básicos del grupo. **Todos los cálculos corren localmente.**
 Motor: `src/sync/SyncEngine.ts`. Una corrida (`syncNow()`), reentrante-segura:
 
 1. Si no hay conexión → marca estado `offline` y sale.
+0. `requeueStaleSyncing`: devuelve a `pending` lo que quedó en `syncing` de una
+   corrida anterior interrumpida (la app se cerró o navegó a mitad de camino).
+1. Si no hay conexión → marca estado `offline` y sale.
 2. **Push**: toma de `sync_queue` los items `pending` (y `error` con
    `attempts < 5`), los marca `syncing`, llama `remote.push(items)`, marca
    `synced` los aceptados y `error` (+`attempts`) los rechazados.
-3. **Pull**: `remote.pull({ group_ids, since: last_synced_at })`. En esta etapa
-   se ejecuta pero la aplicación de cambios remotos queda pendiente.
+3. **Pull**: `changes = remote.pull({ group_ids, since })` y
+   `applyRemoteChanges(changes)` los mergea en IndexedDB con LWW (ver §8).
+   `since` es una marca tomada **antes** del push, para no perder filas escritas
+   durante la ventana.
 4. Limpia de la cola los `synced` (`purgeSynced`).
-5. Emite estado: `online`, `syncing`, `pending_count`, `last_synced_at`,
+5. `refreshSubscription(groupIds)`: (re)suscribe Realtime si cambió el conjunto
+   de grupos abiertos.
+6. Emite estado: `online`, `syncing`, `pending_count`, `last_synced_at`,
    `last_error`.
 
 Disparadores (sección 17), vía `start()`: al iniciar la app, evento `online`,
-`visibilitychange` a visible, y polling suave (30 s) mientras haya conexión.
+`visibilitychange` a visible, polling suave (20 s), tras cada mutación local
+(el `SyncProvider` dispara `syncNow` cuando sube `pending_count`), y cada evento
+Realtime (aplica el cambio + agenda un pull de reconciliación con debounce).
 Background Sync se usará **si existe**, nunca como única vía.
+
+### Realtime (sección 32)
+
+`supabaseRemote.subscribe({ group_ids, onChange })` abre un canal con
+`postgres_changes` filtrado por `group_id` para `groups`, `participants`,
+`expenses` y `payments`. Cada evento: `onChange` → `applyRemoteChanges` →
+`scheduleReconcile` (pull con debounce de 800 ms que trae, entre otras cosas,
+las `expense_participants`, que no viajan por Realtime). La UI, que lee de
+IndexedDB con `useLiveQuery`, se actualiza sola.
 
 ### Cola de sincronización (`sync_queue`, sección 18)
 
@@ -149,19 +169,39 @@ Campos: `id`, `operation` (`CREATE|UPDATE|DELETE`), `entity_type`, `entity_id`,
 
 ## 8. Estrategia de resolución de conflictos
 
-MVP, simple y predecible (sección 22):
+Implementada en `src/sync/applyRemoteChanges.ts` (`shouldApply`), MVP simple y
+predecible (sección 22):
 
-- Cada registro lleva `version` (incrementa en cada cambio local) y
-  `updated_at`.
-- El servidor detecta conflicto cuando la `version` entrante no es la esperada.
-- Resolución: **last-write-wins por `updated_at`**. Nunca sobrescritura
-  silenciosa sin comparar versión.
-- Borrados: `deleted_at` (tombstone), nunca hard delete; así la eliminación se
-  propaga entre dispositivos.
+- Cada registro lleva `version` (incrementa en cada cambio local) y `updated_at`
+  (reloj del cliente que escribió).
+- Al recibir una fila remota: si no hay local → se aplica. Si hay local →
+  **last-write-wins por `updated_at`**; empate → gana `version` mayor; si el
+  local es más nuevo, el remoto se **descarta** (nunca se pisa en silencio).
+- El servidor NO reescribe `updated_at` en el `upsert` (migración `0002`), así
+  que la comparación es consistente entre dispositivos.
+- Borrados: `deleted_at` (tombstone), nunca hard delete; la eliminación se
+  propaga como cualquier otro cambio.
+- `applyRemoteChanges` escribe **directo en las tablas**, sin pasar por los
+  repositorios, para no re-encolar en `sync_queue` lo que vino del servidor.
 
 Ruta de mejora (no ahora): merge por campo, CRDT para listas de participantes,
 o cola de conflictos para resolución manual. La forma de los datos ya lo
 permite.
+
+## 8b. Backend Supabase
+
+- `src/lib/supabaseConfig.ts` lee `NEXT_PUBLIC_SUPABASE_URL` /
+  `NEXT_PUBLIC_SUPABASE_ANON_KEY` (sin importar la librería).
+- Si hay credenciales, `SyncProvider` carga `@supabase/supabase-js` de forma
+  **diferida** y reinicia el motor con `supabaseRemote`; si no, usa `stubRemote`
+  y el indicador muestra "En este dispositivo". El bundle base no crece.
+- `supabase/migrations/`: `0001_init.sql` (tablas) + `0002_sync_and_policies.sql`
+  (Realtime + RLS permisiva para `anon`, sin DELETE — MVP sin cuentas,
+  sección 31). Puesta en marcha en `.env.example`.
+- `supabaseRemote.push`: cada op de la cola es un `upsert` del payload (los
+  borrados viajan como filas con `deleted_at`).
+- `supabaseRemote.pull`: filas con `updated_at > since` por `group_id`; las
+  `expense_participants` (sin `group_id`) se traen por `expense_id`.
 
 ## 9. Algoritmo de balances
 
@@ -227,13 +267,18 @@ aritmética de dinero:
 ```
 fivi/
   docs/ARCHITECTURE.md
-  public/            manifest.webmanifest, sw.js, icons/icon.svg
+  public/            manifest.webmanifest, sw.js, icons/ (svg + png 192/512/maskable)
+  scripts/gen-icons.mjs
   src/
-    app/             layout.tsx, page.tsx, sw-register.tsx, globals.css
+    app/             layout, page, sw-register, globals.css, rutas /g/[groupId]/…
     domain/          types, currencies, money, split, balances, settlement (puro)
     data/            db, ids, queries, repositories/{group,participant,expense,payment}Repo
-    sync/            types, RemotePort, stubRemote, queue, SyncEngine
-  supabase/migrations/0001_init.sql
+    sync/            types, entities, RemotePort, stubRemote, supabaseRemote,
+                     applyRemoteChanges, queue, SyncEngine
+    lib/             supabaseConfig, supabase, db-hooks, format, cn
+    components/       AppShell, Button, fields, CurrencySelect, MoneyInput,
+                     ExpenseForm, BalanceList, TransferList, SyncProvider, SyncBadge
+  supabase/migrations/  0001_init.sql, 0002_sync_and_policies.sql
   tests/             domain/*.test.ts, data/*.test.ts
 ```
 
@@ -253,10 +298,17 @@ Alias `@/*` → `src/*` (tsconfig + vitest).
 - Datos: crear offline genera fila + op `pending` en `sync_queue`; soft delete
   setea `deleted_at` y encola `DELETE`; `version` incrementa en updates.
 - Sync: `SyncEngine` + `stubRemote` procesa la cola y deja `pending_count = 0`;
-  marca `error` + `attempts` en rechazos.
+  marca `error` + `attempts` en rechazos; recupera items en `syncing`; aplica
+  en local los cambios del pull.
+- Conflictos: `shouldApply` (LWW por `updated_at`, desempate por `version`);
+  `applyRemoteChanges` inserta lo nuevo, respeta lo local más nuevo, aplica
+  tombstones y no re-encola.
+- Supabase (`supabaseRemote`) con cliente fake: `push` agrupa por tabla y hace
+  `upsert`; `pull` mapea filas a `RemoteChange` y filtra por `since`.
 
-Pendiente para la etapa siguiente: creación/edición/eliminación offline desde la
-UI, sincronización posterior real y conflictos de versiones contra Supabase.
+Pendiente: probar el camino real contra un proyecto Supabase (requiere
+credenciales); verificar el service worker en Chrome/Edge; estrategias de
+división no equitativas.
 
 ---
 
@@ -271,4 +323,6 @@ UI, sincronización posterior real y conflictos de versiones contra Supabase.
 | DB remota        | Supabase / Postgres          | Pedido en el brief.                              |
 | Tests            | Vitest + fake-indexeddb      | Rápido; permite testear repos sin navegador.     |
 | PWA              | Manifest + SW a mano         | Sección 33: evitar dependencias innecesarias.    |
-| Estado UI ↔ datos | `dexie-react-hooks` (etapa 2) | `useLiveQuery` mantiene la UI viva desde IndexedDB. |
+| Iconos PWA       | PNG generados con `scripts/gen-icons.mjs` | Sin tooling de imágenes; encoder PNG a mano (zlib). |
+| Estado UI ↔ datos | `dexie-react-hooks`         | `useLiveQuery` mantiene la UI viva desde IndexedDB. |
+| Sync remoto      | `@supabase/supabase-js` (carga diferida) | Pedido en el brief; sólo se baja si hay credenciales. |

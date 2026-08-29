@@ -14,33 +14,69 @@ import { db } from "@/data/db";
 import { SyncEngine } from "@/sync/SyncEngine";
 import { createStubRemote } from "@/sync/stubRemote";
 import { countPending } from "@/sync/queue";
+import type { RemotePort } from "@/sync/RemotePort";
 import type { SyncState } from "@/sync/types";
+import { readSupabaseConfig } from "@/lib/supabaseConfig";
 
-const INITIAL: SyncState = {
+export type SyncBackend = "cloud" | "local";
+
+export interface SyncStatus extends SyncState {
+  /** "cloud" si hay Supabase configurado; "local" si se trabaja sólo en el dispositivo. */
+  backend: SyncBackend;
+}
+
+const INITIAL: SyncStatus = {
   online: true,
   syncing: false,
   pending_count: 0,
   last_synced_at: null,
   last_error: null,
+  backend: "local",
 };
 
-const SyncContext = createContext<SyncState>(INITIAL);
+const SyncContext = createContext<SyncStatus>(INITIAL);
+
+const supabaseConfig = readSupabaseConfig();
 
 /**
  * Arranca el motor de sincronización una vez para toda la app y expone su
  * estado. El `pending_count` se lee en vivo de IndexedDB para que el indicador
- * reaccione al instante a cada cambio (Optimistic UI, sección 20); el resto del
- * estado lo emite el motor. Cada vez que aparecen cambios nuevos se dispara una
- * sincronización (sección 17). Hoy el remoto es `stubRemote` (sin red).
+ * reaccione al instante (Optimistic UI, sección 20).
+ *
+ * El remoto arranca como `stubRemote` (sin red). Si hay credenciales de
+ * Supabase, el módulo pesado (`@supabase/supabase-js`) se carga de forma
+ * diferida y el motor se reinicia con el remoto real, sin inflar el bundle de
+ * quienes trabajan sólo en local.
  */
 export function SyncProvider({ children }: { children: ReactNode }) {
   const [engineState, setEngineState] = useState<SyncState>(INITIAL);
+  const [remote, setRemote] = useState<RemotePort>(() =>
+    createStubRemote({ latencyMs: 400 }),
+  );
   const engineRef = useRef<SyncEngine | null>(null);
+  const backend: SyncBackend = supabaseConfig ? "cloud" : "local";
   const pending = useLiveQuery(() => countPending(db), [], 0);
+
+  // Carga diferida del remoto Supabase.
+  useEffect(() => {
+    if (!supabaseConfig) return;
+    let cancelled = false;
+    void Promise.all([
+      import("@/sync/supabaseRemote"),
+      import("@/lib/supabase"),
+    ]).then(([{ createSupabaseRemote }, { getSupabaseClient }]) => {
+      if (!cancelled) {
+        setRemote(() => createSupabaseRemote(getSupabaseClient(supabaseConfig)));
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const engine = new SyncEngine({
-      remote: createStubRemote({ latencyMs: 400 }),
+      remote,
       database: db,
       pollIntervalMs: 20_000,
     });
@@ -52,9 +88,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       engine.stop();
       engineRef.current = null;
     };
-  }, []);
+  }, [remote]);
 
-  // Al aparecer operaciones pendientes, intentar sincronizar enseguida.
   useEffect(() => {
     if (pending > 0) {
       const t = setTimeout(() => void engineRef.current?.syncNow(), 300);
@@ -62,9 +97,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     }
   }, [pending]);
 
-  const value = useMemo<SyncState>(
-    () => ({ ...engineState, pending_count: pending }),
-    [engineState, pending],
+  const value = useMemo<SyncStatus>(
+    () => ({ ...engineState, pending_count: pending, backend }),
+    [engineState, pending, backend],
   );
 
   return (
@@ -72,6 +107,6 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useSyncState(): SyncState {
+export function useSyncState(): SyncStatus {
   return useContext(SyncContext);
 }
