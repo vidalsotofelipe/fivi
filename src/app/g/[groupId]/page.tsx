@@ -9,6 +9,7 @@ import { BalanceList, nameOf } from "@/components/BalanceList";
 import { TransferList } from "@/components/TransferList";
 import { MoneyText } from "@/components/MoneyText";
 import { useGroupContext } from "@/components/GroupProvider";
+import { ShareButton } from "@/components/ShareButton";
 import { useGroupSummary } from "@/lib/db-hooks";
 import { formatMoney } from "@/domain/money";
 import { formatDate } from "@/lib/format";
@@ -128,17 +129,20 @@ export default function GroupSummaryPage() {
             )}
           </section>
 
-          <nav className="mt-2 grid grid-cols-2 gap-2">
-            <LinkButton
-              href={`/g/${group.id}/pagos/nuevo`}
-              variant="secondary"
-            >
-              Registrar pago
-            </LinkButton>
-            <LinkButton href={`/g/${group.id}/config`} variant="secondary">
-              Configuración
-            </LinkButton>
-          </nav>
+          <div className="mt-2 flex flex-col gap-2">
+            <ShareButton groupId={group.id} groupName={group.name} />
+            <nav className="grid grid-cols-2 gap-2">
+              <LinkButton
+                href={`/g/${group.id}/pagos/nuevo`}
+                variant="secondary"
+              >
+                Registrar pago
+              </LinkButton>
+              <LinkButton href={`/g/${group.id}/config`} variant="secondary">
+                Configuración
+              </LinkButton>
+            </nav>
+          </div>
         </>
       )}
     </AppShell>
