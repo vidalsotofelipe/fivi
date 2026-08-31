@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { AppShell } from "@/components/AppShell";
 import { LinkButton } from "@/components/Button";
 import { Loading } from "@/components/EmptyState";
+import { AppMark } from "@/components/Logo";
 import { Money } from "@/components/Money";
 import { useGroups } from "@/lib/db-hooks";
 import { useHydrated } from "@/lib/useHydrated";
@@ -44,7 +45,8 @@ export default function HomePage() {
     return (
       <AppShell title={t("common:appName")}>
         <div className="flex flex-1 flex-col">
-          <h2 className="mt-4 text-[26px] font-semibold leading-tight text-text">
+          <AppMark className="mt-2 h-14 w-14 rounded-[18px] shadow-sm" />
+          <h2 className="mt-5 text-[26px] font-semibold leading-tight text-text">
             {t("title")}
           </h2>
           <ol className="mt-6 flex flex-col gap-4">

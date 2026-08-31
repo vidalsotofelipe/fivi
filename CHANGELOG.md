@@ -11,7 +11,16 @@ rollback.
 
 ## [Unreleased]
 
-_(sin cambios pendientes de release)_
+### Changed
+
+- **Nueva identidad de marca**: app icon, favicons e íconos PWA reemplazados por
+  el logotipo definitivo (cuadrado redondeado + círculo naranja). `favicon.ico`
+  nuevo (16 + 32). `scripts/gen-icons.mjs` reescrito para dibujar la marca nueva
+  con antialiasing (sigue sin dependencias). Set completo de logotipos en
+  `brand/`. Service worker `v6` (invalida el caché de íconos anterior).
+- Onboarding: se muestra el app icon sobre el título.
+- `manifest.webmanifest`: `background_color` `#17161a` (fondo de la marca),
+  `theme_color` `#0e1111`.
 
 ## [0.8.0] - 2026-08-31
 

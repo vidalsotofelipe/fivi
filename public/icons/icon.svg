@@ -1,5 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="fivi">
-  <rect width="512" height="512" rx="112" fill="#111827"/>
-  <path d="M196 132h140a20 20 0 0 1 0 40h-96v72h84a20 20 0 0 1 0 40h-84v96a20 20 0 0 1-40 0V152a20 20 0 0 1 16-20z" fill="#ffffff"/>
-  <circle cx="320" cy="352" r="26" fill="#22c55e"/>
+  <rect width="512" height="512" fill="#17161a"/>
+  <g transform="translate(115.2 115.2) scale(2.816)">
+    <rect width="76" height="76" rx="21" fill="#ffffff"/>
+    <circle cx="78" cy="78" r="22" fill="#e2662f"/>
+  </g>
 </svg>
