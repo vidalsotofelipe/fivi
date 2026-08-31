@@ -13,6 +13,17 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.7.2] - 2026-08-31
+
+### Fixed
+
+- **Sync cloud rota**: `supabaseRemote.pull` arrancaba la paginación keyset de
+  los ids de `expenses` con un cursor vacío (`.gt("id", "")`), y PostgREST
+  respondía `400 invalid input syntax for type uuid: ""`. Cada corrida de sync
+  fallaba y quedaba en "Reintentando…"; la app funcionaba local-first pero nada
+  se sincronizaba al servidor. Introducido en 0.7.0 (paginación keyset). El
+  cursor ahora arranca en el UUID nil. Sin cambios de esquema.
+
 ## [0.7.1] - 2026-08-31
 
 ### Fixed

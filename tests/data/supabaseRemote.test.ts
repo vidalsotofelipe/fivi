@@ -28,6 +28,12 @@ function makeFakeClient(
         return thenable;
       },
       gt(column: string, value: unknown) {
+        // PostgREST/Postgres devuelven 400 si se filtra una columna uuid con
+        // string vacío (`id=gt.` -> "invalid input syntax for type uuid"). El
+        // fake lo reproduce para no dejar pasar ese bug.
+        if (column === "id" && value === "") {
+          throw new Error('invalid input syntax for type uuid: ""');
+        }
         const num =
           typeof value === "number" ||
           (typeof value === "string" && value !== "" && !isNaN(Number(value)));
@@ -249,6 +255,26 @@ describe("supabaseRemote.pull", () => {
     const { client } = makeFakeClient({});
     const remote = createSupabaseRemote(client);
     expect(await remote.pull({ group_ids: [], cursor: null })).toEqual([]);
+  });
+
+  it("la paginación de ids de expenses no arranca con un cursor vacío (400 de Postgres)", async () => {
+    // Regresión: `let idCursor = ""` hacía `.gt("id", "")` -> PostgREST 400
+    // "invalid input syntax for type uuid". El fake ahora lanza en ese caso.
+    const { client } = makeFakeClient({
+      groups: [],
+      participants: [],
+      expenses: [row({ id: "e1", group_id: "g1", sync_revision: 5 })],
+      payments: [],
+      expense_participants: [
+        row({ id: "ep1", expense_id: "e1", sync_revision: 6 }),
+      ],
+    });
+    const remote = createSupabaseRemote(client);
+
+    const changes = await remote.pull({ group_ids: ["g1"], cursor: null });
+    expect(
+      changes.map((c) => `${c.entity_type}:${c.entity_id}`).sort(),
+    ).toEqual(["expense:e1", "expense_participant:ep1"]);
   });
 });
 

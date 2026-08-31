@@ -161,9 +161,12 @@ export function createSupabaseRemote(client: SupabaseClient): RemotePort {
 
       // expense_participants no tiene group_id: se trae por expense_id. Los ids
       // se piden con keyset pagination (id > último) y el `.in(...)` se trocea
-      // en tandas para no reventar el largo de URL.
+      // en tandas para no reventar el largo de URL. El cursor arranca en el UUID
+      // nil: `.gt("id", "")` haría que PostgREST mande `id=gt.` y Postgres
+      // responda 400 (`invalid input syntax for type uuid: ""`).
       const expenseIds: string[] = [];
-      let idCursor = "";
+      const ZERO_UUID = "00000000-0000-0000-0000-000000000000";
+      let idCursor = ZERO_UUID;
       for (;;) {
         const { data, error } = await client
           .from("expenses")
