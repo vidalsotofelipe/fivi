@@ -2,8 +2,62 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Tokens de diseño (handoff mobile-first). Los colores son canales RGB
+ * separados por espacio para que Tailwind pueda aplicar opacidad
+ * (`bg-surface/60`). Tema claro por defecto + oscuro por `prefers-color-scheme`.
+ */
 :root {
   color-scheme: light dark;
+
+  /* superficies / texto — paleta CLARA (contraste >= 4.5:1 sobre --bg) */
+  --bg: 247 249 248;
+  --surface: 255 255 255;
+  --surface-raised: 255 255 255;
+  --border: 221 227 225;
+  --text: 16 32 28;
+  --text-muted: 79 96 91;
+
+  /* acento e intención */
+  --accent: 10 125 97;
+  --accent-pressed: 8 105 81;
+  --accent-fg: 255 255 255;
+  --accent-weak: 230 244 240;
+  --danger: 197 42 42;
+  --danger-fg: 255 255 255;
+  --warning: 176 106 0;
+
+  /* radios */
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+
+  /* espaciado */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: 14 17 17;
+    --surface: 23 28 27;
+    --surface-raised: 30 37 35;
+    --border: 49 65 61;
+    --text: 244 247 246;
+    --text-muted: 174 184 181;
+
+    --accent: 46 211 165;
+    --accent-pressed: 34 185 143;
+    --accent-fg: 12 24 20;
+    --accent-weak: 24 44 39;
+    --danger: 255 107 107;
+    --danger-fg: 15 17 17;
+    --warning: 255 184 77;
+  }
 }
 
 html,
@@ -14,13 +68,26 @@ body {
 }
 
 body {
-  background: #fafafa;
-  color: #111827;
+  background: rgb(var(--bg));
+  color: rgb(var(--text));
+  /* nunca scroll horizontal a nivel documento */
+  overflow-x: hidden;
 }
 
-@media (prefers-color-scheme: dark) {
-  body {
-    background: #0b0b0c;
-    color: #f4f4f5;
+/* Foco visible consistente (WCAG 2.2): outline 2px + 2px de separación */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid rgb(var(--accent));
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }

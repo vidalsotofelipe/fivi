@@ -10,13 +10,15 @@ import { LinkButton } from "@/components/Button";
 import { EmptyState, Loading } from "@/components/EmptyState";
 import { MoneyText } from "@/components/MoneyText";
 import { useGroups } from "@/lib/db-hooks";
+import { useHydrated } from "@/lib/useHydrated";
 
 export default function HomePage() {
+  const hydrated = useHydrated();
   const groups = useGroups();
 
   return (
     <AppShell title="fivi">
-      {groups === undefined ? (
+      {!hydrated || groups === undefined ? (
         <Loading />
       ) : groups.length === 0 ? (
         <EmptyState

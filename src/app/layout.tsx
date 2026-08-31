@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ServiceWorkerRegister } from "./sw-register";
+import { LocaleProvider } from "@/components/LocaleProvider";
 import { SyncProvider } from "@/components/SyncProvider";
+import { ToastProvider } from "@/components/ui/toast";
 
 export const metadata: Metadata = {
   title: "fivi — gastos compartidos",
@@ -23,7 +25,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#111827",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f7f9f8" },
+    { media: "(prefers-color-scheme: dark)", color: "#0e1111" },
+  ],
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -35,9 +40,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es">
+    <html lang="es" suppressHydrationWarning>
       <body className="font-sans antialiased">
-        <SyncProvider>{children}</SyncProvider>
+        <LocaleProvider>
+          <ToastProvider>
+            <SyncProvider>{children}</SyncProvider>
+          </ToastProvider>
+        </LocaleProvider>
         <ServiceWorkerRegister />
       </body>
     </html>

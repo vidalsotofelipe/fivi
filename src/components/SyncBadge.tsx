@@ -1,12 +1,24 @@
 "use client";
 
+import { useTranslation } from "react-i18next";
 import { useSyncState } from "./SyncProvider";
 
+type Tone = "ok" | "info" | "warn" | "danger" | "muted";
+
+const dotClass: Record<Tone, string> = {
+  ok: "bg-accent",
+  info: "bg-accent animate-pulse",
+  warn: "bg-warning",
+  danger: "bg-danger",
+  muted: "bg-muted",
+};
+
 /**
- * Indicador discreto del estado de sincronización (sección 21). Nunca bloquea
- * funciones; sólo informa.
+ * Estado de sincronización, discreto y accesible (sección 21): punto + texto
+ * (nunca sólo color) dentro de una live region cortés.
  */
 export function SyncBadge() {
+  const { t } = useTranslation("sync");
   const {
     backend,
     online,
@@ -17,45 +29,50 @@ export function SyncBadge() {
     access_error,
   } = useSyncState();
 
-  let dot = "bg-emerald-500";
-  let label = "Sincronizado";
+  let tone: Tone = "ok";
+  let label = t("synced");
 
   if (backend === "local") {
-    dot = "bg-gray-400";
-    label = "En este dispositivo";
+    tone = "muted";
+    label = t("onDevice");
   } else if (access_error) {
-    dot = "bg-red-500";
-    label = "Sin acceso al grupo";
+    tone = "danger";
+    label = t("noAccess");
   } else if (exhausted_count > 0) {
-    dot = "bg-red-500";
-    label = `${exhausted_count} sin sincronizar`;
+    tone = "danger";
+    label = t("unsynced", { count: exhausted_count });
   } else if (last_error) {
-    dot = "bg-amber-500";
-    label = "Reintentando…";
+    tone = "warn";
+    label = t("retrying");
   } else if (!online) {
-    dot = "bg-gray-400";
+    tone = "muted";
     label =
       pending_count > 0
-        ? `Sin conexión · ${pending_count} pendiente${pending_count === 1 ? "" : "s"}`
-        : "Sin conexión";
+        ? t("offlinePending", { count: pending_count })
+        : t("offline");
   } else if (syncing) {
-    dot = "bg-sky-500 animate-pulse";
-    label = "Sincronizando";
+    tone = "info";
+    label = t("syncing");
   } else if (pending_count > 0) {
-    dot = "bg-sky-500";
-    label = `${pending_count} pendiente${pending_count === 1 ? "" : "s"}`;
+    tone = "info";
+    label = t("pending", { count: pending_count });
   }
 
   return (
     <span
-      className="flex items-center gap-1.5 whitespace-nowrap text-xs opacity-60"
+      className="flex items-center gap-1.5 whitespace-nowrap text-xs text-muted"
+      role="status"
+      aria-live="polite"
       title={
         backend === "local"
-          ? "Sin servidor configurado: los datos viven sólo en este dispositivo."
-          : access_error ?? last_error ?? label
+          ? t("localOnlyHint")
+          : (access_error ?? last_error ?? label)
       }
     >
-      <span className={`h-2 w-2 shrink-0 rounded-full ${dot}`} />
+      <span
+        aria-hidden="true"
+        className={`h-2 w-2 shrink-0 rounded-full ${dotClass[tone]}`}
+      />
       <span>{label}</span>
     </span>
   );
