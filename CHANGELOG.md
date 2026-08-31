@@ -11,10 +11,14 @@ rollback.
 
 ## [Unreleased]
 
+_(sin cambios pendientes de release)_
+
+## [0.8.0] - 2026-08-31
+
 Rediseño mobile-first + internacionalización ES/EN. **No cambia** reglas de
 negocio, `domain/`, repos `data/`, motor `sync/` ni backend/auth: sólo la capa
-de presentación. Detalle y desviaciones respecto del handoff en
-[`docs/REDISENIO.md`](docs/REDISENIO.md).
+de presentación. Sin migraciones de Supabase. Detalle y desviaciones respecto
+del handoff en [`docs/REDISENIO.md`](docs/REDISENIO.md).
 
 ### Added
 
