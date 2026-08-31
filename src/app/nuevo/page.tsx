@@ -1,75 +1,103 @@
 "use client";
 
-/** Crear grupo (secciones 1, 2, 29). La moneda es obligatoria. */
+/** Pantalla 02 — nuevo grupo (paso 1 de 3). */
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/Button";
-import { CurrencySelect } from "@/components/CurrencySelect";
-import { Field, TextArea, TextInput } from "@/components/fields";
+import { CurrencyPicker } from "@/components/CurrencyPicker";
+import { TextAreaField, TextField } from "@/components/ui/TextField";
+import { FormError } from "@/components/fields";
+import { StepIndicator, StickyActionBar } from "@/components/ui/primitives";
 import { db } from "@/data/db";
 import { createGroup } from "@/data/repositories/groupRepo";
 import type { CurrencyCode } from "@/domain/types";
 
+const MAX_DESC = 120;
+
 export default function NewGroupPage() {
   const router = useRouter();
+  const { t } = useTranslation(["group", "common", "errors"]);
+
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [currency, setCurrency] = useState<CurrencyCode | "">("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const canSubmit = name.trim() !== "" && currency !== "" && !busy;
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [currencyError, setCurrencyError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!canSubmit || currency === "") return;
+    const cleanName = name.trim();
+    const missName = cleanName === "" ? t("errors:requiredName") : null;
+    const missCur = currency === "" ? t("errors:currencyRequired") : null;
+    setNameError(missName);
+    setCurrencyError(missCur);
+    if (missName || missCur || currency === "") return;
+
     setBusy(true);
-    setError(null);
+    setSubmitError(null);
     try {
       const group = await createGroup(
-        { name: name.trim(), description, currency_code: currency },
+        { name: cleanName, description, currency_code: currency },
         db,
       );
-      router.replace(`/g/${group.id}`);
+      router.replace(`/g/${group.id}/nuevo/personas`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setSubmitError(err instanceof Error ? err.message : String(err));
       setBusy(false);
     }
   }
 
   return (
-    <AppShell title="Nuevo grupo" back="/">
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <Field label="Nombre del grupo">
-          <TextInput
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Viaje a Bariloche"
-            autoFocus
-          />
-        </Field>
+    <AppShell title={t("group:newTitle")} back="/" showSync={false}>
+      <StepIndicator
+        steps={[t("group:wiz1"), t("group:wiz2"), t("group:wiz3")]}
+        current={0}
+      />
 
-        <Field label="Descripción" hint="Opcional">
-          <TextArea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Fin de semana largo con amigos"
-          />
-        </Field>
+      <form onSubmit={handleSubmit} className="flex flex-1 flex-col gap-4">
+        {submitError ? <FormError messages={[submitError]} /> : null}
 
-        <Field
-          label="Moneda"
-          hint="No se puede cambiar una vez que el grupo tiene gastos o pagos."
-        >
-          <CurrencySelect value={currency} onChange={setCurrency} />
-        </Field>
+        <TextField
+          label={t("group:nameLabel")}
+          placeholder={t("group:namePlaceholder")}
+          value={name}
+          onChange={(e) => {
+            setName(e.target.value);
+            if (nameError) setNameError(null);
+          }}
+          error={nameError}
+          autoFocus
+          required
+        />
 
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        <TextAreaField
+          label={t("group:descriptionLabel")}
+          placeholder={t("group:descriptionPlaceholder")}
+          value={description}
+          maxLength={MAX_DESC}
+          onChange={(e) => setDescription(e.target.value)}
+          hint={t("group:descriptionCount", { count: description.length })}
+        />
 
-        <Button type="submit" full disabled={!canSubmit}>
-          {busy ? "Creando…" : "Crear grupo"}
-        </Button>
+        <CurrencyPicker
+          value={currency}
+          onChange={(c) => {
+            setCurrency(c);
+            if (currencyError) setCurrencyError(null);
+          }}
+          error={currencyError}
+          hint={t("group:currencyHint")}
+        />
+
+        <StickyActionBar>
+          <Button type="submit" full loading={busy}>
+            {busy ? t("group:creating") : t("common:continue")}
+          </Button>
+        </StickyActionBar>
       </form>
     </AppShell>
   );

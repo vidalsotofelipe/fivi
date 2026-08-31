@@ -112,7 +112,13 @@
     "noMovements": "Sin movimientos todavía",
     "whoAreYou": "¿Quién sos en este grupo?",
     "whoAreYouHint": "Lo usamos para mostrarte tu balance. Podés cambiarlo después.",
-    "notSet": "Sin elegir"
+    "notSet": "Sin elegir",
+    "notFoundTitle": "No pudimos abrir este grupo",
+    "notFoundBody": "Revisá que el enlace esté completo. Si lo compartió alguien recién, probá de nuevo en unos segundos.",
+    "backHome": "Volver al inicio",
+    "wiz1": "Grupo",
+    "wiz2": "Personas",
+    "wiz3": "Listo"
   },
   "expense": {
     "listTitle": "Gastos",

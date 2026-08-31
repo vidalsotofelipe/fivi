@@ -112,7 +112,13 @@
     "noMovements": "No activity yet",
     "whoAreYou": "Who are you in this group?",
     "whoAreYouHint": "We use it to show your balance. You can change it later.",
-    "notSet": "Not chosen"
+    "notSet": "Not chosen",
+    "notFoundTitle": "We couldn't open this group",
+    "notFoundBody": "Check that the link is complete. If someone just shared it, try again in a few seconds.",
+    "backHome": "Back to home",
+    "wiz1": "Group",
+    "wiz2": "People",
+    "wiz3": "Done"
   },
   "expense": {
     "listTitle": "Expenses",
