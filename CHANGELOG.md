@@ -13,7 +13,28 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
-## [0.8.1] - 2026-08-31
+## [0.8.2] - 2026-08-31
+
+Corrige una condición de carrera al arrancar en modo cloud que podía dejar un
+grupo (y sus movimientos) sólo en el dispositivo, sin llegar nunca al servidor.
+Síntoma: al querer compartir ese grupo, el servidor rechazaba crear la
+invitación ("new row violates row-level security policy" — el grupo no tenía
+membresía de dueño en Postgres). Sin cambios de esquema ni de API.
+
+### Fixed
+
+- **`SyncEngine` no hace push mientras el remoto real (Supabase) todavía no
+  reemplazó al stub inicial.** Antes, cualquier operación encolada en esa
+  ventana (~1-3 s tras cargar la página) se enviaba al stub, que la "aceptaba",
+  y se marcaba como sincronizada sin haber llegado al servidor. `setRemote()` →
+  `markRemoteReady()` ya forzaba un `syncNow()` al conectar; ahora ése es el
+  primero que realmente envía la cola.
+- **Recuperación de datos huérfanos**: tras el primer pull completo con el
+  remoto real, `SyncEngine` re-encola el alta de los grupos locales vivos (y sus
+  participantes/gastos/pagos) que el servidor no devolvió y que no tienen ya una
+  op en la cola. Un grupo que quedó sólo en local por la carrera se sube solo en
+  la próxima carga; al insertarse en Postgres, el trigger `groups_add_owner` le
+  asigna la membresía de dueño y compartir vuelve a funcionar.
 
 Identidad de marca. Sin cambios de lógica de negocio, datos ni backend.
 

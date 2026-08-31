@@ -14,12 +14,19 @@
  */
 
 import { FiviDatabase, db as defaultDb } from "@/data/db";
+import { newId, nowIso } from "@/data/ids";
 import {
   generateInviteToken,
   hashInviteTokenBytea,
 } from "@/lib/invites";
 import type { GroupRole, RemotePort, RemoteSubscription } from "./RemotePort";
-import type { InviteInfo, SyncState } from "./types";
+import type {
+  InviteInfo,
+  RemoteChange,
+  SyncEntityType,
+  SyncQueueItem,
+  SyncState,
+} from "./types";
 import { applyRemoteChanges } from "./applyRemoteChanges";
 import { ACCESS_DENIED_MESSAGE } from "./accessError";
 import {
@@ -356,6 +363,23 @@ export class SyncEngine {
     try {
       await requeueStaleSyncing(this.db);
 
+      // Modo cloud: hasta que el remoto real (Supabase) reemplace al stub
+      // inicial NO se toca la cola. El stub "acepta" cualquier push, así que
+      // enviar ahí una op la daría por sincronizada y se perdería antes de
+      // llegar al servidor (grupo que después no se puede compartir: el server
+      // no tiene su membresía). `setRemote()` -> `markRemoteReady()` dispara un
+      // `syncNow(true)` en cuanto el remoto está listo y ahí sí se envía todo.
+      // Si el remoto nunca llega a estar listo, el `.catch` del SyncProvider
+      // llama `markRemoteReady()` igual, así que esto no bloquea para siempre.
+      if (!this.remoteReady) {
+        await this.emitQueueCounts({ syncing: false });
+        // Un rerun pedido durante esta ventana se puede descartar: cuando el
+        // remoto esté listo, `markRemoteReady()` fuerza un syncNow nuevo.
+        // (`finally` restablece `inFlight`.)
+        this.rerunRequested = false;
+        return this.getState();
+      }
+
       const pending = await getPendingItems(
         this.db,
         force ? { ignoreBackoff: true } : {},
@@ -403,6 +427,15 @@ export class SyncEngine {
       });
       await applyRemoteChanges(changes, this.db);
       this.forceFullPull = false;
+
+      // Tras un pull COMPLETO, recuperar entidades que quedaron sólo en local
+      // (p. ej. una escritura que se "perdió" contra el stub inicial antes de
+      // que Supabase estuviera conectado): se re-encola su alta y se pide otra
+      // corrida para enviarla.
+      if (pullCursor === null) {
+        const requeued = await this.reenqueueOrphanLocal(changes);
+        if (requeued > 0) this.rerunRequested = true;
+      }
 
       // Avanzar el cursor al máximo `sync_revision` recibido (monotónico).
       for (const c of changes) {
@@ -453,5 +486,73 @@ export class SyncEngine {
     }
 
     return this.getState();
+  }
+
+  /**
+   * Re-encola el alta de entidades locales vivas que un pull COMPLETO no
+   * devolvió y que no tienen ya una op en la cola. Recupera datos que quedaron
+   * huérfanos en local: nunca llegaron al servidor (típico: una escritura que
+   * "aceptó" el stub inicial antes de que Supabase estuviera conectado; el
+   * grupo queda sin fila ni membresía en el server y no se puede compartir).
+   *
+   * El push es un `upsert`, así que re-enviar algo ya presente es inocuo. Si el
+   * servidor lo rechaza por acceso (es un grupo ajeno que quedó en local), la
+   * cola lo agota tras `MAX_ATTEMPTS` y la UI muestra "Sin acceso al grupo".
+   * Sólo se consideran hijos de grupos huérfanos. Devuelve cuántas ops encoló.
+   */
+  private async reenqueueOrphanLocal(pulled: RemoteChange[]): Promise<number> {
+    const pulledIds = new Set(pulled.map((c) => c.entity_id));
+    const queuedIds = new Set(
+      (await this.db.sync_queue.toArray()).map((q) => q.entity_id),
+    );
+    const orphan = (id: string) => !pulledIds.has(id) && !queuedIds.has(id);
+
+    const groups = (await this.db.groups.toArray()).filter(
+      (g) => g.deleted_at === null && orphan(g.id),
+    );
+    if (groups.length === 0) return 0;
+    const groupIds = new Set(groups.map((g) => g.id));
+
+    const participants = (await this.db.participants.toArray()).filter(
+      (p) => p.deleted_at === null && groupIds.has(p.group_id) && orphan(p.id),
+    );
+    const expenses = (await this.db.expenses.toArray()).filter(
+      (e) => e.deleted_at === null && groupIds.has(e.group_id) && orphan(e.id),
+    );
+    const expenseIds = new Set(expenses.map((e) => e.id));
+    const shares = (await this.db.expense_participants.toArray()).filter(
+      (s) =>
+        s.deleted_at === null && expenseIds.has(s.expense_id) && orphan(s.id),
+    );
+    const payments = (await this.db.payments.toArray()).filter(
+      (p) => p.deleted_at === null && groupIds.has(p.group_id) && orphan(p.id),
+    );
+
+    const mk = (
+      entity_type: SyncEntityType,
+      row: { id: string },
+    ): SyncQueueItem => ({
+      id: newId(),
+      operation: "CREATE",
+      entity_type,
+      entity_id: row.id,
+      payload: row,
+      created_at: nowIso(),
+      attempts: 0,
+      last_attempt_at: null,
+      next_attempt_at: null,
+      sync_status: "pending",
+      error: null,
+    });
+
+    const items: SyncQueueItem[] = [
+      ...groups.map((g) => mk("group", g)),
+      ...participants.map((p) => mk("participant", p)),
+      ...expenses.map((e) => mk("expense", e)),
+      ...shares.map((s) => mk("expense_participant", s)),
+      ...payments.map((p) => mk("payment", p)),
+    ];
+    await this.db.sync_queue.bulkAdd(items);
+    return items.length;
   }
 }
