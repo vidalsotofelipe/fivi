@@ -6,7 +6,7 @@ import * as groupRepo from "@/data/repositories/groupRepo";
 import * as participantRepo from "@/data/repositories/participantRepo";
 import * as expenseRepo from "@/data/repositories/expenseRepo";
 import * as paymentRepo from "@/data/repositories/paymentRepo";
-import { getGroupSummary } from "@/data/queries";
+import { getGroupSummary, listPastEqualExpensesFor } from "@/data/queries";
 import type { SyncQueueItem } from "@/sync/types";
 
 let db: FiviDatabase;
@@ -304,5 +304,82 @@ describe("paymentRepo + getGroupSummary", () => {
         db,
       ),
     ).rejects.toThrow();
+  });
+});
+
+describe("sumar un participante a gastos anteriores", () => {
+  async function setup() {
+    const g = await groupRepo.createGroup(
+      { name: "Viaje", currency_code: "ARS" },
+      db,
+    );
+    const a = await participantRepo.addParticipant(g.id, "Ana", db);
+    const b = await participantRepo.addParticipant(g.id, "Beto", db);
+    // gasto equitativo entre Ana y Beto
+    const { expense: equal } = await expenseRepo.createExpense(
+      {
+        group_id: g.id,
+        description: "Cena",
+        amount_minor_units: 10000,
+        paid_by: a.id,
+        participant_ids: [a.id, b.id],
+      },
+      db,
+    );
+    // gasto con división personalizada (montos)
+    const { expense: custom } = await expenseRepo.createExpense(
+      {
+        group_id: g.id,
+        description: "Regalo",
+        amount_minor_units: 10000,
+        paid_by: a.id,
+        participant_ids: [a.id, b.id],
+        split_strategy: { kind: "amount", amounts: { [a.id]: 6000, [b.id]: 4000 } },
+      },
+      db,
+    );
+    return { g, a, b, equal, custom };
+  }
+
+  it("lista sólo gastos equitativos donde el nuevo no está, y marca 'todo el grupo'", async () => {
+    const { g, equal } = await setup();
+    const c = await participantRepo.addParticipant(g.id, "Cami", db);
+
+    const picks = await listPastEqualExpensesFor(g.id, c.id, db);
+    expect(picks.map((p) => p.expense.id)).toEqual([equal.id]); // el custom no aparece
+    expect(picks[0]!.includes_all_others).toBe(true);
+  });
+
+  it("recalcula el reparto del gasto elegido incluyendo al nuevo", async () => {
+    const { g, a, equal } = await setup();
+    const c = await participantRepo.addParticipant(g.id, "Cami", db);
+
+    const res = await expenseRepo.addParticipantToExpenses(c.id, [equal.id], db);
+    expect(res).toEqual({ updated: 1, skipped: 0 });
+
+    const shares = await expenseRepo.getExpenseShares(equal.id, db);
+    expect(shares).toHaveLength(3);
+    expect(shares.reduce((s, x) => s + x.share_minor_units, 0)).toBe(10000);
+    for (const s of shares) {
+      // 10000 / 3 -> 3334 / 3333 / 3333
+      expect([3333, 3334]).toContain(s.share_minor_units);
+    }
+
+    const summary = await getGroupSummary(g.id, db);
+    const cami = summary.balances.find((x) => x.participant_id === c.id)!;
+    expect(cami.owed_minor).toBe(3333); // le corresponde su parte de la cena
+    void a;
+  });
+
+  it("ignora gastos con división personalizada y los que ya lo incluyen", async () => {
+    const { g, a, b, equal, custom } = await setup();
+    const res = await expenseRepo.addParticipantToExpenses(
+      a.id, // Ana ya está en la cena
+      [equal.id, custom.id],
+      db,
+    );
+    expect(res).toEqual({ updated: 0, skipped: 2 });
+    expect(await expenseRepo.getExpenseShares(equal.id, db)).toHaveLength(2);
+    void b;
   });
 });

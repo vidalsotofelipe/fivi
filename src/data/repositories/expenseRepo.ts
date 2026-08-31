@@ -252,6 +252,48 @@ export async function replaceExpense(
   );
 }
 
+/**
+ * Suma un participante a gastos ya registrados y recalcula sus porciones.
+ * Sólo toca gastos con división **equitativa** (los de división personalizada
+ * se dejan como están: sumar a alguien ahí requeriría decidir su monto/%).
+ * Ignora los gastos donde el participante ya estaba.
+ */
+export async function addParticipantToExpenses(
+  participantId: string,
+  expenseIds: string[],
+  database: FiviDatabase = defaultDb,
+): Promise<{ updated: number; skipped: number }> {
+  let updated = 0;
+  let skipped = 0;
+  for (const id of expenseIds) {
+    const expense = await getExpense(id, database);
+    if (!expense || expense.split_strategy.kind !== "equal") {
+      skipped++;
+      continue;
+    }
+    const shares = await getExpenseShares(id, database);
+    const currentIds = shares.map((s) => s.participant_id);
+    if (currentIds.includes(participantId)) {
+      skipped++;
+      continue;
+    }
+    await replaceExpense(
+      id,
+      {
+        description: expense.description,
+        amount_minor_units: expense.amount_minor_units,
+        paid_by: expense.paid_by,
+        participant_ids: [...currentIds, participantId],
+        expense_date: expense.expense_date,
+        split_strategy: { kind: "equal" },
+      },
+      database,
+    );
+    updated++;
+  }
+  return { updated, skipped };
+}
+
 /** Soft delete del gasto y de todas sus porciones. */
 export async function deleteExpense(
   id: string,

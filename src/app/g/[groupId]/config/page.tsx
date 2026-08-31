@@ -4,12 +4,14 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { AddToPastExpenses } from "@/components/AddToPastExpenses";
 import { Button } from "@/components/Button";
 import { CurrencySelect } from "@/components/CurrencySelect";
 import { Field, TextArea, TextInput } from "@/components/fields";
 import { useGroupContext } from "@/components/GroupProvider";
 import { useGroupHasMovements } from "@/lib/db-hooks";
 import { db } from "@/data/db";
+import type { Participant } from "@/domain/types";
 import {
   changeGroupCurrency,
   deleteGroup,
@@ -31,6 +33,8 @@ export default function GroupConfigPage() {
   const [newName, setNewName] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  /** Participante recién agregado (o elegido) para preguntar por gastos pasados. */
+  const [pastFor, setPastFor] = useState<Participant | null>(null);
 
   const detailsDirty =
     name.trim() !== group.name ||
@@ -54,8 +58,9 @@ export default function GroupConfigPage() {
   async function add() {
     const n = newName.trim();
     if (!n) return;
-    await addParticipant(group.id, n, db);
+    const created = await addParticipant(group.id, n, db);
     setNewName("");
+    setPastFor(created);
   }
 
   return (
@@ -109,12 +114,20 @@ export default function GroupConfigPage() {
               className="flex items-center justify-between gap-2 py-2.5"
             >
               <span className="truncate text-[15px]">{p.name}</span>
-              <button
-                onClick={() => removeParticipant(p.id, db)}
-                className="rounded-lg px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
-              >
-                Quitar
-              </button>
+              <span className="flex shrink-0 items-center gap-1">
+                <button
+                  onClick={() => setPastFor(p)}
+                  className="rounded-lg px-2 py-1 text-xs opacity-60 hover:bg-black/5 hover:opacity-100 dark:hover:bg-white/10"
+                >
+                  Gastos anteriores
+                </button>
+                <button
+                  onClick={() => removeParticipant(p.id, db)}
+                  className="rounded-lg px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
+                >
+                  Quitar
+                </button>
+              </span>
             </li>
           ))}
           {participants.length === 0 ? (
@@ -123,6 +136,16 @@ export default function GroupConfigPage() {
             </li>
           ) : null}
         </ul>
+
+        {pastFor ? (
+          <AddToPastExpenses
+            groupId={group.id}
+            participant={pastFor}
+            currency={group.currency_code}
+            onDone={() => setPastFor(null)}
+          />
+        ) : null}
+
         <form
           onSubmit={(e) => {
             e.preventDefault();
