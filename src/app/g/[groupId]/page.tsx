@@ -1,150 +1,231 @@
 "use client";
 
-/** Resumen del grupo (secciones 10 y 11). */
+/** Pantalla 05 — resumen del grupo. */
 import Link from "next/link";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { AppShell } from "@/components/AppShell";
+import { BottomNav } from "@/components/BottomNav";
 import { LinkButton } from "@/components/Button";
 import { Loading } from "@/components/EmptyState";
-import { BalanceList, nameOf } from "@/components/BalanceList";
-import { TransferList } from "@/components/TransferList";
-import { MoneyText } from "@/components/MoneyText";
+import { MePicker } from "@/components/MePicker";
+import { Money } from "@/components/Money";
+import {
+  BalanceCard,
+  BalanceRow,
+  ExpenseCard,
+  TransferRow,
+  nameOf,
+} from "@/components/ui/cards";
+import { Card } from "@/components/ui/primitives";
 import { useGroupContext } from "@/components/GroupProvider";
-import { ShareButton } from "@/components/ShareButton";
+import { useSyncState } from "@/components/SyncProvider";
+import { useLocale } from "@/components/LocaleProvider";
+import { useMe } from "@/data/settings";
 import { useGroupSummary } from "@/lib/db-hooks";
-import { formatMoney } from "@/domain/money";
-import { formatDate } from "@/lib/format";
+import { formatRelative, minutesSince } from "@/lib/format";
+import { useHydrated } from "@/lib/useHydrated";
+
+function SyncLine() {
+  const { t } = useTranslation("sync");
+  const { last_synced_at, backend } = useSyncState();
+  if (backend === "local") return <span>{t("onDevice")}</span>;
+  if (!last_synced_at) return <span>{t("synced")}</span>;
+  const mins = minutesSince(last_synced_at);
+  return (
+    <span>
+      {mins < 1 ? t("syncedJustNow") : t("syncedAgo", { count: mins })}
+    </span>
+  );
+}
 
 export default function GroupSummaryPage() {
+  const { t } = useTranslation(["group", "common", "expense"]);
+  const { lang } = useLocale();
   const { group, participants } = useGroupContext();
+  const hydrated = useHydrated();
   const summary = useGroupSummary(group.id);
+  const me = useMe(group.id);
+  const [pickMe, setPickMe] = useState(false);
+
   const cc = group.currency_code;
+  const bottomNav = <BottomNav groupId={group.id} />;
+
+  if (!hydrated || summary === undefined || me === undefined) {
+    return (
+      <AppShell title={group.name} back="/" bottomNav={bottomNav}>
+        <Loading />
+      </AppShell>
+    );
+  }
+
+  const myBalance =
+    me != null
+      ? summary.balances.find((b) => b.participant_id === me)
+      : undefined;
+  const myAmount = myBalance?.balance_minor ?? 0;
+  const statusLabel =
+    myAmount > 0
+      ? t("group:inYourFavor")
+      : myAmount < 0
+        ? t("group:youOwe")
+        : t("group:settledUp");
 
   return (
-    <AppShell title={group.name} back="/">
-      {summary === undefined ? (
-        <Loading />
+    <AppShell title={group.name} back="/" bottomNav={bottomNav}>
+      <p className="-mt-2 flex items-center gap-1.5 text-xs text-muted">
+        <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-accent" />
+        <SyncLine />
+      </p>
+
+      {myBalance ? (
+        <BalanceCard
+          amountMinor={myAmount}
+          currency={cc}
+          caption={t("group:yourBalance")}
+          statusLabel={statusLabel}
+        />
       ) : (
-        <>
-          <section className="rounded-2xl border border-black/10 p-4 dark:border-white/10">
-            <p className="text-xs uppercase tracking-wide opacity-50">
-              Total gastado · {cc}
-            </p>
-            <p className="mt-1 text-3xl font-semibold tabular-nums">
-              {formatMoney(summary.total_spent_minor, cc)}
-            </p>
-          </section>
-
-          <LinkButton href={`/g/${group.id}/gastos/nuevo`} full>
-            Agregar gasto
-          </LinkButton>
-
-          {participants.length === 0 ? (
-            <div className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm">
-              Agregá participantes en{" "}
-              <Link
-                href={`/g/${group.id}/config`}
-                className="font-medium underline"
-              >
-                Configuración
-              </Link>{" "}
-              para poder cargar gastos.
-            </div>
+        <Card raised className="text-center">
+          <p className="text-xs uppercase tracking-wide text-muted">
+            {t("group:totalSpent")} · {cc}
+          </p>
+          <p className="mt-1 text-3xl font-semibold">
+            <Money minor={summary.total_spent_minor} currency={cc} />
+          </p>
+          {participants.length > 0 ? (
+            <button
+              onClick={() => setPickMe(true)}
+              className="mt-2 text-sm font-medium text-accent underline-offset-2 hover:underline"
+            >
+              {t("group:whoAreYou")}
+            </button>
           ) : null}
+        </Card>
+      )}
 
-          <section className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-medium opacity-60">Balances</h2>
-              <Link
-                href={`/g/${group.id}/balance`}
-                className="text-xs opacity-60 underline"
-              >
-                Ver detalle
-              </Link>
-            </div>
-            {summary.balances.length === 0 ? (
-              <p className="text-sm opacity-50">Sin movimientos todavía.</p>
-            ) : (
-              <BalanceList
-                balances={summary.balances}
+      <div className="flex flex-col gap-2">
+        <LinkButton href={`/g/${group.id}/gastos/nuevo`} full>
+          {t("group:addExpense")}
+        </LinkButton>
+        <LinkButton
+          href={`/g/${group.id}/pagos/nuevo`}
+          full
+          variant="secondary"
+        >
+          {t("group:registerPayment")}
+        </LinkButton>
+      </div>
+
+      {participants.length === 0 ? (
+        <div className="rounded-md bg-warning/10 px-4 py-3 text-sm">
+          {t("group:participantsQuestion")}{" "}
+          <Link
+            href={`/g/${group.id}/personas`}
+            className="font-medium text-accent underline"
+          >
+            {t("group:participantsLabel")}
+          </Link>
+        </div>
+      ) : null}
+
+      <section className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-medium text-muted">
+            {t("group:whoOwesWho")}
+          </h2>
+        </div>
+        {summary.transfers.length === 0 ? (
+          <p className="rounded-md bg-text/[0.04] px-4 py-3 text-sm text-muted">
+            {t("group:settledUp")}
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {summary.transfers.map((tr, i) => (
+              <TransferRow
+                key={`${tr.from_id}-${tr.to_id}-${i}`}
+                transfer={tr}
                 participants={participants}
                 currency={cc}
+                groupId={group.id}
               />
+            ))}
+          </ul>
+        )}
+        {summary.balances.length > 0 ? (
+          <ul className="divide-y divide-border">
+            {[...summary.balances]
+              .sort((a, b) => b.balance_minor - a.balance_minor)
+              .map((b) => (
+                <BalanceRow
+                  key={b.participant_id}
+                  balance={b}
+                  participants={participants}
+                  currency={cc}
+                  highlight={b.participant_id === me}
+                />
+              ))}
+          </ul>
+        ) : null}
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-medium text-muted">
+            {t("group:recentActivity")}
+          </h2>
+          <Link
+            href={`/g/${group.id}/actividad`}
+            className="text-xs text-muted underline"
+          >
+            {t("common:seeAll")}
+          </Link>
+        </div>
+        {summary.recent.length === 0 ? (
+          <p className="text-sm text-muted">{t("group:noMovements")}</p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {summary.recent.map((item) =>
+              item.type === "expense" ? (
+                <ExpenseCard
+                  key={item.data.id}
+                  expense={item.data}
+                  participants={participants}
+                  currency={cc}
+                  groupId={group.id}
+                />
+              ) : (
+                <li
+                  key={item.data.id}
+                  className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface px-4 py-3"
+                >
+                  <span className="min-w-0 text-[15px] text-text">
+                    {t("group:registerPayment")} ·{" "}
+                    {nameOf(participants, item.data.from_participant)} →{" "}
+                    {nameOf(participants, item.data.to_participant)}
+                    <span className="block text-xs text-muted">
+                      {formatRelative(item.data.payment_date, lang)}
+                    </span>
+                  </span>
+                  <Money
+                    minor={item.data.amount_minor_units}
+                    currency={cc}
+                    className="shrink-0"
+                  />
+                </li>
+              ),
             )}
-          </section>
+          </ul>
+        )}
+      </section>
 
-          <section className="flex flex-col gap-2">
-            <h2 className="text-sm font-medium opacity-60">
-              Cómo saldar las cuentas
-            </h2>
-            <TransferList
-              transfers={summary.transfers}
-              participants={participants}
-              currency={cc}
-              groupId={group.id}
-            />
-          </section>
-
-          <section className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-medium opacity-60">
-                Historial reciente
-              </h2>
-              <Link
-                href={`/g/${group.id}/gastos`}
-                className="text-xs opacity-60 underline"
-              >
-                Ver todo
-              </Link>
-            </div>
-            {summary.recent.length === 0 ? (
-              <p className="text-sm opacity-50">Nada registrado aún.</p>
-            ) : (
-              <ul className="divide-y divide-black/5 dark:divide-white/10">
-                {summary.recent.map((item) => (
-                  <li
-                    key={item.data.id}
-                    className="flex items-center justify-between gap-3 py-2.5"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-[15px]">
-                        {item.type === "expense"
-                          ? item.data.description
-                          : `Pago · ${nameOf(participants, item.data.from_participant)} → ${nameOf(participants, item.data.to_participant)}`}
-                      </p>
-                      <p className="text-xs opacity-55">
-                        {formatDate(item.date)}
-                        {item.type === "expense"
-                          ? ` · pagó ${nameOf(participants, item.data.paid_by)}`
-                          : ""}
-                      </p>
-                    </div>
-                    <MoneyText
-                      minor={item.data.amount_minor_units}
-                      currency={cc}
-                      className="shrink-0 tabular-nums"
-                    />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          <div className="mt-2 flex flex-col gap-2">
-            <ShareButton groupId={group.id} groupName={group.name} />
-            <nav className="grid grid-cols-2 gap-2">
-              <LinkButton
-                href={`/g/${group.id}/pagos/nuevo`}
-                variant="secondary"
-              >
-                Registrar pago
-              </LinkButton>
-              <LinkButton href={`/g/${group.id}/config`} variant="secondary">
-                Configuración
-              </LinkButton>
-            </nav>
-          </div>
-        </>
-      )}
+      <MePicker
+        open={pickMe}
+        onClose={() => setPickMe(false)}
+        groupId={group.id}
+        participants={participants}
+        currentId={me ?? null}
+      />
     </AppShell>
   );
 }

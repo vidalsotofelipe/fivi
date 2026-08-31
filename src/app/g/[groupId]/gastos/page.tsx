@@ -1,67 +1,159 @@
 "use client";
 
-/** Historial de gastos (sección 6). */
-import Link from "next/link";
+/** Pantalla 06 — lista de gastos. */
+import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { AppShell } from "@/components/AppShell";
-import { LinkButton } from "@/components/Button";
+import { BottomNav } from "@/components/BottomNav";
+import { Button, LinkButton } from "@/components/Button";
 import { EmptyState, Loading } from "@/components/EmptyState";
-import { MoneyText } from "@/components/MoneyText";
-import { nameOf } from "@/components/BalanceList";
+import { ExpenseCard, nameOf } from "@/components/ui/cards";
+import { Chip } from "@/components/ui/primitives";
+import { TextInput } from "@/components/fields";
 import { useGroupContext } from "@/components/GroupProvider";
+import { useMe } from "@/data/settings";
 import { useExpenses } from "@/lib/db-hooks";
-import { formatDate } from "@/lib/format";
+import { useHydrated } from "@/lib/useHydrated";
 
-export default function ExpenseHistoryPage() {
+type Filter = "all" | "mine" | "month";
+
+export default function ExpenseListPage() {
+  const { t } = useTranslation(["expense", "common"]);
   const { group, participants } = useGroupContext();
+  const hydrated = useHydrated();
   const expenses = useExpenses(group.id);
+  const me = useMe(group.id);
+
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<Filter>("all");
+
+  const filtered = useMemo(() => {
+    if (!expenses) return [];
+    const q = query.trim().toLowerCase();
+    const now = new Date();
+    return expenses.filter((e) => {
+      if (q) {
+        const payer = nameOf(participants, e.paid_by).toLowerCase();
+        if (
+          !e.description.toLowerCase().includes(q) &&
+          !payer.includes(q)
+        ) {
+          return false;
+        }
+      }
+      if (filter === "mine" && me) {
+        if (e.paid_by !== me) return false;
+      }
+      if (filter === "month") {
+        const d = new Date(e.expense_date);
+        if (
+          d.getFullYear() !== now.getFullYear() ||
+          d.getMonth() !== now.getMonth()
+        ) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [expenses, query, filter, me, participants]);
+
+  const bottomNav = <BottomNav groupId={group.id} />;
+
+  if (!hydrated || expenses === undefined) {
+    return (
+      <AppShell title={t("expense:listTitle")} back={`/g/${group.id}`} bottomNav={bottomNav}>
+        <Loading />
+      </AppShell>
+    );
+  }
 
   return (
-    <AppShell title="Historial" back={`/g/${group.id}`}>
-      {expenses === undefined ? (
-        <Loading />
-      ) : expenses.length === 0 ? (
+    <AppShell
+      title={t("expense:listTitle")}
+      back={`/g/${group.id}`}
+      bottomNav={bottomNav}
+    >
+      {expenses.length > 0 ? (
+        <>
+          <TextInput
+            type="search"
+            placeholder={t("expense:searchPlaceholder")}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            <Chip
+              selected={filter === "all"}
+              onClick={() => setFilter("all")}
+            >
+              {t("expense:filterAll")}
+            </Chip>
+            {me ? (
+              <Chip
+                selected={filter === "mine"}
+                onClick={() => setFilter("mine")}
+              >
+                {t("expense:filterMine")}
+              </Chip>
+            ) : null}
+            <Chip
+              selected={filter === "month"}
+              onClick={() => setFilter("month")}
+            >
+              {t("expense:filterThisMonth")}
+            </Chip>
+          </div>
+        </>
+      ) : null}
+
+      {expenses.length === 0 ? (
         <EmptyState
-          title="Sin gastos todavía"
+          title={t("expense:emptyTitle")}
+          description={t("expense:emptyBody")}
           action={
             <LinkButton href={`/g/${group.id}/gastos/nuevo`}>
-              Agregar gasto
+              {t("group:addFirstExpense")}
             </LinkButton>
           }
         />
+      ) : filtered.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 py-8 text-center">
+          <p className="text-sm text-muted">{t("expense:noResults")}</p>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setQuery("");
+              setFilter("all");
+            }}
+          >
+            {t("common:clearSearch")}
+          </Button>
+        </div>
       ) : (
-        <>
-          <ul className="divide-y divide-black/5 dark:divide-white/10">
-            {expenses.map((e) => (
-              <li key={e.id}>
-                <Link
-                  href={`/g/${group.id}/gastos/${e.id}`}
-                  className="flex items-center justify-between gap-3 py-3 hover:opacity-70"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-[15px]">{e.description}</p>
-                    <p className="text-xs opacity-55">
-                      {formatDate(e.expense_date)} · pagó{" "}
-                      {nameOf(participants, e.paid_by)}
-                    </p>
-                  </div>
-                  <MoneyText
-                    minor={e.amount_minor_units}
-                    currency={group.currency_code}
-                    className="shrink-0 tabular-nums"
-                  />
-                </Link>
-              </li>
-            ))}
-          </ul>
+        <ul className="flex flex-col gap-2 pb-2">
+          {filtered.map((e) => (
+            <ExpenseCard
+              key={e.id}
+              expense={e}
+              participants={participants}
+              currency={group.currency_code}
+              groupId={group.id}
+            />
+          ))}
+        </ul>
+      )}
+
+      {filtered.length > 0 ? (
+        <div className="sticky bottom-16 z-10 flex justify-end pt-2">
           <LinkButton
             href={`/g/${group.id}/gastos/nuevo`}
-            full
-            variant="secondary"
+            aria-label={t("expense:addTitle")}
+            className="rounded-full px-5 shadow-lg"
           >
-            Agregar gasto
+            + {t("expense:addTitle")}
           </LinkButton>
-        </>
-      )}
+        </div>
+      ) : null}
     </AppShell>
   );
 }

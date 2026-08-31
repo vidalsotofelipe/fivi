@@ -50,3 +50,22 @@ export function useSetting<T = unknown>(key: string): T | null | undefined {
 export const meKey = (groupId: string) => `me:${groupId}`;
 export const lastPayerKey = (groupId: string) => `last_payer:${groupId}`;
 export const setupSeenKey = (groupId: string) => `setup_seen:${groupId}`;
+
+/** id del participante que sos vos en este grupo (o `null` si no elegiste). */
+export function useMe(groupId: string): string | null | undefined {
+  return useSetting<string>(meKey(groupId));
+}
+
+export function setMe(groupId: string, participantId: string | null) {
+  return participantId === null
+    ? removeSetting(meKey(groupId))
+    : setSetting(meKey(groupId), participantId);
+}
+
+export function useLastPayer(groupId: string): string | null | undefined {
+  return useSetting<string>(lastPayerKey(groupId));
+}
+
+export function rememberLastPayer(groupId: string, participantId: string) {
+  return setSetting(lastPayerKey(groupId), participantId);
+}
