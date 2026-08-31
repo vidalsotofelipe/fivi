@@ -11,6 +11,12 @@ rollback.
 
 ## [Unreleased]
 
+_(sin cambios pendientes de release)_
+
+## [0.8.1] - 2026-08-31
+
+Identidad de marca. Sin cambios de lógica de negocio, datos ni backend.
+
 ### Changed
 
 - **Nueva identidad de marca**: app icon, favicons e íconos PWA reemplazados por
