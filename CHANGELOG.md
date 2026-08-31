@@ -13,7 +13,42 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
-## [0.9.0] - 2026-08-31
+## [0.9.1] - 2026-08-31
+
+Auditoría responsive mobile + fix de fecha relativa. Sin cambios de lógica de
+negocio, modelo de datos ni de API. Sin migraciones.
+
+### Fixed
+
+- **Fecha relativa "hace 23 horas" en un evento recién creado**: el resumen del
+  grupo formateaba el pago reciente con `formatRelative(payment_date)`, pero
+  `payment_date` es una **fecha sola** (`YYYY-MM-DD`) y `new Date("2026-08-31")`
+  es medianoche **UTC** → en husos negativos (UTC-3) el diff daba ~-23 h. Ahora
+  esa fila usa la fecha del pago (`formatDate`, medianoche local), igual que las
+  filas de gasto. Además `format.ts` interpreta cualquier fecha sola como
+  medianoche local (`toLocalDate`) y `formatRelative` de un evento con menos de
+  1 minuto devuelve "ahora" / "now" (antes "este minuto" / "this minute").
+- **Overflow horizontal en `Actividad` y `Gastos` a 320 px**: la fila de chips
+  de filtro tenía `overflow-x-auto` y el último chip se salía del viewport.
+  Ahora la fila usa `flex-wrap` (todos los filtros visibles, sin scroll).
+
+### Changed
+
+- **Service worker `v7`** + auto-recarga al actualizar: si una versión nueva
+  toma el control (`skipWaiting` + `clients.claim`), la página se recarga una
+  vez para tomar los assets nuevos. Evita que un caché viejo siga mostrando una
+  UI previa (causa probable de reportes de "responsive roto" sobre builds
+  anteriores al rediseño).
+
+### Tests
+
+- `responsive.spec.ts` reescrito: además de "sin scroll horizontal a nivel
+  documento", verifica que **ningún elemento** desborde el viewport
+  (el `body { overflow-x: hidden }` puede enmascararlo) y que el contenido no
+  **colapse a una columna angosta** (`<main>` y su primer bloque ~= ancho
+  disponible). Anchos 320/360/375/390/430; pasada extra en inglés.
+- `format.test.ts`: evento recién creado → "ahora"/"now"; fecha sola tratada
+  como local; `formatRelative` con timestamp completo inmune al huso.
 
 Grupos archivables (para que no se acumulen grupos eternos en la lista) +
 archivado automático por inactividad + snapshot de respaldo.

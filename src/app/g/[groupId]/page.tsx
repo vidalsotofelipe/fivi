@@ -26,7 +26,7 @@ import { db } from "@/data/db";
 import { restoreGroup } from "@/data/repositories/groupRepo";
 import { useMe } from "@/data/settings";
 import { useGroupSummary } from "@/lib/db-hooks";
-import { formatRelative, minutesSince } from "@/lib/format";
+import { formatDate, minutesSince } from "@/lib/format";
 import { useHydrated } from "@/lib/useHydrated";
 
 function SyncLine() {
@@ -43,7 +43,13 @@ function SyncLine() {
 }
 
 export default function GroupSummaryPage() {
-  const { t } = useTranslation(["group", "archive", "common", "expense"]);
+  const { t } = useTranslation([
+    "group",
+    "archive",
+    "activity",
+    "common",
+    "expense",
+  ]);
   const { lang } = useLocale();
   const toast = useToast();
   const { group, participants } = useGroupContext();
@@ -222,11 +228,12 @@ export default function GroupSummaryPage() {
                   className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface px-4 py-3"
                 >
                   <span className="min-w-0 text-[15px] text-text">
-                    {t("group:registerPayment")} ·{" "}
-                    {nameOf(participants, item.data.from_participant)} →{" "}
-                    {nameOf(participants, item.data.to_participant)}
+                    {t("activity:paymentCreated", {
+                      from: nameOf(participants, item.data.from_participant),
+                      to: nameOf(participants, item.data.to_participant),
+                    })}
                     <span className="block text-xs text-muted">
-                      {formatRelative(item.data.payment_date, lang)}
+                      {formatDate(item.data.payment_date, lang)}
                     </span>
                   </span>
                   <Money

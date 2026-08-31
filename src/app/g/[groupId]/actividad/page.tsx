@@ -71,7 +71,7 @@ export default function ActivityPage() {
         <EmptyState title={t("activity:empty")} />
       ) : (
         <>
-          <div className="flex gap-2 overflow-x-auto pb-1">
+          <div className="flex flex-wrap gap-2">
             {cats.map((c) => (
               <Chip
                 key={c.value}

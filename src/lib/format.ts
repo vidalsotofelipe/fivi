@@ -17,16 +17,24 @@ function bcp47(lang: Lang = "es"): string {
   return BCP47[lang] ?? BCP47.es;
 }
 
-function dateFromIso(iso: string): Date | null {
-  const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
-  if (!y || !m || !d) return null;
-  return new Date(y, m - 1, d);
+/**
+ * Parsea un ISO a `Date`. Clave: una **fecha sola** (`YYYY-MM-DD`, sin hora) se
+ * interpreta como medianoche **local**, no UTC. `new Date("2026-08-31")` sería
+ * medianoche UTC y en husos negativos (p. ej. UTC-3) "adelanta" el día: un
+ * evento de hoy se veía como "hace 23 horas". Un ISO con hora/zona se parsea
+ * tal cual.
+ */
+function toLocalDate(iso: string): Date {
+  const s = iso.trim();
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return new Date(s);
 }
 
 /** Fecha ISO corta (YYYY-MM-DD) legible: "31 ago 2026" / "Aug 31, 2026". */
 export function formatDate(iso: string, lang: Lang = "es"): string {
-  const date = dateFromIso(iso);
-  if (!date) return iso;
+  const date = toLocalDate(iso);
+  if (Number.isNaN(date.getTime())) return iso;
   return new Intl.DateTimeFormat(bcp47(lang), {
     day: "numeric",
     month: "short",
@@ -36,7 +44,7 @@ export function formatDate(iso: string, lang: Lang = "es"): string {
 
 /** Fecha + hora a partir de un ISO datetime. */
 export function formatDateTime(iso: string, lang: Lang = "es"): string {
-  const date = new Date(iso);
+  const date = toLocalDate(iso);
   if (Number.isNaN(date.getTime())) return iso;
   return new Intl.DateTimeFormat(bcp47(lang), {
     day: "numeric",
@@ -47,11 +55,15 @@ export function formatDateTime(iso: string, lang: Lang = "es"): string {
 }
 
 /**
- * Tiempo relativo respecto de ahora: "hace 3 min", "ayer", "hace 2 días".
- * Para diferencias grandes cae en la fecha absoluta.
+ * Tiempo relativo respecto de ahora: "ahora", "hace 3 min", "ayer",
+ * "hace 2 días". Para diferencias grandes cae en la fecha absoluta.
+ *
+ * Pensado para **timestamps** (`created_at`, con hora y zona). Si se le pasa una
+ * fecha sola se toma como medianoche local (ver `toLocalDate`), así nunca
+ * reporta un día entero de más por el huso.
  */
 export function formatRelative(iso: string, lang: Lang = "es"): string {
-  const then = new Date(iso).getTime();
+  const then = toLocalDate(iso).getTime();
   if (Number.isNaN(then)) return iso;
   const diffMs = then - Date.now();
   const rtf = new Intl.RelativeTimeFormat(bcp47(lang), { numeric: "auto" });
@@ -60,7 +72,9 @@ export function formatRelative(iso: string, lang: Lang = "es"): string {
   const hour = 60 * min;
   const day = 24 * hour;
 
-  if (abs < min) return rtf.format(0, "minute");
+  // < 1 min (en cualquier dirección: el reloj del server puede ir apenas
+  // adelantado) -> "ahora" / "now".
+  if (abs < min) return rtf.format(0, "second");
   if (abs < hour) return rtf.format(Math.round(diffMs / min), "minute");
   if (abs < day) return rtf.format(Math.round(diffMs / hour), "hour");
   if (abs < 7 * day) return rtf.format(Math.round(diffMs / day), "day");

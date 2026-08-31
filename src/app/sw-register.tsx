@@ -44,6 +44,20 @@ export function ServiceWorkerRegister() {
 
     const register = async () => {
       try {
+        // Si YA había un SW controlando, un `controllerchange` posterior
+        // significa que una versión nueva tomó el control (el SW hace
+        // `skipWaiting` + `clients.claim`). El shell/JS en memoria sigue siendo
+        // el viejo: se recarga UNA vez para tomar los assets nuevos. Sin esto,
+        // un caché viejo puede seguir mostrando una UI previa indefinidamente.
+        const hadController = Boolean(navigator.serviceWorker.controller);
+        let reloaded = false;
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+          if (hadController && !reloaded) {
+            reloaded = true;
+            window.location.reload();
+          }
+        });
+
         const reg = await navigator.serviceWorker.register("/sw.js");
         await navigator.serviceWorker.ready;
         // Espera a que el SW controle la página antes de prewarmear.
