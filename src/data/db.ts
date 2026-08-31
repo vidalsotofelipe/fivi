@@ -37,6 +37,8 @@ export class FiviDatabase extends Dexie {
 
   constructor(name = "fivi") {
     super(name);
+
+    // v1: esquema inicial.
     this.version(1).stores({
       // Sólo se indexan las columnas por las que se consulta.
       groups: "id, updated_at, deleted_at",
@@ -49,6 +51,25 @@ export class FiviDatabase extends Dexie {
       settings: "key",
       sync_queue: "id, sync_status, entity_type, entity_id, created_at",
     });
+
+    // v2: retry con backoff. Agrega `next_attempt_at` al índice de `sync_queue`
+    // (migración aditiva: no toca las otras tablas ni borra nada). Las filas
+    // existentes se rellenan con `next_attempt_at = null` (elegibles ya).
+    this.version(2)
+      .stores({
+        sync_queue:
+          "id, sync_status, entity_type, entity_id, created_at, next_attempt_at",
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table<SyncQueueItem, string>("sync_queue")
+          .toCollection()
+          .modify((item) => {
+            if (item.next_attempt_at === undefined) {
+              item.next_attempt_at = null;
+            }
+          });
+      });
   }
 }
 

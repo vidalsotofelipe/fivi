@@ -1,0 +1,67 @@
+name: Release
+
+# Se dispara al pushear un tag de versión (vMAJOR.MINOR.PATCH).
+# Valida que el tag coincida con package.json, corre el gate completo y publica
+# la GitHub Release. NO despliega producción (el deploy es manual, ver
+# docs/RELEASES.md).
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write # para crear la GitHub Release
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      # Sin credenciales de Supabase: el gate corre 100% local.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+
+      - name: Validar que el tag coincide con package.json
+        run: |
+          PKG="v$(node -p "require('./package.json').version")"
+          echo "tag=${GITHUB_REF_NAME}  package.json=${PKG}"
+          if [ "${GITHUB_REF_NAME}" != "${PKG}" ]; then
+            echo "::error::El tag ${GITHUB_REF_NAME} no coincide con package.json (${PKG}). Abortando la release."
+            exit 1
+          fi
+
+      - name: Install (npm ci)
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+
+      - name: Publicar GitHub Release
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Notas: las autogeneradas de commits/PRs. Completar a mano con las
+          # notas de migración de Supabase (ver CHANGELOG.md y docs/RELEASES.md).
+          gh release create "${GITHUB_REF_NAME}" \
+            --verify-tag \
+            --title "FIVI ${GITHUB_REF_NAME}" \
+            --generate-notes

@@ -22,6 +22,9 @@ const PLACEHOLDER_ID = "00000000-0000-4000-8000-000000000000";
 export function ServiceWorkerRegister() {
   useEffect(() => {
     if (process.env.NODE_ENV !== "production") return;
+    // Los E2E corren contra `next start` (producción) pero necesitan un entorno
+    // determinista sin caché de SW entre navegaciones.
+    if (process.env.NEXT_PUBLIC_DISABLE_SW === "1") return;
     if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) {
       return;
     }
@@ -33,6 +36,10 @@ export function ServiceWorkerRegister() {
           () => {},
         );
       }
+      // Shell de /join/<token> (mismo criterio: el SW lo normaliza a /join/_).
+      fetch(`/join/${PLACEHOLDER_ID}`, { credentials: "same-origin" }).catch(
+        () => {},
+      );
     };
 
     const register = async () => {

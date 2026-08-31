@@ -9,23 +9,34 @@
  * de la app.
  */
 
-import type { PushResult, RemoteChange, SyncQueueItem } from "./types";
+import type {
+  InviteInfo,
+  PushResult,
+  RemoteChange,
+  SyncQueueItem,
+} from "./types";
 
 export interface RemoteSubscription {
   unsubscribe(): void;
 }
+
+export type GroupRole = "owner" | "member";
 
 export interface RemotePort {
   /** Envía operaciones locales pendientes al servidor. */
   push(items: SyncQueueItem[]): Promise<PushResult>;
 
   /**
-   * Trae los cambios del servidor posteriores a `since` (ISO datetime) para los
-   * grupos indicados. `since === null` significa "todo".
+   * Trae los cambios del servidor con `sync_revision > cursor` para los grupos
+   * indicados, ordenados por `sync_revision` ascendente. `cursor === null`
+   * significa "todo" (pull completo).
+   *
+   * `cursor` es un entero monotónico asignado por el servidor (no un timestamp
+   * del cliente): así el pull incremental no depende de relojes.
    */
   pull(params: {
     group_ids: string[];
-    since: string | null;
+    cursor: number | null;
   }): Promise<RemoteChange[]>;
 
   /**
@@ -37,4 +48,31 @@ export interface RemotePort {
     group_ids: string[];
     onChange: (changes: RemoteChange[]) => void;
   }): RemoteSubscription;
+
+  // --- Invitaciones (Etapa 7). Sólo el remoto real las implementa; en modo
+  //     local (stubRemote) quedan `undefined` y el motor devuelve un error claro.
+
+  /** Crea una invitación: guarda el hash del token. Devuelve su id. */
+  createInvite?(params: {
+    group_id: string;
+    /** `\x…` hex del SHA-256 del token (el token crudo nunca llega al servidor). */
+    token_hash: string;
+    expires_at: string | null;
+    max_uses: number | null;
+  }): Promise<{ id: string }>;
+
+  /**
+   * Canjea un token (crudo) contra la RPC del servidor: valida vigencia y
+   * revocación, agrega al usuario actual a `group_members` y devuelve el grupo.
+   */
+  redeemInvite?(params: { token: string }): Promise<{ group_id: string }>;
+
+  /** Invitaciones del grupo (para gestionarlas). */
+  listInvites?(group_id: string): Promise<InviteInfo[]>;
+
+  /** Revoca una invitación por id. */
+  revokeInvite?(invite_id: string): Promise<void>;
+
+  /** Rol del usuario actual en el grupo, o `null` si no es miembro. */
+  getGroupRole?(group_id: string): Promise<GroupRole | null>;
 }

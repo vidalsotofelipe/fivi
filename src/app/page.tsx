@@ -5,6 +5,7 @@
  */
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
+import { AppVersion } from "@/components/AppVersion";
 import { LinkButton } from "@/components/Button";
 import { EmptyState, Loading } from "@/components/EmptyState";
 import { MoneyText } from "@/components/MoneyText";
@@ -62,6 +63,7 @@ export default function HomePage() {
           </LinkButton>
         </>
       )}
+      <AppVersion />
     </AppShell>
   );
 }

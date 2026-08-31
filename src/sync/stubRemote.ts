@@ -40,8 +40,14 @@ export function createStubRemote(options: StubRemoteOptions = {}): RemotePort {
     },
 
     async pull(): Promise<RemoteChange[]> {
+      // El stub no tiene servidor: no hay cambios remotos que traer.
       await wait();
       return [];
     },
+
+    // `createInvite` / `redeemInvite` / `listInvites` / `revokeInvite` /
+    // `getGroupRole` quedan sin implementar a propósito: sin Supabase no hay
+    // usuarios ni invitaciones. El motor detecta que faltan y la UI muestra
+    // "las invitaciones requieren Supabase configurado".
   };
 }

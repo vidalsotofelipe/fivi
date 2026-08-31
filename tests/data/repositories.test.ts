@@ -367,7 +367,12 @@ describe("sumar un participante a gastos anteriores", () => {
 
     const summary = await getGroupSummary(g.id, db);
     const cami = summary.balances.find((x) => x.participant_id === c.id)!;
-    expect(cami.owed_minor).toBe(3333); // le corresponde su parte de la cena
+    // La cena de 10000 se reparte 3334/3333/3333 según el orden de los ids
+    // (UUID aleatorios): Cami asume alguna de esas dos y su balance queda igual
+    // a lo que le correspondía, porque no pagó nada.
+    expect([3333, 3334]).toContain(cami.owed_minor);
+    expect(cami.balance_minor).toBe(-cami.owed_minor);
+    expect(cami.paid_minor).toBe(0);
     void a;
   });
 

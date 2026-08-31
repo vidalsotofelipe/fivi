@@ -6,6 +6,11 @@
 # testing / coverage
 /coverage
 
+# playwright
+/test-results
+/playwright-report
+/playwright/.cache
+
 # next.js
 /.next/
 /out/
@@ -29,6 +34,9 @@ yarn-error.log*
 
 # vercel
 .vercel
+
+# supabase (cli cache; migrations sí se versionan)
+/supabase/.temp
 
 # typescript
 *.tsbuildinfo

@@ -23,7 +23,7 @@ Repositorio local     (src/data, Dexie sobre IndexedDB)
         │
 Motor de sincronización (src/sync, procesa sync_queue)
         │  RemotePort (interfaz)
-Repositorio remoto     (Supabase — implementación futura)
+Repositorio remoto     (stubRemote sin red  |  supabaseRemote — Postgres + Realtime)
 ```
 
 Reglas:
@@ -31,14 +31,14 @@ Reglas:
 - La UI **nunca** llama a Supabase directamente; lee siempre de IndexedDB.
 - El dominio no importa React, Dexie ni Supabase: son funciones puras testeables.
 - El motor de sync es el único que conoce `RemotePort`.
+- La app funciona **completa sin Supabase configurado** (usa `stubRemote`).
 
-Estado de la implementación en esta etapa: dominio ✓, datos locales ✓, motor de
-sync con stub ✓. Pantallas del producto y `RemotePort` real contra Supabase:
-etapa siguiente.
+Todo implementado: dominio, datos locales, pantallas, `supabaseRemote` real
+(push/pull/Realtime), verificado contra un proyecto Supabase.
 
 ## 2. Modelo de datos local
 
-IndexedDB vía Dexie (`src/data/db.ts`, base `fivi`, versión 1). Stores:
+IndexedDB vía Dexie (`src/data/db.ts`, base `fivi`). Stores:
 
 | Store                  | Índices                                                        |
 | ---------------------- | ------------------------------------------------------------- |
@@ -48,10 +48,16 @@ IndexedDB vía Dexie (`src/data/db.ts`, base `fivi`, versión 1). Stores:
 | `expense_participants` | id, expense_id, participant_id, updated_at, deleted_at        |
 | `payments`             | id, group_id, from_participant, to_participant, payment_date… |
 | `settings`             | key                                                          |
-| `sync_queue`           | id, sync_status, entity_type, entity_id, created_at           |
+| `sync_queue`           | id, sync_status, entity_type, entity_id, created_at, next_attempt_at |
 
 Toda entidad sincronizable (`SyncableRecord` en `src/domain/types.ts`) tiene:
 `id` (UUID), `created_at`, `updated_at`, `version`, `deleted_at`.
+
+**Versiones de la base** (nunca se destruyen datos; migraciones aditivas):
+
+- **v1** — esquema inicial.
+- **v2** — agrega `next_attempt_at` al índice de `sync_queue` (backoff, §16.1);
+  rellena las filas existentes con `null` en el `upgrade`.
 
 Dinero: `amount_minor_units` / `share_minor_units` son **enteros** en la unidad
 mínima de la moneda del grupo.
@@ -59,12 +65,21 @@ mínima de la moneda del grupo.
 ## 3. Modelo de datos remoto
 
 Postgres en Supabase, espejo del modelo local. Migraciones en
-`supabase/migrations/`: `0001_init.sql` (tablas `groups`, `participants`,
-`expenses`, `expense_participants`, `payments` con los mismos campos +
-`version` + `deleted_at`, PK `uuid` del cliente, índices por `group_id` y
-`updated_at`) y `0002_sync_and_policies.sql` (Realtime + RLS permisiva para
-`anon`). Detalle en §8b. Falta aplicarlas contra un proyecto real (requiere
-credenciales); la app funciona 100% local mientras tanto.
+`supabase/migrations/` (nunca se editan retroactivamente; sólo se agregan):
+
+| # | Contenido |
+| - | --------- |
+| `0001_init.sql` | tablas con los campos de `SyncableRecord`, PK `uuid` del cliente, FKs e índices |
+| `0002_sync_and_policies.sql` | Realtime + RLS permisiva para `anon` (reemplazada por `0007`) |
+| `0003_sync_revision.sql` | columna server-owned `sync_revision` (secuencia + trigger) — cursor de pull (§16.2) |
+| `0004_referential_integrity.sql` | FKs compuestas + trigger de integridad cross-group (§16.4) |
+| `0005_membership.sql` | `groups.created_by`, tabla `group_members`, helpers `is_group_member` / `is_group_owner`, trigger que hace `owner` al creador (§17) |
+| `0006_invites.sql` | tabla `group_invites` (hash del token), RPC `redeem_group_invite` (§17) |
+| `0007_rls_auth.sql` | RLS por `auth.uid()` + `group_members`; reemplaza las policies `to anon` de `0002` (§17) |
+
+La app funciona 100% local sin aplicarlas. Las migraciones nunca se editan
+retroactivamente: `0007` **elimina** las policies de `0002` con `drop policy if
+exists` en vez de tocar ese archivo.
 
 ## 4. Flujo de usuario
 
@@ -133,30 +148,37 @@ datos básicos del grupo. **Todos los cálculos corren localmente.**
 
 ## 7. Algoritmo de sincronización
 
-Motor: `src/sync/SyncEngine.ts`. Una corrida (`syncNow()`), reentrante-segura:
+Motor: `src/sync/SyncEngine.ts`. Una corrida (`syncNow(force?)`), reentrante-segura:
 
-1. Si no hay conexión → marca estado `offline` y sale.
-0. `requeueStaleSyncing`: devuelve a `pending` lo que quedó en `syncing` de una
-   corrida anterior interrumpida (la app se cerró o navegó a mitad de camino).
-1. Si no hay conexión → marca estado `offline` y sale.
-2. **Push**: toma de `sync_queue` los items `pending` (y `error` con
-   `attempts < 5`), los marca `syncing`, llama `remote.push(items)`, marca
-   `synced` los aceptados y `error` (+`attempts`) los rechazados.
-3. **Pull**: `changes = remote.pull({ group_ids, since })` y
-   `applyRemoteChanges(changes)` los mergea en IndexedDB con LWW (ver §8).
-   `since` es una marca tomada **antes** del push, para no perder filas escritas
-   durante la ventana.
-4. Limpia de la cola los `synced` (`purgeSynced`).
-5. `refreshSubscription(groupIds)`: (re)suscribe Realtime si cambió el conjunto
-   de grupos abiertos.
-6. Emite estado: `online`, `syncing`, `pending_count`, `last_synced_at`,
-   `last_error`.
+1. Si ya hay una corrida en curso → agenda una repetición (`rerunRequested`) y sale.
+2. Si no hay conexión → emite `offline` + contadores y sale.
+3. Si la corrida completa anterior falló y no pasó el backoff a nivel corrida
+   (`nextRunAllowedAt`) → sale, **salvo** `force` (disparo del usuario).
+4. `requeueStaleSyncing`: devuelve a `pending` lo que quedó en `syncing` de una
+   corrida anterior interrumpida.
+5. **Push**: toma de `sync_queue` los items elegibles (`getPendingItems`:
+   `pending` + `error` cuya ventana de backoff venció y `attempts < 5`; con
+   `force` ignora la ventana). Los marca `syncing`, llama `remote.push(items)`
+   (upsert en orden de dependencia), marca `synced` los aceptados y `error`
+   (+`attempts` + `next_attempt_at`) los rechazados. Si `remote.push` **lanza**
+   (red caída), los items marcados van a `error` con backoff (no quedan en
+   `syncing`) y se propaga el error.
+6. **Pull**: `changes = remote.pull({ group_ids, cursor })` y
+   `applyRemoteChanges(changes)` los mergea con LWW (§8). `cursor` es el máximo
+   `sync_revision` aplicado (server-owned, §16.2); `null` = pull completo
+   (arranque, reconexión, grupo nuevo por enlace). Tras aplicar, el cursor
+   avanza al máximo `sync_revision` recibido.
+7. Limpia de la cola los `synced` (`purgeSynced`).
+8. `refreshSubscription(groupIds)`: (re)suscribe Realtime si cambió el conjunto.
+9. Emite estado: `online`, `syncing`, `pending_count`, `exhausted_count`,
+   `last_synced_at` (sólo display), `last_error`, `hydrating_group_ids`.
 
-Disparadores (sección 17), vía `start()`: al iniciar la app, evento `online`,
-`visibilitychange` a visible, polling suave (20 s), tras cada mutación local
-(el `SyncProvider` dispara `syncNow` cuando sube `pending_count`), y cada evento
-Realtime (aplica el cambio + agenda un pull de reconciliación con debounce).
-Background Sync se usará **si existe**, nunca como única vía.
+Disparadores (sección 17), vía `start()`: al iniciar la app (`force`), evento
+`online` (`force`), `visibilitychange` a visible (`force`), polling suave (20 s),
+tras cada mutación local (`SyncProvider` dispara `syncNow` cuando sube el
+`pending`), y cada evento Realtime (aplica el cambio + agenda un pull de
+reconciliación con debounce). Background Sync se usará **si existe**, nunca como
+única vía.
 
 ### Realtime (sección 32)
 
@@ -171,7 +193,8 @@ IndexedDB con `useLiveQuery`, se actualiza sola.
 
 Campos: `id`, `operation` (`CREATE|UPDATE|DELETE`), `entity_type`, `entity_id`,
 `payload` (estado completo de la entidad), `created_at`, `attempts`,
-`last_attempt_at`, `sync_status` (`pending|syncing|synced|error`), `error`.
+`last_attempt_at`, `next_attempt_at` (backoff, §16.1), `sync_status`
+(`pending|syncing|synced|error`), `error`.
 
 ## 8. Estrategia de resolución de conflictos
 
@@ -199,19 +222,29 @@ permite.
 - `src/lib/supabaseConfig.ts` lee `NEXT_PUBLIC_SUPABASE_URL` /
   `NEXT_PUBLIC_SUPABASE_ANON_KEY` (sin importar la librería).
 - Si hay credenciales, `SyncProvider` carga `@supabase/supabase-js` de forma
-  **diferida** y reinicia el motor con `supabaseRemote`; si no, usa `stubRemote`
-  y el indicador muestra "En este dispositivo". El bundle base no crece.
-- `supabase/migrations/`: `0001_init.sql` (tablas) + `0002_sync_and_policies.sql`
-  (Realtime + RLS permisiva para `anon`, sin DELETE — MVP sin cuentas,
-  sección 31). Puesta en marcha en `.env.example`.
+  **diferida**, asegura una **sesión anónima** (`ensureAnonymousSession`, §17) y
+  reinicia el motor con `supabaseRemote`; si no, usa `stubRemote` y el indicador
+  muestra "En este dispositivo". El bundle base no crece.
+- Todo push/pull/Realtime va **autenticado** con el JWT de la sesión anónima: RLS
+  (§17) sólo deja ver/editar los grupos donde el usuario es miembro. La
+  publishable key por sí sola no alcanza.
+- `supabase/migrations/`: `0001` (tablas), `0002` (Realtime), `0003`–`0004`
+  (hardening, §16), `0005`–`0007` (auth + membresía + RLS, §17). Puesta en marcha
+  en `.env.example`.
 - `supabaseRemote.push`: cada op de la cola es un `upsert` del payload (los
-  borrados viajan como filas con `deleted_at`).
-- `supabaseRemote.pull`: filas con `updated_at > since` por `group_id`; las
-  `expense_participants` (sin `group_id`) se traen por `expense_id`.
+  borrados viajan como filas con `deleted_at`), agrupado por tabla y ejecutado
+  en **orden de dependencia** (`groups → participants → expenses →
+  expense_participants → payments`) para no chocar con las FKs compuestas (§16.4).
+- `supabaseRemote.pull`: filas con `sync_revision > cursor` (§16.2), ordenadas
+  por `sync_revision`, **paginadas** (`PULL_PAGE_SIZE = 500`, §16.3). Las
+  `expense_participants` (sin `group_id`) se traen por `expense_id` (ids
+  paginados y en tandas de 200 para el `.in(...)`).
 - **Acceso por enlace** (sección 31): el pull sólo alcanza los grupos que el
   cliente conoce. `GroupLayout` llama `requestGroup(id)` al montar; el motor
-  (`SyncEngine.trackGroup`) suma ese id a los pulls y fuerza un pull completo,
-  así abrir `/g/<id>` en un dispositivo nuevo trae el grupo entero.
+  (`SyncEngine.trackGroup`) suma ese id a los pulls y fuerza un pull completo.
+  Desde la Etapa 7 `trackGroup` **pide** pero no **otorga**: con RLS, el pull
+  devuelve el grupo sólo si el usuario ya es miembro. Para entrar a un grupo
+  nuevo hay que canjear una invitación (`/join/<token>`, §17).
 - El remoto se cambia en caliente con `SyncEngine.setRemote` (stub → Supabase
   cuando termina el import diferido), sin recrear el motor.
 - **Verificado** contra un proyecto Supabase real: push (grupo + participantes +
@@ -312,11 +345,12 @@ fivi/
     lib/             supabaseConfig, supabase, db-hooks, format, cn
     components/       AppShell, Button, fields, CurrencySelect, MoneyInput,
                      ExpenseForm, BalanceList, TransferList, SyncProvider, SyncBadge
-  supabase/migrations/  0001_init.sql, 0002_sync_and_policies.sql
-  tests/             domain/*.test.ts, data/*.test.ts
+  supabase/migrations/  0001…0004 (ver §3)
+  tests/             domain/*.test.ts, data/*.test.ts, sync/*.test.ts, e2e/*.spec.ts
+  .github/workflows/ci.yml
 ```
 
-Alias `@/*` → `src/*` (tsconfig + vitest).
+Alias `@/*` → `src/*` (tsconfig + vitest). Node ≥ 20.11 (`engines`).
 
 ## 15. Tests principales
 
@@ -341,11 +375,234 @@ Alias `@/*` → `src/*` (tsconfig + vitest).
   `applyRemoteChanges` inserta lo nuevo, respeta lo local más nuevo, aplica
   tombstones y no re-encola.
 - Supabase (`supabaseRemote`) con cliente fake: `push` agrupa por tabla y hace
-  `upsert`; `pull` mapea filas a `RemoteChange` y filtra por `since`.
+  `upsert` **en orden de dependencia**; `pull` mapea filas a `RemoteChange`,
+  filtra por `cursor` (`sync_revision`) y **pagina** (junta > `PULL_PAGE_SIZE`).
+- Backoff (`tests/sync/backoff.test.ts`): `backoffDelayMs` crece exponencial con
+  jitter y tope; un `error` no se reintenta hasta que vence `next_attempt_at`;
+  tras `MAX_ATTEMPTS` queda "agotado"; un item fallido no bloquea a otros;
+  `SyncEngine` con red caída aplica backoff a nivel corrida (no reintenta sin
+  `force` hasta pasar la ventana).
+- Cursor: primer pull `cursor = null`, el siguiente usa el máximo `sync_revision`.
+- **Auth + invitaciones** (`tests/sync/auth.test.ts`, `tests/sync/invites.test.ts`):
+  `ensureAnonymousSession` firma sólo si no hay sesión y autoriza Realtime;
+  `SyncEngine.redeemInvite` canjea y hace `trackGroup`; `createInvite` manda el
+  hash y nunca el token crudo; el hash coincide con `sha256` de Node/Postgres.
+- **RLS reales** (`tests/security/rls.test.ts`, `@electric-sql/pglite`): ver §17.8.
+- **Acceso denegado / offline** (`tests/data/sync.test.ts`): un rechazo `42501`
+  no borra el dato local y emite `access_error`; un pull vacío no borra el grupo;
+  el CRUD local sigue con el remoto inalcanzable.
+- E2E (`tests/e2e/`, Playwright, sin Supabase): flujo completo (grupo →
+  participantes → gasto → balance → pago → editar → borrar) y escritura offline
+  (agregar participante / renombrar grupo con `context.setOffline(true)`).
 
-Pendiente: probar el camino real contra un proyecto Supabase (requiere
-credenciales); verificar el service worker en Chrome/Edge (el navegador
-embebido no registra SW).
+## 16. Hardening (cursor, backoff, paginación, integridad, CI)
+
+### 16.1 Backoff real de la cola
+
+`src/sync/queue.ts`. Cada item lleva `next_attempt_at`. Al fallar:
+`attempts++`, se guarda `error` y se fija `next_attempt_at = now +
+backoffDelayMs(attempts)` — *equal jitter*: `mitad_fija + random·mitad` sobre
+`BASE_DELAY_MS·2^(attempts-1)`, con techo `MAX_DELAY_MS` (5 min). `MAX_ATTEMPTS`
+= 5 (configurable). `getPendingItems` sólo devuelve `error` con ventana vencida
+y `attempts < MAX_ATTEMPTS`; los agotados se cuentan aparte (`exhausted_count`,
+badge rojo). `SyncEngine` además frena corridas completas repetidas
+(`nextRunAllowedAt`) para no machacar durante una caída; los disparos del
+usuario (`force`) pasan igual e ignoran las ventanas por item.
+
+### 16.2 Cursor de sincronización server-owned
+
+**Problema**: el pull incremental usaba `updated_at > since` con `updated_at` y
+`since` generados por el **reloj del cliente**. Con relojes desincronizados un
+dispositivo atrasado escribe en el pasado y otro nunca ve esa fila (cambio
+perdido); uno adelantado provoca re-traer filas en cada pull.
+
+**Solución** (migración `0003`): columna `sync_revision bigint` en las 5 tablas,
+asignada por una **secuencia global** de Postgres mediante un **trigger BEFORE
+INSERT OR UPDATE** que sobrescribe cualquier valor del cliente. El pull usa
+`sync_revision > cursor ORDER BY sync_revision`; el motor avanza el cursor al
+máximo recibido. Es monotónico y no depende de ningún reloj.
+
+**No cambia la resolución de conflictos**: `applyRemoteChanges` sigue con LWW por
+`updated_at` (+ `version`). `sync_revision` sólo responde "qué falta traer".
+
+**Cursor en memoria por sesión**: cada sesión arranca con un pull completo
+(`cursor = null`, seguro) y usa el cursor para los incrementales dentro de la
+sesión. También se fuerza pull completo al reconectar y al abrir un grupo nuevo
+por enlace (sus filas tienen `sync_revision` < cursor). Persistirlo entre
+sesiones es una optimización pendiente.
+
+**Limitación conocida**: una secuencia puede dejar "huecos" si dos transacciones
+se solapan (una toma `nextval` antes y commitea después que otra). En fivi todas
+las escrituras son upserts de una fila en autocommit → ventana de microsegundos,
+y los pulls completos de arranque/reconexión la tapan. Endurecerlo (cursor
+basado en `pg_snapshot_xmin`) queda pendiente.
+
+### 16.3 Paginación del pull
+
+PostgREST corta las respuestas grandes (~1000 filas). `supabaseRemote.pull`
+recorre **todas las páginas** de cada tabla con `.range(from, from+499)` hasta
+que una página trae < `PULL_PAGE_SIZE`. Los ids de `expenses` para traer
+`expense_participants` también se piden paginados y el `.in(...)` se trocea en
+tandas de 200. Cubierto por test con > `PULL_PAGE_SIZE` filas.
+
+### 16.4 Integridad referencial en el servidor
+
+Migración `0004`. Garantiza en Postgres (aunque el cliente tenga un bug):
+
+- `unique (group_id, id)` en `participants` como destino de FKs compuestas;
+- `expenses (group_id, paid_by) → participants (group_id, id)`;
+- `payments (group_id, from_participant)` y `(group_id, to_participant) →
+  participants (group_id, id)`;
+- **trigger** `check_expense_participant_group` en `expense_participants`
+  (no tiene `group_id`): valida que el participante pertenezca al grupo del
+  expense.
+
+Estas restricciones actúan en el **push**. El motor pushea en orden de
+dependencia, así que un lote válido nunca se rechaza por orden; una fila que
+referencia algo que todavía no llegó se rechaza, vuelve a la cola y reintenta
+con backoff. `applyRemoteChanges` (pull → IndexedDB) no las toca.
+
+### 16.5 CI
+
+`.github/workflows/ci.yml`, en `push` y `pull_request`:
+
+- job **verify**: `npm ci` → `lint` → `typecheck` → `test` → `build`
+  (+ `npm audit --audit-level=high` informativo). Node 22, caché npm.
+- job **e2e**: `npm ci` → `playwright install --with-deps chromium` →
+  `test:e2e` (Playwright levanta `next build && next start`).
+- **Sin credenciales de Supabase**: todo corre con la app en modo local.
+- La versión de Node sale de `.nvmrc` (`22`), no está hardcodeada en el workflow.
+
+### 16.6 Versionado y releases
+
+- **SemVer** en `0.x`; la versión es la de `package.json`. Se inyecta en build
+  (`next.config.mjs` → `NEXT_PUBLIC_APP_VERSION` / `_COMMIT` / `_ENV`), la lee
+  `src/lib/appInfo.ts` y la muestra `AppVersion` en el pie del inicio. Sin
+  duplicación manual.
+- Cada release de producción se etiqueta `vX.Y.Z` (tag anotado sobre el commit
+  desplegado). `.github/workflows/release.yml` valida `tag == package.json`,
+  corre lint+typecheck+test+build y publica la GitHub Release (no despliega).
+- Procedimiento completo, rollback de frontend y **efecto de las migraciones
+  Supabase sobre el rollback** (Expand→Migrate→Contract, clasificación de
+  compatibilidad, `0005`–`0007` marcadas ROLLBACK RISK): `docs/RELEASES.md`.
+- Novedades por versión: `CHANGELOG.md`.
+
+---
+
+## 17. Autenticación y control de acceso (Etapa 7)
+
+Hasta la Etapa 6, el acceso a un grupo en el backend era "conocer el UUID =
+acceso total" (`0002`: policies `to anon using (true)`). La Etapa 7 lo reemplaza
+por **Supabase Anonymous Sign-In + RLS por membresía**, sin pedir email ni
+contraseña y **sin romper local-first**.
+
+### 17.1 Autenticación anónima
+
+- `src/lib/supabase.ts`: el cliente se crea con `persistSession: true` +
+  `autoRefreshToken: true` (sesión en `localStorage`, mecanismo estándar).
+- `ensureAnonymousSession(client)`: si no hay sesión, `signInAnonymously()`;
+  luego `client.realtime.setAuth(access_token)` (necesario para que Realtime
+  respete RLS por suscriptor).
+- `SyncProvider` la llama tras el import diferido y **antes** de `setRemote`. Si
+  falla (sign-in anónimo deshabilitado, o sin red al arrancar) se pasa a cloud
+  igual: los push/pull fallan por RLS y quedan pendientes; se reintenta
+  `ensureAnonymousSession` al volver la conexión y en cada `TOKEN_REFRESHED`.
+- **Sin Supabase configurado no hay auth**: `stubRemote`, todo 100% local, igual
+  que antes.
+
+### 17.2 Membresía (`0005`)
+
+- `group_members(group_id, user_id, role)` — `role ∈ {owner, member}`. Sin
+  `admin`: el `owner` cubre lo sensible.
+- `groups.created_by` lo fija un trigger `BEFORE INSERT` (= `auth.uid()`, el
+  cliente no lo puede falsear). Un trigger `AFTER INSERT` (`SECURITY DEFINER`)
+  hace `owner` al creador. El cliente **no** maneja `group_members` al crear.
+- Helpers `is_group_member(uuid)` / `is_group_owner(uuid)` — `SECURITY DEFINER
+  STABLE`, `search_path=''`. `SECURITY DEFINER` evita la recursión de RLS (una
+  policy sobre `group_members` que lee `group_members`).
+
+### 17.3 Invitaciones (`0006`)
+
+- El UUID del grupo ya no autoriza. Se comparte `/join/<token>`:
+  - `token` = 256 bits aleatorios en base64url (`src/lib/invites.ts`), vive sólo
+    en el enlace;
+  - el servidor guarda **sólo** `sha256(token)` en `group_invites.token_hash`
+    (`sha256`/`convert_to` del core de Postgres, sin pgcrypto);
+  - se revoca (`revoked_at`) y opcionalmente expira (`expires_at`) o limita usos
+    (`max_uses`).
+- **Canje**: RPC `redeem_group_invite(p_token text)` (`SECURITY DEFINER`). Valida
+  `auth.uid()`, vigencia y revocación **en el servidor**, agrega al usuario a
+  `group_members` (`on conflict do nothing` → doble canje es idempotente y no
+  infla `uses`) y devuelve el `group_id`. El cliente sólo orquesta
+  (`SyncEngine.redeemInvite` → `trackGroup` → navegar).
+- Cualquier miembro crea invitaciones (`created_by` lo fija un trigger); revoca
+  el owner o quien la creó.
+- `RemotePort` gana métodos **opcionales** (`createInvite`, `redeemInvite`,
+  `listInvites`, `revokeInvite`, `getGroupRole`). `stubRemote` no los implementa;
+  el motor devuelve "Las invitaciones requieren Supabase configurado".
+
+### 17.4 RLS (`0007`)
+
+`drop policy if exists` sobre las 15 policies de `0002` + policies nuevas, todas
+`to authenticated` (nunca `anon`):
+
+| tabla | SELECT | INSERT (check) | UPDATE (using/check) | DELETE |
+| --- | --- | --- | --- | --- |
+| `groups` | `is_group_member(id)` | `auth.uid() is not null` | `is_group_member(id)` | — |
+| `group_members` | `is_group_member` | `is_group_owner` | `is_group_owner` | `is_group_owner or user_id = auth.uid()` |
+| `group_invites` | `is_group_member` | `is_group_member and created_by = auth.uid()` | `is_group_owner or created_by = auth.uid()` | — |
+| `participants` / `expenses` / `payments` | `is_group_member(group_id)` | idem | idem | — |
+| `expense_participants` | `can_access_expense(expense_id)` | idem | idem | — |
+
+- `can_access_expense` (`SECURITY DEFINER`) resuelve el grupo vía el `expense`
+  padre (la tabla no tiene `group_id`).
+- Sin policy de DELETE en las 5 tablas de datos: todo es soft-delete
+  (`deleted_at`), como en `0002`. `group_members` sí tiene DELETE (salir del
+  grupo / el owner quita a alguien).
+- El soft-delete de un grupo (UPDATE de `deleted_at`) lo puede hacer cualquier
+  miembro (es reversible por LWW, igual que editar el contenido); endurecerlo a
+  "sólo owner" es cambiar un `WITH CHECK`. Lo administrativo sensible —gestionar
+  la membresía y los roles— **sí** es sólo del owner.
+- `0003` (`sync_revision`) y `0004` (integridad cross-group) siguen intactos y
+  componen: sus triggers se evalúan igual bajo las nuevas policies.
+
+### 17.5 Realtime bajo RLS
+
+`postgres_changes` aplica la policy de SELECT por suscriptor una vez que el
+socket va autenticado (`realtime.setAuth`). La publicación de `0002` sigue siendo
+necesaria; `expense_participants` sigue reconciliándose por pull.
+
+### 17.6 Offline-first y rechazos por acceso
+
+- IndexedDB sigue siendo la fuente de la UI; los repos escriben local primero;
+  `syncNow` corta en `!online`. La sesión cacheada en `localStorage` permite
+  abrir grupos ya sincronizados sin red.
+- Si el servidor rechaza un push por RLS (`42501`) o JWT inválido (`PGRST301`),
+  `supabaseRemote` lo mapea a un mensaje claro (`accessError.ts`); el motor
+  emite `access_error` y el `SyncBadge` muestra "Sin acceso al grupo". El item
+  **no se borra** (sólo `purgeSynced` elimina, y sólo lo `synced`): agota a los
+  `MAX_ATTEMPTS` y queda para revisión del usuario. Un grupo ausente del pull
+  **no** se tombstonea local (`applyRemoteChanges` sólo aplica lo que recibe).
+
+### 17.7 Transición de datos existentes
+
+Las migraciones **no inventan propietarios**. Los grupos creados antes de `0007`
+(sin `created_by` ni `group_members`) quedan invisibles al aplicarla. El paso
+manual de "claim" (un `insert … select from groups where not exists …`) está
+documentado al pie de `0007_rls_auth.sql`. En el proyecto real actual son datos
+de prueba desechables (se vacía la base antes de aplicar).
+
+### 17.8 Tests de RLS
+
+`tests/security/rls.test.ts` levanta un Postgres real en proceso
+(`@electric-sql/pglite`), stubea `auth.uid()` con un GUC (`request.jwt.claim.sub`)
+y aplica las 7 migraciones. Cada escenario corre con `set local role
+authenticated` + el sub del usuario, así RLS se aplica de verdad. Cubre: miembro
+lee / ajeno no / UUID no alcanza / ajeno no edita ni inserta movimientos / ajeno
+no toca `group_members` / invitación válida–revocada–vencida / doble canje
+idempotente / `owner` automático / `anon` no ve nada / no quedan policies `to
+anon`. `auth.uid()` es un stub: no se ejercita parseo real de JWT ni la entrega
+de Realtime (verificación manual).
 
 ---
 
@@ -353,13 +610,18 @@ embebido no registra SW).
 
 | Área             | Elección                     | Motivo                                            |
 | ---------------- | ---------------------------- | ------------------------------------------------ |
-| Framework        | Next.js 15 (App Router)      | Pedido en el brief; buen soporte PWA/estático.   |
+| Framework        | Next.js 15 (App Router), 15.5.x | Pedido en el brief; se mantiene en la rama 15 (16 es major). |
 | Lenguaje         | TypeScript estricto          | `noUncheckedIndexedAccess` activado.             |
-| Estilos          | Tailwind CSS                 | Pedido en el brief.                              |
-| DB local         | Dexie sobre IndexedDB        | Abstracción mantenible sobre IndexedDB.          |
+| Estilos          | Tailwind CSS 3               | Pedido en el brief; Tailwind 4 es un rewrite mayor. |
+| DB local         | Dexie sobre IndexedDB (v2)   | Abstracción mantenible; migraciones aditivas.    |
 | DB remota        | Supabase / Postgres          | Pedido en el brief.                              |
-| Tests            | Vitest + fake-indexeddb      | Rápido; permite testear repos sin navegador.     |
+| Tests unit       | Vitest 4 + fake-indexeddb    | Rápido; testea repos/sync sin navegador. v4 cierra vulns dev. |
+| Tests RLS        | `@electric-sql/pglite` (dev) | Postgres real en proceso; RLS de verdad sin Docker (§17.8). |
+| Tests E2E        | Playwright (chromium)        | Flujo real y offline, sin backend.              |
+| Auth             | Supabase Anonymous Sign-In   | Acceso seguro por RLS sin pedir email/contraseña (§17). |
+| CI               | GitHub Actions               | lint+typecheck+test+build+e2e, sin credenciales. |
 | PWA              | Manifest + SW a mano         | Sección 33: evitar dependencias innecesarias.    |
 | Iconos PWA       | PNG generados con `scripts/gen-icons.mjs` | Sin tooling de imágenes; encoder PNG a mano (zlib). |
 | Estado UI ↔ datos | `dexie-react-hooks`         | `useLiveQuery` mantiene la UI viva desde IndexedDB. |
 | Sync remoto      | `@supabase/supabase-js` (carga diferida) | Pedido en el brief; sólo se baja si hay credenciales. |
+| postcss          | `overrides` a `^8.5.26`      | Next 15 embebe un postcss vulnerable; el override lo sube sin salir de la rama 15. |

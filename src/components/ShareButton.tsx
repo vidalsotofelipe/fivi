@@ -2,13 +2,17 @@
 
 import { useState } from "react";
 import { Button } from "./Button";
+import { useSyncActions, useSyncState } from "./SyncProvider";
 
 /**
- * Comparte el enlace del grupo (sección 31: "un grupo se comparte mediante un
- * enlace"). Usa `navigator.share` en móvil y cae en copiar al portapapeles.
+ * Comparte el acceso al grupo (sección 31).
  *
- * Quien abra ese enlace en otro dispositivo trae el grupo del servidor
- * automáticamente (ver `GroupLayout` → `requestGroup`).
+ * - Con Supabase (cloud): genera una **invitación con token** y comparte
+ *   `/join/<token>`. El UUID del grupo por sí solo no da acceso (Etapa 7).
+ * - Sin Supabase (local): comparte `/g/<id>`, que sólo sirve en este mismo
+ *   dispositivo (los datos no salen de acá).
+ *
+ * Usa `navigator.share` en móvil y cae en copiar al portapapeles.
  */
 export function ShareButton({
   groupId,
@@ -17,14 +21,16 @@ export function ShareButton({
   groupId: string;
   groupName: string;
 }) {
+  const { backend } = useSyncState();
+  const { createInvite } = useSyncActions();
   const [copied, setCopied] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  async function share() {
-    const url =
-      typeof window !== "undefined"
-        ? `${window.location.origin}/g/${groupId}`
-        : `/g/${groupId}`;
+  const origin =
+    typeof window !== "undefined" ? window.location.origin : "";
 
+  async function deliver(url: string) {
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
         await navigator.share({
@@ -37,7 +43,6 @@ export function ShareButton({
         // usuario canceló o no soportado: seguimos con el portapapeles
       }
     }
-
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
@@ -47,9 +52,41 @@ export function ShareButton({
     }
   }
 
+  async function share() {
+    setError(null);
+    if (backend === "local") {
+      await deliver(`${origin}/g/${groupId}`);
+      return;
+    }
+    setBusy(true);
+    try {
+      const { token } = await createInvite(groupId);
+      await deliver(`${origin}/join/${token}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
-    <Button variant="secondary" full onClick={share}>
-      {copied ? "Enlace copiado ✓" : "Compartir grupo"}
-    </Button>
+    <div className="flex flex-col gap-1">
+      <Button variant="secondary" full onClick={share} disabled={busy}>
+        {busy
+          ? "Generando enlace…"
+          : copied
+            ? "Enlace copiado ✓"
+            : backend === "local"
+              ? "Compartir grupo"
+              : "Crear enlace de invitación"}
+      </Button>
+      {error ? <p className="text-xs text-red-600">{error}</p> : null}
+      {backend === "local" ? (
+        <p className="text-xs opacity-55">
+          Sin servidor configurado: el enlace sólo abre el grupo en este
+          dispositivo.
+        </p>
+      ) : null}
+    </div>
   );
 }

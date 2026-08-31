@@ -7,6 +7,7 @@ import { AppShell } from "@/components/AppShell";
 import { AddToPastExpenses } from "@/components/AddToPastExpenses";
 import { Button } from "@/components/Button";
 import { CurrencySelect } from "@/components/CurrencySelect";
+import { InvitesSection } from "@/components/InvitesSection";
 import { Field, TextArea, TextInput } from "@/components/fields";
 import { useGroupContext } from "@/components/GroupProvider";
 import { useGroupHasMovements } from "@/lib/db-hooks";
@@ -165,6 +166,8 @@ export default function GroupConfigPage() {
       </section>
 
       {msg ? <p className="text-sm opacity-70">{msg}</p> : null}
+
+      <InvitesSection groupId={group.id} />
 
       <section className="mt-2 flex flex-col gap-2 border-t border-black/10 pt-4 dark:border-white/10">
         {confirmDelete ? (

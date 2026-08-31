@@ -40,6 +40,7 @@ function buildQueueItem(
     created_at: nowIso(),
     attempts: 0,
     last_attempt_at: null,
+    next_attempt_at: null,
     sync_status: "pending",
     error: null,
   };

@@ -15,7 +15,7 @@
  * Los datos NO se cachean acá: viven en IndexedDB y los maneja la app.
  */
 
-const VERSION = "v4";
+const VERSION = "v5";
 const APP_SHELL = `fivi-shell-${VERSION}`;
 const RUNTIME = `fivi-runtime-${VERSION}`;
 const SHELL_URLS = ["/", "/nuevo", "/manifest.webmanifest"];
@@ -44,9 +44,14 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-/** `/g/<id>/gastos` -> `/g/_/gastos` (mismo shell para cualquier grupo). */
-function normalizeGroupPath(pathname) {
-  return pathname.replace(/^\/g\/[^/]+/, "/g/_");
+/**
+ * `/g/<id>/gastos` -> `/g/_/gastos` y `/join/<token>` -> `/join/_`.
+ * El árbol de la página es idéntico para cualquier id/token (todo es client
+ * component), así un único shell sirve para todos. Además evita cachear el token
+ * de invitación como clave.
+ */
+function normalizeShellPath(pathname) {
+  return pathname.replace(/^\/(g|join)\/[^/]+/, "/$1/_");
 }
 
 function cachePut(key, response) {
@@ -61,14 +66,16 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  const isGroupRoute = url.pathname.startsWith("/g/");
+  // Rutas con id/token en el path que comparten shell: /g/<id>/… y /join/<token>.
+  const isShellRoute =
+    url.pathname.startsWith("/g/") || url.pathname.startsWith("/join/");
   const isRsc =
     url.searchParams.has("_rsc") || request.headers.get("rsc") === "1";
 
-  // RSC de una ruta de grupo: clave normalizada (el árbol no depende del id).
-  if (isRsc && isGroupRoute) {
+  // RSC de una ruta con shell: clave normalizada (el árbol no depende del id).
+  if (isRsc && isShellRoute) {
     const key = new Request(
-      url.origin + normalizeGroupPath(url.pathname) + "?_rsc=shell",
+      url.origin + normalizeShellPath(url.pathname) + "?_rsc=shell",
     );
     event.respondWith(
       fetch(request)
@@ -85,12 +92,12 @@ self.addEventListener("fetch", (event) => {
   const wantsDoc =
     request.mode === "navigate" ||
     request.destination === "document" ||
-    (isGroupRoute && !isRsc && request.destination === "");
+    (isShellRoute && !isRsc && request.destination === "");
 
   if (wantsDoc) {
     const key =
-      isGroupRoute && !isRsc
-        ? new Request(url.origin + normalizeGroupPath(url.pathname))
+      isShellRoute && !isRsc
+        ? new Request(url.origin + normalizeShellPath(url.pathname))
         : request;
     event.respondWith(
       fetch(request)

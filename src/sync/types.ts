@@ -27,6 +27,12 @@ export interface SyncQueueItem {
   created_at: string;
   attempts: number;
   last_attempt_at: string | null;
+  /**
+   * Momento (ISO) a partir del cual se puede reintentar un item en `error`.
+   * Lo fija el backoff exponencial + jitter. `null`/ausente → elegible ya.
+   * Filas creadas antes de la v2 de la base no lo tienen: se trata como `null`.
+   */
+  next_attempt_at?: string | null;
   sync_status: SyncStatus;
   error: string | null;
 }
@@ -35,9 +41,24 @@ export interface SyncQueueItem {
 export interface SyncState {
   online: boolean;
   syncing: boolean;
+  /** Items de la cola sin sincronizar (pending + error que todavía puede reintentar). */
   pending_count: number;
+  /** Items que agotaron los reintentos y necesitan atención. */
+  exhausted_count: number;
   last_synced_at: string | null;
   last_error: string | null;
+  /**
+   * Mensaje cuando el servidor rechaza cambios por falta de acceso al grupo
+   * (RLS / sesión inválida). El dato local se conserva; la UI lo informa.
+   * `null` mientras no haya un rechazo de ese tipo pendiente.
+   */
+  access_error: string | null;
+  /**
+   * `false` mientras el remoto real (Supabase) todavía se está cargando /
+   * autenticando. La ruta `/join/<token>` espera a que sea `true` antes de
+   * intentar canjear. En modo local es `true` desde el arranque.
+   */
+  remote_ready: boolean;
   /**
    * Grupos pedidos por enlace que todavía no terminaron su primer pull desde el
    * servidor. La UI muestra "cargando" en vez de "no existe" mientras estén acá.
@@ -45,7 +66,18 @@ export interface SyncState {
   hydrating_group_ids: string[];
 }
 
-/** Cambio remoto recibido durante un pull. */
+/** Datos de una invitación para gestionarla desde la configuración del grupo. */
+export interface InviteInfo {
+  id: string;
+  created_at: string;
+  created_by: string;
+  expires_at: string | null;
+  revoked_at: string | null;
+  uses: number;
+  max_uses: number | null;
+}
+
+/** Cambio remoto recibido durante un pull o por Realtime. */
 export interface RemoteChange {
   entity_type: SyncEntityType;
   entity_id: string;
@@ -53,6 +85,12 @@ export interface RemoteChange {
   updated_at: string;
   version: number;
   deleted_at: string | null;
+  /**
+   * Cursor server-owned (columna `sync_revision`, secuencia de Postgres). El
+   * motor avanza su cursor al máximo `sync_revision` recibido. Ausente en el
+   * `stubRemote` (sin servidor) y en payloads viejos.
+   */
+  sync_revision?: number;
 }
 
 export interface PushResult {
