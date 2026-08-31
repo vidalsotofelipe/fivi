@@ -76,6 +76,7 @@ Postgres en Supabase, espejo del modelo local. Migraciones en
 | `0005_membership.sql` | `groups.created_by`, tabla `group_members`, helpers `is_group_member` / `is_group_owner`, trigger que hace `owner` al creador (§17) |
 | `0006_invites.sql` | tabla `group_invites` (hash del token), RPC `redeem_group_invite` (§17) |
 | `0007_rls_auth.sql` | RLS por `auth.uid()` + `group_members`; reemplaza las policies `to anon` de `0002` (§17) |
+| `0008_groups_select_creator.sql` | `groups_select` también permite `created_by = auth.uid()` — arregla `INSERT … RETURNING` en `groups` (§17.4) |
 
 La app funciona 100% local sin aplicarlas. Las migraciones nunca se editan
 retroactivamente: `0007` **elimina** las policies de `0002` con `drop policy if
@@ -541,18 +542,25 @@ contraseña y **sin romper local-first**.
   `listInvites`, `revokeInvite`, `getGroupRole`). `stubRemote` no los implementa;
   el motor devuelve "Las invitaciones requieren Supabase configurado".
 
-### 17.4 RLS (`0007`)
+### 17.4 RLS (`0007`, `0008`)
 
 `drop policy if exists` sobre las 15 policies de `0002` + policies nuevas, todas
 `to authenticated` (nunca `anon`):
 
 | tabla | SELECT | INSERT (check) | UPDATE (using/check) | DELETE |
 | --- | --- | --- | --- | --- |
-| `groups` | `is_group_member(id)` | `auth.uid() is not null` | `is_group_member(id)` | — |
+| `groups` | `is_group_member(id) or created_by = auth.uid()` | `auth.uid() is not null` | `is_group_member(id)` | — |
 | `group_members` | `is_group_member` | `is_group_owner` | `is_group_owner` | `is_group_owner or user_id = auth.uid()` |
 | `group_invites` | `is_group_member` | `is_group_member and created_by = auth.uid()` | `is_group_owner or created_by = auth.uid()` | — |
 | `participants` / `expenses` / `payments` | `is_group_member(group_id)` | idem | idem | — |
 | `expense_participants` | `can_access_expense(expense_id)` | idem | idem | — |
+
+- El `or created_by = auth.uid()` en `groups` SELECT (`0008`) es para que
+  `INSERT … RETURNING` en `groups` no falle: la re-lectura de la fila recién
+  creada corre la policy de SELECT **antes** de que el trigger AFTER
+  (`groups_add_owner`) cree la membresía. `created_by` lo fija y **congela** un
+  trigger BEFORE, así que no es falsificable y un tercero sigue sin poder ver el
+  grupo con sólo el UUID.
 
 - `can_access_expense` (`SECURITY DEFINER`) resuelve el grupo vía el `expense`
   padre (la tabla no tiene `group_id`).

@@ -13,6 +13,25 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.7.1] - 2026-08-31
+
+### Fixed
+
+- `INSERT ... RETURNING` sobre `groups` fallaba con RLS: la re-lectura de la fila
+  recién creada corría la policy de SELECT antes de que el trigger AFTER creara
+  la membresía de owner. El push de fivi (`upsert` sin `.select()`,
+  `return=minimal`) no se veía afectado, pero el modelo no debería depender de
+  ese detalle. Migración `0008_groups_select_creator.sql`: `groups_select` ahora
+  también permite `created_by = auth.uid()` (el creador siempre ve su grupo; no
+  debilita el acceso: `created_by` lo fija y congela un trigger).
+
+### Migración Supabase
+
+- **`0008_groups_select_creator.sql`** — **backward-compatible**. Reemplaza
+  `groups_select` (de `0007`) por una versión con un `OR created_by = auth.uid()`.
+  Un frontend `0.7.0` sigue funcionando contra este esquema. Aplicar con
+  `0.7.1`.
+
 ## [0.7.0] - 2026-08-31
 
 Seguridad de acceso a los grupos: autenticación anónima de Supabase + RLS por

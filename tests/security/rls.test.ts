@@ -75,7 +75,10 @@ async function createGroupAs(uid: string, name = "G"): Promise<string> {
 beforeAll(async () => {
   pg = new PGlite();
 
-  // Entorno tipo Supabase que las migraciones dan por hecho.
+  // Entorno tipo Supabase que las migraciones dan por hecho. `auth.uid()` lee
+  // el JSON de claims (como en Supabase real) y `anon`/`authenticated` tienen
+  // USAGE sobre el schema `auth` — necesario porque las policies llaman
+  // `auth.uid()` directamente como el rol invocante (no vía SECURITY DEFINER).
   await pg.exec(`
     create role anon;
     create role authenticated;
@@ -87,8 +90,13 @@ beforeAll(async () => {
     );
     create or replace function auth.uid() returns uuid
       language sql stable
-      as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+      as $$ select coalesce(
+        nullif(current_setting('request.jwt.claim.sub', true), ''),
+        (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')
+      )::uuid $$;
     create publication supabase_realtime;
+    grant usage on schema auth to anon, authenticated, service_role;
+    grant execute on function auth.uid() to anon, authenticated, service_role;
   `);
 
   for (const file of [
@@ -99,6 +107,7 @@ beforeAll(async () => {
     "0005_membership.sql",
     "0006_invites.sql",
     "0007_rls_auth.sql",
+    "0008_groups_select_creator.sql",
   ]) {
     await pg.exec(migration(file));
   }
@@ -111,6 +120,7 @@ beforeAll(async () => {
     grant usage on schema public to anon, authenticated;
     grant select, insert, update, delete on all tables in schema public to authenticated;
     grant execute on all functions in schema public to authenticated;
+    grant usage on sequence public.sync_revision_seq to authenticated;
     grant select on public.groups to anon;
   `);
 
@@ -140,6 +150,29 @@ describe("RLS: acceso a grupos", () => {
       [gid],
     );
     expect(g.rows[0]?.created_by).toBe(U1);
+  });
+
+  it("crear un grupo con RETURNING funciona (el creador se ve a sí mismo, 0008)", async () => {
+    // Antes de 0008, INSERT ... RETURNING fallaba: la re-lectura de la fila
+    // recién insertada corría la policy de SELECT antes de que el trigger AFTER
+    // creara la membresía de owner.
+    const id = randomUUID();
+    const r = await asUser(U1, (tx) =>
+      tx.query<{ id: string; created_by: string }>(
+        `insert into public.groups (id, name, currency_code)
+         values ($1, 'con returning', 'ARS')
+         returning id, created_by`,
+        [id],
+      ),
+    );
+    expect(r.rows[0]?.id).toBe(id);
+    expect(r.rows[0]?.created_by).toBe(U1);
+
+    // y un ajeno sigue sin poder verlo (created_by es de U1)
+    const outsider = await asUser(U2, (tx) =>
+      tx.query("select id from public.groups where id = $1", [id]),
+    );
+    expect(outsider.rows).toHaveLength(0);
   });
 
   it("un miembro lee su grupo; un ajeno no lo ve aunque conozca el UUID", async () => {

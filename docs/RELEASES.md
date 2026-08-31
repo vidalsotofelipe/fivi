@@ -189,6 +189,7 @@ este esquema?**
 | `0005_membership` | 0.7.0 | **ROLLBACK RISK** | crea `group_members`, `created_by` y el trigger que hace `owner` al creador |
 | `0006_invites` | 0.7.0 | **ROLLBACK RISK** | tabla de invitaciones + RPC de canje |
 | `0007_rls_auth` | 0.7.0 | **INCOMPATIBLE — ROLLBACK RISK** | **elimina** las policies permisivas `to anon` de `0002` y las reemplaza por policies que exigen `auth.uid()` + membresía |
+| `0008_groups_select_creator` | 0.7.1 | **backward-compatible** | `groups_select` también permite `created_by = auth.uid()` (arregla `INSERT … RETURNING` en `groups`). Un frontend 0.7.0 sigue funcionando. |
 
 **`0005`–`0007` son un corte duro, no Expand→Migrate→Contract.** Las policies de
 RLS no pueden coexistir de forma útil (permisiva `to anon` + restrictiva
