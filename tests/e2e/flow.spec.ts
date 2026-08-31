@@ -2,96 +2,142 @@ import { test, expect, type Page } from "@playwright/test";
 
 /**
  * E2E del flujo principal, 100% local (sin Supabase). Cada test arranca con
- * IndexedDB vacía (contexto nuevo de Playwright).
+ * IndexedDB vacía (contexto nuevo de Playwright). Español es el idioma por
+ * defecto, así que los selectores van por texto en español.
  */
 
+/** Alta de grupo (paso 1/3): nombre + moneda -> queda en /nuevo/personas. */
 async function createGroup(page: Page, name: string): Promise<string> {
   await page.goto("/nuevo");
   await page.getByPlaceholder("Viaje a Bariloche").fill(name);
-  await page.getByRole("button", { name: /^ARS/ }).click();
-  await page.getByRole("button", { name: "Crear grupo" }).click();
-  await page.waitForURL(/\/g\/[0-9a-f-]{36}$/);
-  const id = page.url().split("/g/")[1]!;
-  return id;
+  await page.getByRole("combobox", { name: "Moneda" }).fill("ARS");
+  await page.getByRole("button", { name: /ARS/ }).first().click();
+  await page.getByRole("button", { name: "Continuar" }).click();
+  await page.waitForURL(/\/g\/[0-9a-f-]{36}\/nuevo\/personas$/);
+  return page.url().split("/g/")[1]!.split("/")[0]!;
 }
 
-async function addParticipant(page: Page, id: string, name: string) {
-  await page.goto(`/g/${id}/config`);
-  await page.getByPlaceholder("Nombre").fill(name);
-  await page.getByRole("button", { name: "Agregar", exact: true }).click();
-  await expect(
-    page.getByRole("listitem").filter({ hasText: name }),
-  ).toBeVisible();
+/** Agrega participantes en el alta y confirma -> queda en /listo. */
+async function addPeopleDuringSetup(page: Page, names: string[]) {
+  for (const name of names) {
+    await page.getByPlaceholder("Ej.: Ana").fill(name);
+    await page.getByRole("button", { name: "Agregar", exact: true }).click();
+    await expect(
+      page.getByRole("listitem").filter({ hasText: name }),
+    ).toBeVisible();
+  }
+  await page
+    .getByRole("button", { name: new RegExp(`Continuar con ${names.length}`) })
+    .click();
+  await page.waitForURL(/\/listo$/);
 }
 
-test("flujo completo: grupo, participantes, gasto, balance, pago, editar, borrar", async ({
+async function addExpense(
+  page: Page,
+  id: string,
+  opts: { description: string; amount: string; payer: string },
+) {
+  await page.goto(`/g/${id}/gastos/nuevo`);
+  await page
+    .getByPlaceholder("Cena, supermercado, Uber…")
+    .fill(opts.description);
+  await page.locator('input[inputmode="decimal"]').first().fill(opts.amount);
+  await page.locator("select").first().selectOption({ label: opts.payer });
+  await page.getByRole("button", { name: "Continuar" }).click();
+  await page.getByRole("button", { name: "Revisar gasto" }).click();
+  await page.getByRole("button", { name: "Guardar gasto" }).click();
+  await page.waitForURL(new RegExp(`/g/${id}$`));
+}
+
+test("flujo completo: grupo → personas → gasto → balance → pago → editar → borrar", async ({
   page,
 }) => {
   const id = await createGroup(page, "Viaje E2E");
+  await addPeopleDuringSetup(page, ["Ana", "Beto", "Cami"]);
 
-  for (const name of ["Ana", "Beto", "Cami"]) {
-    await addParticipant(page, id, name);
-  }
-
-  // --- registrar un gasto: Cena 3000, paga Ana, entre los 3 ---
-  await page.goto(`/g/${id}/gastos/nuevo`);
-  await page.getByPlaceholder("Cena, supermercado, Uber…").fill("Cena");
-  await page.locator('input[inputmode="decimal"]').first().fill("3000");
-  await page.locator("select").first().selectOption({ label: "Ana" });
-  await page.getByRole("button", { name: "Guardar gasto" }).click();
+  // "Ir al resumen" desde la pantalla de grupo listo.
+  await page.getByRole("button", { name: "Ir al resumen" }).click();
   await page.waitForURL(new RegExp(`/g/${id}$`));
 
-  // --- balance: Ana puso 3000, le corresponde 1000 ---
-  await page.goto(`/g/${id}/balance`);
-  await expect(page.getByText(/Pagó.*3\.000.*le correspondía.*1\.000/)).toBeVisible();
+  // --- gasto: Cena 3000, paga Ana, entre los 3 (partes iguales) ---
+  await addExpense(page, id, {
+    description: "Cena",
+    amount: "3000",
+    payer: "Ana",
+  });
 
-  // --- registrar un pago: Beto -> Ana 1000 ---
+  // --- balance: Ana recibe, hay una transferencia sugerida ---
+  await page.goto(`/g/${id}/balance`);
+  await expect(page.getByText("Recibe")).toBeVisible();
+  await expect(page.getByText(/le paga a/).first()).toBeVisible();
+
+  // --- pago: Beto -> Ana 1000 ---
   await page.goto(`/g/${id}/pagos/nuevo`);
   await page.locator("select").nth(0).selectOption({ label: "Beto" });
   await page.locator("select").nth(1).selectOption({ label: "Ana" });
   await page.locator('input[inputmode="decimal"]').first().fill("1000");
-  await page.getByRole("button", { name: "Registrar pago" }).click();
+  await page.getByRole("button", { name: "Confirmar pago" }).click();
   await page.waitForURL(new RegExp(`/g/${id}$`));
-  await expect(page.getByText(/Pago .*Beto/)).toBeVisible();
+
+  // --- actividad: el pago quedó registrado ---
+  await page.goto(`/g/${id}/actividad`);
+  await expect(page.getByText("Beto le pagó a Ana")).toBeVisible();
+  await expect(page.getByText(/agregó el gasto .*Cena/)).toBeVisible();
 
   // --- editar el gasto ---
   await page.goto(`/g/${id}/gastos`);
   await page.getByRole("link", { name: /Cena/ }).click();
-  await page.getByRole("button", { name: "Editar gasto" }).click();
-  await page.getByPlaceholder("Cena, supermercado, Uber…").fill("Cena editada");
-  await page.getByRole("button", { name: "Guardar cambios" }).click();
+  await page.waitForURL(/\/gastos\/[0-9a-f-]{36}$/);
+  await page.getByRole("button", { name: "Editar" }).click(); // abre el menú
+  await page.getByRole("link", { name: "Editar gasto" }).click();
+  await page.waitForURL(/\/editar$/);
+  await page
+    .getByPlaceholder("Cena, supermercado, Uber…")
+    .fill("Cena editada");
+  await page.getByRole("button", { name: "Continuar" }).click();
+  await page.getByRole("button", { name: "Revisar gasto" }).click();
+  await page.getByRole("button", { name: "Guardar", exact: true }).click();
+  await page.waitForURL(/\/gastos\/[0-9a-f-]{36}$/);
   await expect(
     page.getByRole("heading", { name: "Cena editada" }),
   ).toBeVisible();
 
   // --- borrar el gasto ---
-  await page.getByRole("button", { name: "Eliminar gasto" }).click();
-  await expect(page.getByText("¿Eliminar este gasto?")).toBeVisible();
+  await page.getByRole("button", { name: "Editar" }).click();
   await page.getByRole("button", { name: "Eliminar", exact: true }).click();
+  await expect(page.getByText(/Eliminar .*Cena editada/)).toBeVisible();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Eliminar", exact: true })
+    .click();
   await page.waitForURL(new RegExp(`/g/${id}/gastos$`));
-  await expect(page.getByText("Sin gastos todavía")).toBeVisible();
+  await expect(page.getByText("Todavía no hay gastos")).toBeVisible();
 });
 
-test("funciona sin conexión: escribir en local sin red", async ({
+test("escritura local sin conexión (IndexedDB, sin red)", async ({
   page,
   context,
 }) => {
-  // Setup online: llegar a la pantalla de configuración de un grupo.
   const id = await createGroup(page, "Grupo offline");
+  await addPeopleDuringSetup(page, ["Uno"]);
+  await page.getByRole("button", { name: "Ir al resumen" }).click();
+  await page.waitForURL(new RegExp(`/g/${id}$`));
+
   await page.goto(`/g/${id}/config`);
-  await expect(page.getByPlaceholder("Nombre")).toBeVisible();
-
-  // A partir de acá, sin conexión. Agregar un participante es una escritura
-  // local (IndexedDB) + re-render por useLiveQuery, sin navegación ni red.
-  await context.setOffline(true);
-
-  await page.getByPlaceholder("Nombre").fill("Participante offline");
-  await page.getByRole("button", { name: "Agregar", exact: true }).click();
   await expect(
-    page.getByRole("listitem").filter({ hasText: "Participante offline" }),
+    page.getByRole("textbox", { name: "Nombre del grupo" }),
   ).toBeVisible();
 
-  // Renombrar el grupo también es local.
+  // A partir de acá, sin red. Agregar persona y renombrar son escrituras
+  // locales (IndexedDB) + re-render por useLiveQuery, sin navegación.
+  await context.setOffline(true);
+
+  await page.getByPlaceholder("Ej.: Ana").fill("Persona offline");
+  await page.getByRole("button", { name: "Agregar", exact: true }).click();
+  await expect(
+    page.getByRole("listitem").filter({ hasText: "Persona offline" }),
+  ).toBeVisible();
+
   await page
     .getByRole("textbox", { name: "Nombre del grupo" })
     .fill("Renombrado offline");

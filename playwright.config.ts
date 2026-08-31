@@ -18,6 +18,11 @@ export default defineConfig({
   use: {
     baseURL: `http://localhost:${PORT}`,
     trace: "on-first-retry",
+    // fivi usa el idioma del navegador cuando no hay preferencia guardada.
+    // Emulamos un usuario en español (idioma por defecto de la app) para que
+    // los selectores por texto ES sean estables. El test de i18n cambia el
+    // idioma explícitamente desde la UI.
+    locale: "es-AR",
   },
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
