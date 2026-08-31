@@ -108,6 +108,7 @@ beforeAll(async () => {
     "0006_invites.sql",
     "0007_rls_auth.sql",
     "0008_groups_select_creator.sql",
+    "0009_group_archive.sql",
   ]) {
     await pg.exec(migration(file));
   }
@@ -434,5 +435,90 @@ describe("RLS: rol anon", () => {
         and 'anon' = any(roles)
     `);
     expect(r.rows).toHaveLength(0);
+  });
+});
+
+describe("RLS: archivado y snapshot (0009)", () => {
+  it("archivar un grupo (archived_at) dispara el snapshot en group_archives", async () => {
+    const gid = await createGroupAs(U1, "Para archivar");
+    // un gasto para que el snapshot tenga contenido
+    const pid = randomUUID();
+    const eid = randomUUID();
+    await asUser(U1, async (tx) => {
+      await tx.query(
+        "insert into public.participants (id, group_id, name) values ($1, $2, 'Ana')",
+        [pid, gid],
+      );
+      await tx.query(
+        `insert into public.expenses (id, group_id, description, amount_minor_units, paid_by, expense_date, split_strategy)
+         values ($1, $2, 'Cena', 5000, $3, '2026-08-01', '{"kind":"equal"}'::jsonb)`,
+        [eid, gid, pid],
+      );
+      await tx.query(
+        "update public.groups set archived_at = now() where id = $1",
+        [gid],
+      );
+    });
+
+    const snap = await asUser(U1, (tx) =>
+      tx.query<{ snapshot: Record<string, unknown> }>(
+        "select snapshot from public.group_archives where group_id = $1",
+        [gid],
+      ),
+    );
+    expect(snap.rows).toHaveLength(1);
+    const s = snap.rows[0]!.snapshot as {
+      group: { id: string };
+      expenses: unknown[];
+      participants: unknown[];
+    };
+    expect(s.group.id).toBe(gid);
+    expect(s.expenses).toHaveLength(1);
+    expect(s.participants).toHaveLength(1);
+  });
+
+  it("un ajeno no puede leer el snapshot de un grupo del que no es miembro", async () => {
+    const gid = await createGroupAs(U1, "Privado");
+    await asUser(U1, (tx) =>
+      tx.query("update public.groups set archived_at = now() where id = $1", [
+        gid,
+      ]),
+    );
+    const rows = await asUser(U2, (tx) =>
+      tx.query("select group_id from public.group_archives where group_id = $1", [
+        gid,
+      ]),
+    );
+    expect(rows.rows).toHaveLength(0);
+  });
+
+  it("re-archivar no duplica ni pisa el snapshot con timestamp nuevo si ya estaba archivado", async () => {
+    const gid = await createGroupAs(U1, "Doble archivado");
+    await asUser(U1, (tx) =>
+      tx.query("update public.groups set archived_at = now() where id = $1", [
+        gid,
+      ]),
+    );
+    const first = await asUser(U1, (tx) =>
+      tx.query<{ archived_at: string }>(
+        "select archived_at from public.group_archives where group_id = $1",
+        [gid],
+      ),
+    );
+    // segundo update de archived_at con el grupo ya archivado: el trigger no
+    // vuelve a snapshotear (old.archived_at no es null).
+    await asUser(U1, (tx) =>
+      tx.query(
+        "update public.groups set archived_at = now() + interval '1 day' where id = $1",
+        [gid],
+      ),
+    );
+    const again = await asUser(U1, (tx) =>
+      tx.query<{ archived_at: string }>(
+        "select archived_at from public.group_archives where group_id = $1",
+        [gid],
+      ),
+    );
+    expect(again.rows[0]!.archived_at).toEqual(first.rows[0]!.archived_at);
   });
 });

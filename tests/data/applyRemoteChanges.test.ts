@@ -61,6 +61,7 @@ describe("applyRemoteChanges", () => {
       updated_at: nowIso(),
       version: 1,
       deleted_at: null,
+      archived_at: null,
     };
     const res = await applyRemoteChanges([groupChange(remoteGroup)], db);
     expect(res).toEqual({ applied: 1, skipped: 0 });

@@ -18,9 +18,12 @@ import {
   nameOf,
 } from "@/components/ui/cards";
 import { Card } from "@/components/ui/primitives";
+import { useToast } from "@/components/ui/toast";
 import { useGroupContext } from "@/components/GroupProvider";
 import { useSyncState } from "@/components/SyncProvider";
 import { useLocale } from "@/components/LocaleProvider";
+import { db } from "@/data/db";
+import { restoreGroup } from "@/data/repositories/groupRepo";
 import { useMe } from "@/data/settings";
 import { useGroupSummary } from "@/lib/db-hooks";
 import { formatRelative, minutesSince } from "@/lib/format";
@@ -40,8 +43,9 @@ function SyncLine() {
 }
 
 export default function GroupSummaryPage() {
-  const { t } = useTranslation(["group", "common", "expense"]);
+  const { t } = useTranslation(["group", "archive", "common", "expense"]);
   const { lang } = useLocale();
+  const toast = useToast();
   const { group, participants } = useGroupContext();
   const hydrated = useHydrated();
   const summary = useGroupSummary(group.id);
@@ -77,6 +81,24 @@ export default function GroupSummaryPage() {
         <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-accent" />
         <SyncLine />
       </p>
+
+      {group.archived_at ? (
+        <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-text/[0.04] px-4 py-3 text-sm">
+          <span className="min-w-0 text-muted">{t("archive:bannerBody")}</span>
+          <button
+            type="button"
+            className="min-h-touch shrink-0 font-medium text-accent"
+            onClick={async () => {
+              await restoreGroup(group.id, db);
+              toast({
+                message: t("archive:restoredToast", { name: group.name }),
+              });
+            }}
+          >
+            {t("archive:restore")}
+          </button>
+        </div>
+      ) : null}
 
       {myBalance ? (
         <BalanceCard

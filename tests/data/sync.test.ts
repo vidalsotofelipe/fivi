@@ -90,6 +90,7 @@ describe("SyncEngine con stubRemote", () => {
       updated_at: "2026-08-01T00:00:00.000Z",
       version: 1,
       deleted_at: null,
+      archived_at: null,
     };
     const remote: RemotePort = {
       push: async () => ({ accepted_ids: [], rejected: [] }),
@@ -123,6 +124,7 @@ describe("SyncEngine con stubRemote", () => {
       updated_at: "2026-08-01T00:00:00.000Z",
       version: 1,
       deleted_at: null,
+      archived_at: null,
     };
     const pulled: Array<{ group_ids: string[]; cursor: number | null }> = [];
     const remote: RemotePort = {
@@ -168,6 +170,7 @@ describe("SyncEngine con stubRemote", () => {
       updated_at: "2026-08-01T00:00:00.000Z",
       version: 1,
       deleted_at: null,
+      archived_at: null,
     };
     const realRemote: RemotePort = {
       push: async () => ({ accepted_ids: [], rejected: [] }),

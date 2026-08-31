@@ -8,6 +8,7 @@
 import type { CurrencyCode, Group } from "@/domain/types";
 import { getCurrencyInfo } from "@/domain/currencies";
 import { FiviDatabase, db as defaultDb } from "../db";
+import { nowIso } from "../ids";
 import {
   createRecord,
   isLive,
@@ -39,6 +40,7 @@ export async function createGroup(
       name,
       description: input.description?.trim() || null,
       currency_code: input.currency_code,
+      archived_at: null,
     },
     database,
   );
@@ -52,13 +54,54 @@ export async function getGroup(
   return g && isLive(g) ? g : undefined;
 }
 
+export interface ListGroupsOptions {
+  /** Incluir los grupos archivados (por defecto se excluyen). */
+  includeArchived?: boolean;
+  /** Devolver SÓLO los archivados. */
+  onlyArchived?: boolean;
+}
+
 export async function listGroups(
   database: FiviDatabase = defaultDb,
+  { includeArchived = false, onlyArchived = false }: ListGroupsOptions = {},
 ): Promise<Group[]> {
   const all = await database.groups.toArray();
   return all
     .filter(isLive)
+    .filter((g) =>
+      onlyArchived
+        ? g.archived_at !== null
+        : includeArchived || g.archived_at === null,
+    )
     .sort((a, b) => b.created_at.localeCompare(a.created_at));
+}
+
+/** Archiva el grupo: sale de la lista principal, se conserva y se puede restaurar. */
+export async function archiveGroup(
+  id: string,
+  database: FiviDatabase = defaultDb,
+): Promise<Group> {
+  return updateRecord<Group>(
+    database.groups,
+    "group",
+    id,
+    { archived_at: nowIso() },
+    database,
+  );
+}
+
+/** Restaura un grupo archivado. */
+export async function restoreGroup(
+  id: string,
+  database: FiviDatabase = defaultDb,
+): Promise<Group> {
+  return updateRecord<Group>(
+    database.groups,
+    "group",
+    id,
+    { archived_at: null },
+    database,
+  );
 }
 
 export async function renameGroup(

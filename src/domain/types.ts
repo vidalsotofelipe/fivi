@@ -39,6 +39,12 @@ export interface Group extends SyncableRecord {
   description: string | null;
   /** Moneda principal del grupo. Obligatoria. Un grupo = una moneda. */
   currency_code: CurrencyCode;
+  /**
+   * Grupo archivado: se oculta de la lista principal (va a "Archivados") pero
+   * NO se borra y se puede restaurar. `null` = activo. Se sincroniza como
+   * cualquier campo del grupo (archivar en un dispositivo archiva en todos).
+   */
+  archived_at: IsoDateTime | null;
 }
 
 export interface Participant extends SyncableRecord {

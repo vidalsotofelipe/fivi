@@ -70,6 +70,21 @@ export class FiviDatabase extends Dexie {
             }
           });
       });
+
+    // v3: grupos archivables. Agrega `archived_at` al índice de `groups`
+    // (aditiva). Las filas existentes quedan con `archived_at = null` (activas).
+    this.version(3)
+      .stores({
+        groups: "id, updated_at, deleted_at, archived_at",
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table<Group, string>("groups")
+          .toCollection()
+          .modify((g) => {
+            if (g.archived_at === undefined) g.archived_at = null;
+          });
+      });
   }
 }
 

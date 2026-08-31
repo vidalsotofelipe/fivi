@@ -190,6 +190,7 @@ este esquema?**
 | `0006_invites` | 0.7.0 | **ROLLBACK RISK** | tabla de invitaciones + RPC de canje |
 | `0007_rls_auth` | 0.7.0 | **INCOMPATIBLE — ROLLBACK RISK** | **elimina** las policies permisivas `to anon` de `0002` y las reemplaza por policies que exigen `auth.uid()` + membresía |
 | `0008_groups_select_creator` | 0.7.1 | **backward-compatible** | `groups_select` también permite `created_by = auth.uid()` (arregla `INSERT … RETURNING` en `groups`). Un frontend 0.7.0 sigue funcionando. |
+| `0009_group_archive` | 0.9.0 | **backward-compatible** | agrega `groups.archived_at` (nullable), la tabla `group_archives` y un trigger que snapshotea al archivar. Un frontend anterior ignora `archived_at` y nunca lo setea (el trigger no se dispara). Aditiva pura. |
 
 **`0005`–`0007` son un corte duro, no Expand→Migrate→Contract.** Las policies de
 RLS no pueden coexistir de forma útil (permisiva `to anon` + restrictiva

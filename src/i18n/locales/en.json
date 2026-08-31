@@ -243,6 +243,22 @@
     "personAdded": "{{name}} was added",
     "someone": "Someone"
   },
+  "archive": {
+    "sectionTitle": "Archived",
+    "archivedOn": "Archived on {{date}}",
+    "restore": "Restore",
+    "restoredToast": "“{{name}}” restored",
+    "archivedToast": "“{{name}}” archived",
+    "autoToast_one": "Archived one group with no activity in {{days}} days",
+    "autoToast_other": "Archived {{count}} groups with no activity in {{days}} days",
+    "archiveGroup": "Archive group",
+    "archiveHint": "It leaves the main list but isn't deleted. Groups with no new expenses or payments in {{days}} days are archived automatically.",
+    "isArchivedHint": "This group is archived: it doesn't show in the main list. You can restore it anytime.",
+    "archiveConfirmTitle": "Archive “{{name}}”",
+    "archiveConfirmBody": "The group leaves the main list. It isn't deleted: you can restore it anytime.",
+    "bannerBody": "This group is archived.",
+    "allArchived": "All your groups are archived."
+  },
   "settings": {
     "title": "More",
     "menuTitle": "Group settings",

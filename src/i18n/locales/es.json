@@ -243,6 +243,22 @@
     "personAdded": "Se agregó a {{name}}",
     "someone": "Alguien"
   },
+  "archive": {
+    "sectionTitle": "Archivados",
+    "archivedOn": "Archivado el {{date}}",
+    "restore": "Restaurar",
+    "restoredToast": "«{{name}}» se restauró",
+    "archivedToast": "«{{name}}» se archivó",
+    "autoToast_one": "Se archivó un grupo sin actividad en {{days}} días",
+    "autoToast_other": "Se archivaron {{count}} grupos sin actividad en {{days}} días",
+    "archiveGroup": "Archivar grupo",
+    "archiveHint": "Sale de la lista principal pero no se borra. Los grupos sin gastos ni pagos nuevos en {{days}} días se archivan solos.",
+    "isArchivedHint": "Este grupo está archivado: no aparece en la lista principal. Podés restaurarlo cuando quieras.",
+    "archiveConfirmTitle": "Archivar «{{name}}»",
+    "archiveConfirmBody": "El grupo sale de la lista principal. No se borra: podés restaurarlo cuando quieras.",
+    "bannerBody": "Este grupo está archivado.",
+    "allArchived": "Todos tus grupos están archivados."
+  },
   "settings": {
     "title": "Más",
     "menuTitle": "Ajustes del grupo",

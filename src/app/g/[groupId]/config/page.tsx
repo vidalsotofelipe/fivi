@@ -18,11 +18,14 @@ import { useLocale } from "@/components/LocaleProvider";
 import { SUPPORTED_LANGS } from "@/i18n/config";
 import { useGroupHasMovements } from "@/lib/db-hooks";
 import { db } from "@/data/db";
+import { ARCHIVE_AFTER_DAYS } from "@/data/autoArchive";
 import type { Participant } from "@/domain/types";
 import {
+  archiveGroup,
   changeGroupCurrency,
   deleteGroup,
   renameGroup,
+  restoreGroup,
 } from "@/data/repositories/groupRepo";
 import {
   addParticipant,
@@ -38,6 +41,7 @@ export default function GroupConfigPage() {
     "settings",
     "group",
     "people",
+    "archive",
     "common",
     "errors",
     "a11y",
@@ -54,7 +58,11 @@ export default function GroupConfigPage() {
   const [currencyError, setCurrencyError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [confirmArchive, setConfirmArchive] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const [pastFor, setPastFor] = useState<Participant | null>(null);
+
+  const isArchived = group.archived_at !== null;
 
   const detailsDirty =
     name.trim() !== group.name ||
@@ -232,6 +240,41 @@ export default function GroupConfigPage() {
 
       <InvitesSection groupId={group.id} />
 
+      {/* Archivar / restaurar (reversible) */}
+      <section className="mt-2 flex flex-col gap-1.5 border-t border-border pt-4">
+        <h2 className="text-sm font-medium text-muted">
+          {t("archive:sectionTitle")}
+        </h2>
+        <p className="text-xs text-muted">
+          {isArchived
+            ? t("archive:isArchivedHint")
+            : t("archive:archiveHint", { days: ARCHIVE_AFTER_DAYS })}
+        </p>
+        {isArchived ? (
+          <Button
+            variant="secondary"
+            className="self-start"
+            loading={archiving}
+            onClick={async () => {
+              setArchiving(true);
+              await restoreGroup(group.id, db);
+              toast({ message: t("archive:restoredToast", { name: group.name }) });
+              setArchiving(false);
+            }}
+          >
+            {t("archive:restore")}
+          </Button>
+        ) : (
+          <Button
+            variant="secondary"
+            className="self-start"
+            onClick={() => setConfirmArchive(true)}
+          >
+            {t("archive:archiveGroup")}
+          </Button>
+        )}
+      </section>
+
       {/* Zona sensible */}
       <section className="mt-2 flex flex-col gap-2 border-t border-border pt-4">
         <h2 className="text-sm font-medium text-danger">
@@ -245,6 +288,23 @@ export default function GroupConfigPage() {
           {t("settings:deleteGroup")}
         </Button>
       </section>
+
+      <ConfirmDialog
+        open={confirmArchive}
+        onCancel={() => setConfirmArchive(false)}
+        onConfirm={async () => {
+          setArchiving(true);
+          await archiveGroup(group.id, db);
+          toast({ message: t("archive:archivedToast", { name: group.name }) });
+          router.replace("/");
+        }}
+        title={t("archive:archiveConfirmTitle", { name: group.name })}
+        body={t("archive:archiveConfirmBody")}
+        confirmLabel={t("archive:archiveGroup")}
+        cancelLabel={t("common:cancel")}
+        danger={false}
+        busy={archiving}
+      />
 
       <ConfirmDialog
         open={confirmDelete}

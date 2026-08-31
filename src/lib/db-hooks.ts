@@ -27,9 +27,17 @@ import type {
   Participant,
 } from "@/domain/types";
 
-/** `undefined` mientras carga. */
+/** `undefined` mientras carga. Sólo grupos activos (no archivados). */
 export function useGroups(): GroupListItem[] | undefined {
   return useLiveQuery(() => listGroupsWithTotals(db), []);
+}
+
+/** Grupos archivados (ocultos de la lista principal, restaurables). */
+export function useArchivedGroups(): GroupListItem[] | undefined {
+  return useLiveQuery(
+    () => listGroupsWithTotals(db, { onlyArchived: true }),
+    [],
+  );
 }
 
 /** `undefined` cargando · `null` no encontrado. */

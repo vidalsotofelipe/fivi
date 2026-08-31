@@ -13,6 +13,35 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.9.0] - 2026-08-31
+
+Grupos archivables (para que no se acumulen grupos eternos en la lista) +
+archivado automático por inactividad + snapshot de respaldo.
+
+### Added
+
+- **Archivar / restaurar grupo** (`Más → Configuración`). Archivar saca el grupo
+  de la lista principal sin borrarlo; se restaura con un toque desde la sección
+  "Archivados" del inicio o desde el propio grupo. Es un flag `archived_at` que
+  se sincroniza como cualquier campo del grupo (archivar en un dispositivo
+  archiva en todos).
+- **Archivado automático**: al abrir la app se archivan los grupos sin gastos ni
+  pagos nuevos (ni cambios en sus datos) en los últimos **30 días**
+  (`ARCHIVE_AFTER_DAYS`). Aviso por toast; siempre restaurable.
+- **Snapshot de respaldo** (`group_archives`, migración `0009`): al archivarse un
+  grupo, un trigger de Postgres guarda un JSON completo (grupo + participantes +
+  gastos + reparto + pagos) para export/backup a futuro. Sólo lo ve un miembro
+  del grupo (RLS).
+- Sección "Archivados" colapsable en el inicio; aviso "Grupo archivado" con
+  acción de restaurar al abrir un grupo archivado.
+
+### Migración Supabase
+
+- **`0009_group_archive.sql`** — **backward-compatible** (aditiva pura). Agrega
+  `groups.archived_at`, la tabla `group_archives` + su policy de select, y el
+  trigger `snapshot_group_on_archive`. Aplicar junto con `0.9.0`. Un frontend
+  anterior la ignora.
+
 ## [0.8.2] - 2026-08-31
 
 Corrige una condición de carrera al arrancar en modo cloud que podía dejar un

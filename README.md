@@ -134,6 +134,17 @@ Etapa 8 — **rediseño mobile-first + i18n (ES/EN)** ✅
   reescrito para la UI nueva. Detalle y desviaciones respecto del handoff en
   [`docs/REDISENIO.md`](docs/REDISENIO.md).
 
+Etapa 9 — **grupos archivables** ✅
+
+- **Archivar / restaurar grupo** (`Más → Configuración`): sale de la lista
+  principal sin borrarse, restaurable desde la sección "Archivados" del inicio.
+  Flag `groups.archived_at` sincronizado como cualquier campo del grupo.
+- **Archivado automático** al abrir la app: grupos sin gastos ni pagos nuevos
+  (ni cambios) en 30 días (`ARCHIVE_AFTER_DAYS`). Siempre restaurable.
+- **Snapshot de respaldo** (`group_archives`, migración `0009`): un trigger de
+  Postgres guarda un JSON completo del grupo al archivarse (export/backup
+  futuro), visible sólo para miembros.
+
 Pendiente
 
 - ⬜ Persistir el cursor entre sesiones (hoy cada sesión arranca con un pull
@@ -213,7 +224,7 @@ src/app/          Next.js App Router: /, /nuevo, /g/[groupId]/{,, nuevo/personas
                   config}, /join/[token]
 supabase/migrations/  0001 tablas · 0002 realtime+RLS · 0003 sync_revision ·
                   0004 integridad · 0005 membresía · 0006 invitaciones ·
-                  0007 RLS auth · 0008 groups select creator
+                  0007 RLS auth · 0008 groups select creator · 0009 group archive
 scripts/          gen-icons.mjs (iconos PNG de la PWA)
 tests/            unit (domain, data, sync, i18n) + security (RLS con pglite) +
                   e2e (flow, responsive, idioma)
