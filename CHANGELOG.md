@@ -11,7 +11,49 @@ rollback.
 
 ## [Unreleased]
 
-_(sin cambios pendientes de release)_
+Rediseño mobile-first + internacionalización ES/EN. **No cambia** reglas de
+negocio, `domain/`, repos `data/`, motor `sync/` ni backend/auth: sólo la capa
+de presentación. Detalle y desviaciones respecto del handoff en
+[`docs/REDISENIO.md`](docs/REDISENIO.md).
+
+### Added
+
+- **i18n ES/EN** (`react-i18next` + `i18next`): español por defecto y fallback,
+  cambio en caliente sin recarga desde `Más → Configuración → Idioma`,
+  preferencia en `localStorage` (`fivi:lang`), sugerencia por
+  `navigator.language` en la primera visita. Todos los textos en
+  `src/i18n/locales/{es,en}.json` (12 namespaces) con interpolación y
+  pluralización. Formato de fechas / números / moneda con `Intl` y el locale de
+  la UI; la moneda del grupo no cambia con el idioma.
+- **Tokens de diseño** (`globals.css` + `tailwind.config.ts`): custom properties
+  RGB con paleta clara y oscura (`prefers-color-scheme`), foco visible WCAG 2.2,
+  `prefers-reduced-motion`.
+- **Navegación inferior** de 4 destinos (Resumen / Gastos / Personas / Más) y
+  layout mobile-first (`AppShell` ancho fluido, tope 480 px, sin scroll
+  horizontal a nivel documento).
+- Rutas nuevas: `/g/[groupId]/nuevo/personas`, `/g/[groupId]/listo`,
+  `/g/[groupId]/personas`, `/g/[groupId]/personas/[participantId]`,
+  `/g/[groupId]/actividad`, `/g/[groupId]/mas`.
+- **Actividad del grupo** (`queries.getGroupActivity`): línea de tiempo derivada
+  de timestamps y tombstones existentes, sin schema nuevo. Filtro por tipo y
+  persona.
+- Selector opcional por dispositivo "¿Quién sos en este grupo?" (`data/settings`,
+  no se sincroniza) para "Tu balance" y el filtro "Míos".
+- `SyncBanner`: avisos sobre el contenido para sin conexión / error del servidor
+  (con "Reintentar") / sin acceso al grupo.
+- E2E `responsive.spec.ts` (sin scroll horizontal en 320/360/390/430 px) e
+  `idioma.spec.ts` (cambio y persistencia de idioma); test unitario de paridad
+  de claves i18n (`tests/i18n/parity.test.ts`) y de `getGroupActivity`.
+
+### Changed
+
+- Flujos de alta de grupo y de gasto reescritos como asistentes de 3 pasos con
+  `StepIndicator`.
+- `flow.spec.ts` reescrito para la UI nueva; `playwright.config.ts` fija
+  `locale: es-AR` (la app toma el idioma del navegador si no hay preferencia).
+- Componentes existentes migrados a los tokens y a i18n (`Button`, `fields`,
+  `EmptyState`, `CurrencyPicker`, `ExpenseWizard`, `InvitesSection`,
+  `ShareButton`, `AddToPastExpenses`, …).
 
 ## [0.7.2] - 2026-08-31
 

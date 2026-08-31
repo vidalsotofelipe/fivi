@@ -334,21 +334,28 @@ aritmética de dinero:
 
 ```
 fivi/
-  docs/ARCHITECTURE.md
+  docs/ARCHITECTURE.md, RELEASES.md, REDISENIO.md
   public/            manifest.webmanifest, sw.js, icons/ (svg + png 192/512/maskable)
   scripts/gen-icons.mjs
   src/
-    app/             layout, page, sw-register, globals.css, rutas /g/[groupId]/…
+    app/             layout (LocaleProvider→ToastProvider→SyncProvider), page,
+                     sw-register, globals.css (tokens), rutas /g/[groupId]/…
     domain/          types, currencies, money, split, balances, settlement (puro)
-    data/            db, ids, queries, repositories/{group,participant,expense,payment}Repo
+    data/            db, ids, queries (+getGroupActivity), settings (prefs por
+                     dispositivo), repositories/{group,participant,expense,payment}Repo
     sync/            types, entities, RemotePort, stubRemote, supabaseRemote,
-                     applyRemoteChanges, queue, SyncEngine
-    lib/             supabaseConfig, supabase, db-hooks, format, cn
-    components/       AppShell, Button, fields, CurrencySelect, MoneyInput,
-                     ExpenseForm, BalanceList, TransferList, SyncProvider, SyncBadge
-  supabase/migrations/  0001…0004 (ver §3)
-  tests/             domain/*.test.ts, data/*.test.ts, sync/*.test.ts, e2e/*.spec.ts
-  .github/workflows/ci.yml
+                     applyRemoteChanges, queue, accessError, SyncEngine
+    i18n/            config (react-i18next), locales/{es,en}.json (namespaced)
+    lib/             supabaseConfig, supabase, db-hooks, format (Intl), useHydrated,
+                     appInfo, cn
+    components/       AppShell/AppBar/BottomNav, LocaleProvider, SyncProvider,
+                     SyncBadge, SyncBanner, Button, fields, MePicker, ExpenseWizard,
+                     CurrencyPicker, InvitesSection, ShareButton, AddToPastExpenses,
+                     ui/{primitives,overlays,toast,TextField,formfields,Combobox,cards}
+  supabase/migrations/  0001…0008 (ver §3 y §17)
+  tests/             domain/ data/ sync/ i18n/ *.test.ts, security/rls.test.ts,
+                     e2e/{flow,responsive,idioma}.spec.ts
+  .github/workflows/  ci.yml, release.yml
 ```
 
 Alias `@/*` → `src/*` (tsconfig + vitest). Node ≥ 20.11 (`engines`).
@@ -392,9 +399,21 @@ Alias `@/*` → `src/*` (tsconfig + vitest). Node ≥ 20.11 (`engines`).
 - **Acceso denegado / offline** (`tests/data/sync.test.ts`): un rechazo `42501`
   no borra el dato local y emite `access_error`; un pull vacío no borra el grupo;
   el CRUD local sigue con el remoto inalcanzable.
-- E2E (`tests/e2e/`, Playwright, sin Supabase): flujo completo (grupo →
-  participantes → gasto → balance → pago → editar → borrar) y escritura offline
-  (agregar participante / renombrar grupo con `context.setOffline(true)`).
+- **i18n** (`tests/i18n/`): `formatDate`/`formatNumber`/`formatMoney` cambian con
+  el locale pero `formatMoney` **no** cambia la moneda; cambio de idioma en
+  caliente; preferencia guardada > navegador > español; clave faltante en inglés
+  cae al español; clave inexistente devuelve la clave; **paridad de claves**
+  es/en (mismas claves, ningún valor vacío — `parity.test.ts`).
+- **Actividad** (`tests/data/activity.test.ts`): `getGroupActivity` deriva los
+  eventos de gastos/pagos/personas de los timestamps, ordena desc, marca
+  `version > 1` como "editado" y omite tombstones de pago.
+- E2E (`tests/e2e/`, Playwright, `locale: es-AR`, sin Supabase):
+  `flow.spec.ts` — flujo completo con la UI nueva (alta en 3 pasos, wizard de
+  gasto de 3 pasos, saldos, pago, editar/borrar por el menú del detalle) +
+  escritura local sin conexión; `responsive.spec.ts` — sin scroll horizontal a
+  nivel documento en 320/360/390/430 px sobre las 11 rutas principales;
+  `idioma.spec.ts` — `Más → Configuración → Idioma → English` cambia la interfaz
+  al instante, persiste tras recargar y no cambia la moneda.
 
 ## 16. Hardening (cursor, backoff, paginación, integridad, CI)
 
@@ -612,6 +631,89 @@ idempotente / `owner` automático / `anon` no ve nada / no quedan policies `to
 anon`. `auth.uid()` es un stub: no se ejercita parseo real de JWT ni la entrega
 de Realtime (verificación manual).
 
+## 18. UI mobile-first + i18n (Etapa 8)
+
+Rediseño de la capa de presentación. **No toca** `domain/`, `data/repositories/`,
+`sync/` ni `supabase/`: reusa `queries`, `computeShares`, `computeBalances`,
+`simplifyDebts`, `db-hooks` y los repos. Detalle y desviaciones respecto del
+handoff en [`REDISENIO.md`](REDISENIO.md).
+
+### 18.1 Tokens de diseño y tema
+
+`src/app/globals.css` define custom properties como **RGB separados por
+espacios** en `:root` (paleta clara) y `@media (prefers-color-scheme: dark)`
+(paleta del handoff). `tailwind.config.ts` las mapea con
+`rgb(var(--x) / <alpha-value>)` → utilidades `bg-bg`, `bg-surface`,
+`text-muted`, `border-border`, `text-accent`, `text-danger`, … Foco visible
+global (`:focus-visible` outline 2px + offset), reset de animación bajo
+`prefers-reduced-motion`. El tema **sigue al sistema**; no hay override manual.
+
+### 18.2 Layout
+
+- `AppShell` — contenedor `mx-auto w-full max-w-app` (480 px), `padding-inline`
+  fijo, `min-h-dvh`, nunca ancho fijo; `body { overflow-x: hidden }` garantiza
+  que no haya scroll horizontal a nivel documento (test `responsive.spec.ts`).
+- `AppBar` — volver (href o historial) + título truncado + `SyncBadge` + slot de
+  menú (kebab → `BottomSheet`).
+- `BottomNav` — 4 destinos (Resumen `/g/[id]`, Gastos `/gastos`, Personas
+  `/personas`, Más `/mas`), labels siempre visibles, `aria-current="page"`,
+  `env(safe-area-inset-bottom)`. Sólo se renderiza en pantallas de grupo.
+- `SyncBanner` (sobre el contenido, sólo en modo cloud): sin acceso al grupo /
+  error del servidor con "Reintentar" (`engine.syncNow(true)`) / sin conexión.
+
+### 18.3 Preferencias por dispositivo — `src/data/settings.ts`
+
+Sobre el store `settings` de Dexie (`{key, value}`, **no se sincroniza**):
+`me:<groupId>` (qué participante sos, para "Tu balance" y el filtro "Míos"),
+`last_payer:<groupId>` (pagador precargado al cargar un gasto),
+`setup_seen:<groupId>` (la pantalla "grupo listo" ya se mostró). Hooks
+reactivos `useMe`, `useLastPayer`, `useSetting`.
+
+### 18.4 Actividad — `queries.getGroupActivity(groupId)`
+
+Reconstruye una línea de tiempo (`ActivityEvent[]`: `expense_created` /
+`expense_updated` / `expense_deleted` / `payment_created` / `person_added`) a
+partir de los `created_at` / `updated_at` / `deleted_at` y tombstones que ya
+existen. Sin schema nuevo, sin tabla de historial: "editado" = `version > 1` y
+su `updated_at`, no el diff. Orden desc por timestamp. Hook `useGroupActivity`.
+
+### 18.5 i18n — `src/i18n/`
+
+- `react-i18next` + `i18next`, recursos **embebidos** (`resources: {es, en}`),
+  `react: { useSuspense: false }` (crítico: sin esto react-i18next suspende en
+  SSR y rompe la hidratación del App Router).
+- `lng`/`fallbackLng: 'es'`; namespaces = claves de nivel superior de `es.json`
+  (`common`, `nav`, `sync`, `errors`, `onboarding`, `group`, `expense`,
+  `payment`, `people`, `activity`, `settings`, `a11y`). Interpolación `{{var}}`,
+  pluralización `_one`/`_other`. **Prohibido concatenar fragmentos**: una clave
+  completa por frase.
+- `LocaleProvider` (client) — resuelve el idioma en el cliente
+  (`detectInitialLang`: `localStorage['fivi:lang']` > `navigator.language` > es),
+  mantiene `<html lang>` en sincronía, expone `useLocale() → { lang, setLang }`.
+  El SSR renderiza en español; si la preferencia es inglés hay un re-render al
+  montar. El selector vive en `Más → Configuración → Idioma`
+  (`SegmentedControl` Español/English) y cambia en caliente sin recarga.
+- `src/lib/format.ts` — `formatDate` / `formatDateTime` / `formatRelative`
+  (`Intl.RelativeTimeFormat`) / `formatNumber` / `formatMoney` reciben el `lang`
+  de la UI. **`formatMoney(minor, code, lang)` cambia el formato pero nunca la
+  moneda**: locale = UI, currency = grupo. `CurrencyPicker` localiza sólo el
+  *nombre* de la moneda con `Intl.DisplayNames`.
+- SSR safety: `useHydrated()` (evita mismatches de `useLiveQuery` en el primer
+  render), y `ToastProvider` monta su portal sólo tras `useEffect`.
+
+### 18.6 Componentes base — `src/components/ui/`
+
+`primitives` (Spinner, Skeleton, Card, Chip, StickyActionBar, StepIndicator,
+SegmentedControl genérico), `overlays` (BottomSheet con foco/Esc/scroll-lock/
+retorno de foco, ConfirmDialog = nombre + consecuencia), `toast`
+(`aria-live="polite"`, acción + "Deshacer" opcional), `TextField`/`TextAreaField`
+y `formfields` (MoneyField con prefijo de moneda + `inputmode="decimal"`,
+DateField, SelectField) — todos cablean `aria-describedby` / `aria-invalid` /
+`role="alert"`; `Combobox` genérico con búsqueda (base de `CurrencyPicker`);
+`cards` (BalanceCard, BalanceRow, TransferRow, ExpenseCard, PersonRow,
+ActivityItem). Touch target ≥ 44×44 (`min-h-touch`). `ExpenseWizard` desarma el
+alta/edición de gasto en 3 pasos reusando `computeShares`.
+
 ---
 
 ## Decisiones de stack
@@ -631,5 +733,7 @@ de Realtime (verificación manual).
 | PWA              | Manifest + SW a mano         | Sección 33: evitar dependencias innecesarias.    |
 | Iconos PWA       | PNG generados con `scripts/gen-icons.mjs` | Sin tooling de imágenes; encoder PNG a mano (zlib). |
 | Estado UI ↔ datos | `dexie-react-hooks`         | `useLiveQuery` mantiene la UI viva desde IndexedDB. |
+| i18n             | `react-i18next` + `i18next` | Estándar de facto; recursos embebidos, `useSuspense:false` para SSR (§18.5). |
+| Estilos (tema)   | Custom properties RGB + Tailwind | Un token por color, claro/oscuro por `prefers-color-scheme` (§18.1). |
 | Sync remoto      | `@supabase/supabase-js` (carga diferida) | Pedido en el brief; sólo se baja si hay credenciales. |
 | postcss          | `overrides` a `^8.5.26`      | Next 15 embebe un postcss vulnerable; el override lo sube sin salir de la rama 15. |

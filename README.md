@@ -102,6 +102,38 @@ Etapa 7 — **seguridad de acceso (Auth + RLS)** ✅
   informa ("Sin acceso al grupo").
 - Tests de RLS reales en proceso con `@electric-sql/pglite` (Postgres WASM).
 
+Etapa 8 — **rediseño mobile-first + i18n (ES/EN)** ✅
+
+- **Tokens de diseño** (custom properties RGB → Tailwind) con paleta clara y
+  oscura; el tema sigue `prefers-color-scheme`. Foco visible WCAG 2.2,
+  `prefers-reduced-motion`.
+- **Layout mobile-first**: `AppShell` (ancho fluido, tope 480 px, sin scroll
+  horizontal a nivel documento), `AppBar`, `BottomNav` de 4 destinos
+  (Resumen / Gastos / Personas / Más).
+- **Flujos multi-paso** con `StepIndicator`: alta de grupo
+  (Grupo → Personas → Listo) y alta/edición de gasto
+  (Detalle → División → Confirmar).
+- **Componentes base** reutilizables (`src/components/ui/`): botones con estado
+  `loading`, campos con `aria-describedby`/`aria-invalid`, `BottomSheet`,
+  `ConfirmDialog`, `Toast` con "Deshacer", `Combobox`, tarjetas de balance /
+  gasto / persona / actividad.
+- **Estados transversales**: skeletons de estructura, `SyncBanner` (sin
+  conexión / error del servidor con "Reintentar" / sin acceso), toasts de
+  éxito, confirmaciones destructivas con nombre + consecuencia.
+- **Actividad del grupo** (`/g/[groupId]/actividad`): línea de tiempo derivada
+  de los timestamps y tombstones existentes (`queries.getGroupActivity`), sin
+  schema nuevo. Filtro por tipo y por persona.
+- **i18n ES/EN** con `react-i18next`: español por defecto y fallback, cambio en
+  caliente sin recarga (`Más → Configuración → Idioma`), preferencia en
+  `localStorage`, sugerencia por idioma del navegador en la primera visita.
+  Todos los textos en `src/i18n/locales/{es,en}.json` con interpolación y
+  pluralización. Fechas / números / moneda con `Intl` y el locale de la UI;
+  **la moneda del grupo no cambia con el idioma**.
+- E2E nuevos: `responsive.spec.ts` (sin scroll horizontal en 320/360/390/430 px)
+  e `idioma.spec.ts` (cambio + persistencia de idioma); `flow.spec.ts`
+  reescrito para la UI nueva. Detalle y desviaciones respecto del handoff en
+  [`docs/REDISENIO.md`](docs/REDISENIO.md).
+
 Pendiente
 
 - ⬜ Persistir el cursor entre sesiones (hoy cada sesión arranca con un pull
@@ -120,7 +152,7 @@ Copiá `.env.example` a `.env.local`, completá `NEXT_PUBLIC_SUPABASE_URL` y
 `NEXT_PUBLIC_SUPABASE_ANON_KEY`, y en el proyecto Supabase:
 
 1. Aplicá `supabase/migrations/` en orden (`0001`–`0004` esquema + sync;
-   `0005`–`0007` auth + membresía + RLS).
+   `0005`–`0008` auth + membresía + RLS).
 2. **Authentication → Providers → habilitá "Anonymous sign-ins"** (sin esto RLS
    no deja pasar ningún push/pull).
 3. Database → Replication: habilitá Realtime para `groups`, `participants`,
@@ -149,9 +181,8 @@ Requiere Node ≥ 20.11 (`engines` en `package.json`). La versión exacta está 
 ## Versionado y releases
 
 FIVI usa **Semantic Versioning** en `0.x` (pre-1.0). La versión vive en
-`package.json` (`0.7.0`) y se muestra en el pie de la pantalla de inicio
-(`FIVI v0.7.0 · <commit>`), inyectada en build por `next.config.mjs` — no se
-repite a mano en ningún lado.
+`package.json` y se muestra en el pie del menú "Más" (`FIVI vX.Y.Z · <commit>`),
+inyectada en build por `next.config.mjs` — no se repite a mano en ningún lado.
 
 - Novedades por versión: [`CHANGELOG.md`](CHANGELOG.md).
 - Cómo publicar una versión, desplegarla, volver atrás y manejar un hotfix
@@ -165,20 +196,28 @@ repite a mano en ningún lado.
 
 ```
 src/domain/       funciones puras (sin React / Dexie / Supabase)
-src/data/         Dexie (v2) + repositorios + consultas
+src/data/         Dexie (v2) + repositorios + consultas (+ getGroupActivity) +
+                  settings (preferencias por dispositivo: me / last_payer / setup_seen)
 src/sync/         types, entities, queue (backoff), RemotePort, stubRemote,
                   supabaseRemote (cursor + paginación + invitaciones),
                   applyRemoteChanges, accessError, SyncEngine
+src/i18n/         config (react-i18next) + locales/{es,en}.json (namespaced)
 src/lib/          hooks reactivos (useLiveQuery), supabase (auth anónima),
-                  invites (token/hash), formato
-src/components/    UI (AppShell, formularios, listas, SyncProvider, SyncBadge,
-                  InvitesSection)
-src/app/          Next.js App Router (rutas /g/[groupId]/… y /join/[token])
+                  invites (token/hash), formato localizado (Intl), useHydrated
+src/components/    UI mobile-first: AppShell/AppBar/BottomNav, LocaleProvider,
+                  SyncProvider, SyncBadge, SyncBanner, ui/ (primitives, overlays,
+                  toast, formfields, Combobox, cards), ExpenseWizard, InvitesSection
+src/app/          Next.js App Router: /, /nuevo, /g/[groupId]/{,, nuevo/personas,
+                  listo, gastos, gastos/nuevo, gastos/[id], gastos/[id]/editar,
+                  balance, pagos/nuevo, personas, personas/[id], actividad, mas,
+                  config}, /join/[token]
 supabase/migrations/  0001 tablas · 0002 realtime+RLS · 0003 sync_revision ·
-                  0004 integridad · 0005 membresía · 0006 invitaciones · 0007 RLS auth
+                  0004 integridad · 0005 membresía · 0006 invitaciones ·
+                  0007 RLS auth · 0008 groups select creator
 scripts/          gen-icons.mjs (iconos PNG de la PWA)
-tests/            unit (domain, data, sync) + security (RLS con pglite) + e2e
-.github/workflows/ci.yml
+tests/            unit (domain, data, sync, i18n) + security (RLS con pglite) +
+                  e2e (flow, responsive, idioma)
+.github/workflows/  ci.yml · release.yml
 ```
 
 ## Dinero
