@@ -42,6 +42,8 @@ const SyncContext = createContext<SyncStatus>(INITIAL);
 export interface SyncActions {
   /** Pide sincronizar un grupo aunque no esté en la base local (acceso por enlace). */
   requestGroup: (groupId: string) => void;
+  /** Fuerza una corrida de sincronización ahora (botón "Reintentar"). */
+  syncNow: () => Promise<void>;
   /** id del usuario anónimo actual (Supabase), o `null` (modo local o sin sesión). */
   userId: string | null;
   /** Canjea un token de invitación; devuelve el id del grupo al que da acceso. */
@@ -58,6 +60,7 @@ export interface SyncActions {
 
 const NOOP_ACTIONS: SyncActions = {
   requestGroup: () => {},
+  syncNow: () => Promise.resolve(),
   userId: null,
   redeemInvite: () =>
     Promise.reject(new Error("Las invitaciones requieren Supabase configurado")),
@@ -201,6 +204,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const actions = useMemo<SyncActions>(
     () => ({
       requestGroup: (groupId) => engine.trackGroup(groupId),
+      syncNow: async () => {
+        await engine.syncNow(true);
+      },
       userId,
       redeemInvite: (token) => engine.redeemInvite(token),
       createInvite: (groupId, opts) => engine.createInvite(groupId, opts),

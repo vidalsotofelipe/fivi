@@ -56,7 +56,7 @@ describe("getGroupActivity", () => {
     ]);
     // orden descendente por timestamp
     for (let i = 1; i < events.length; i++) {
-      expect(events[i - 1].at >= events[i].at).toBe(true);
+      expect(events[i - 1]!.at >= events[i]!.at).toBe(true);
     }
     const created = events.find((e) => e.kind === "expense_created")!;
     expect(created.name).toBe("Cena");

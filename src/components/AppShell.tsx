@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { AppBar } from "./AppBar";
+import { SyncBanner } from "./SyncBanner";
 
 /**
  * Contenedor mobile-first: ancho fluido con tope de 480 px, `padding-inline`
@@ -28,7 +29,10 @@ export function AppShell({
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-app flex-col bg-bg">
       <AppBar title={title} back={back} menu={menu} showSync={showSync} />
-      <main className="flex flex-1 flex-col gap-5 px-4 py-5">{children}</main>
+      <main className="flex flex-1 flex-col gap-5 px-4 py-5">
+        {showSync ? <SyncBanner /> : null}
+        {children}
+      </main>
       {bottomNav}
     </div>
   );
