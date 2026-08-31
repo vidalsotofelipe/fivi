@@ -10,8 +10,10 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/data/db";
 import {
+  getGroupActivity,
   getGroupSummary,
   listGroupsWithTotals,
+  type ActivityEvent,
   type GroupListItem,
   type GroupSummary,
 } from "@/data/queries";
@@ -74,4 +76,10 @@ export function useGroupHasMovements(groupId: string): boolean | undefined {
     () => groupRepo.groupHasMovements(groupId, db),
     [groupId],
   );
+}
+
+export function useGroupActivity(
+  groupId: string,
+): ActivityEvent[] | undefined {
+  return useLiveQuery(() => getGroupActivity(groupId, db), [groupId]);
 }

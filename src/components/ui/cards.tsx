@@ -9,8 +9,9 @@ import type {
   ParticipantBalance,
   Transfer,
 } from "@/domain/types";
+import type { ActivityEvent } from "@/data/queries";
 import { cn } from "@/lib/cn";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatRelative } from "@/lib/format";
 import { useLocale } from "@/components/LocaleProvider";
 import { Money } from "@/components/Money";
 
@@ -110,6 +111,118 @@ export function TransferRow({
       </Link>
     </li>
   );
+}
+
+/** Fila de persona en la lista de Personas: nombre + estado + saldo, enlaza al detalle. */
+export function PersonRow({
+  participant,
+  balanceMinor,
+  currency,
+  groupId,
+}: {
+  participant: Participant;
+  balanceMinor: number;
+  currency: CurrencyCode;
+  groupId: string;
+}) {
+  const { t } = useTranslation("people");
+  const status =
+    balanceMinor > 0
+      ? t("statusReceives")
+      : balanceMinor < 0
+        ? t("statusOwes")
+        : t("statusSettled");
+  return (
+    <li>
+      <Link
+        href={`/g/${groupId}/personas/${participant.id}`}
+        className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface px-4 py-3 hover:bg-text/[0.03]"
+      >
+        <span className="min-w-0">
+          <span className="block truncate text-[15px] text-text">
+            {participant.name}
+          </span>
+          <span className="block text-xs text-muted">{status}</span>
+        </span>
+        <Money minor={balanceMinor} currency={currency} signed />
+      </Link>
+    </li>
+  );
+}
+
+/** Un evento de la línea de tiempo de actividad (sección 15). */
+export function ActivityItem({
+  event,
+  participants,
+  currency,
+  groupId,
+}: {
+  event: ActivityEvent;
+  participants: Participant[];
+  currency: CurrencyCode;
+  groupId: string;
+}) {
+  const { t } = useTranslation(["activity", "expense"]);
+  const { lang } = useLocale();
+  const actor = event.actor_id
+    ? nameOf(participants, event.actor_id)
+    : t("activity:someone");
+
+  let text: string;
+  switch (event.kind) {
+    case "expense_created":
+      text = t("activity:expenseCreated", { actor, name: event.name });
+      break;
+    case "expense_updated":
+      text = t("activity:expenseUpdated", { actor, name: event.name });
+      break;
+    case "expense_deleted":
+      text = t("activity:expenseDeleted", { actor, name: event.name });
+      break;
+    case "payment_created":
+      text = t("activity:paymentCreated", {
+        from: nameOf(participants, event.from_id ?? ""),
+        to: nameOf(participants, event.to_id ?? ""),
+      });
+      break;
+    case "person_added":
+      text = t("activity:personAdded", { name: event.name });
+      break;
+  }
+
+  const body = (
+    <>
+      <span className="min-w-0 text-[15px] text-text">
+        {text}
+        <span className="block text-xs text-muted">
+          {formatRelative(event.at, lang)}
+          {event.amount_minor != null ? (
+            <>
+              {" · "}
+              <Money minor={event.amount_minor} currency={currency} />
+            </>
+          ) : null}
+        </span>
+      </span>
+    </>
+  );
+
+  const cls =
+    "flex items-center justify-between gap-3 rounded-md border border-border bg-surface px-4 py-3";
+
+  if (event.expense_id) {
+    return (
+      <li>
+        <Link
+          href={`/g/${groupId}/gastos/${event.expense_id}`}
+          className={cn(cls, "hover:bg-text/[0.03]")}
+        >
+          {body}
+        </Link>
+      </li>
+    );
+  }
+  return <li className={cls}>{body}</li>;
 }
 
 /** Tarjeta de gasto en la lista / actividad. */

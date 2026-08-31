@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "./Button";
 import { useSyncActions, useSyncState } from "./SyncProvider";
 
@@ -21,6 +22,7 @@ export function ShareButton({
   groupId: string;
   groupName: string;
 }) {
+  const { t } = useTranslation(["settings", "errors"]);
   const { backend } = useSyncState();
   const { createInvite } = useSyncActions();
   const [copied, setCopied] = useState(false);
@@ -35,7 +37,7 @@ export function ShareButton({
       try {
         await navigator.share({
           title: groupName,
-          text: `Sumate al grupo "${groupName}" en fivi`,
+          text: t("settings:shareInviteText", { name: groupName }),
           url,
         });
         return;
@@ -48,7 +50,7 @@ export function ShareButton({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      window.prompt("Copiá el enlace para compartir el grupo:", url);
+      window.prompt(t("settings:shareCopyPrompt"), url);
     }
   }
 
@@ -63,29 +65,28 @@ export function ShareButton({
       const { token } = await createInvite(groupId);
       await deliver(`${origin}/join/${token}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(err instanceof Error ? err.message : t("errors:generic"));
     } finally {
       setBusy(false);
     }
   }
 
+  const label = busy
+    ? t("settings:shareGenerating")
+    : copied
+      ? `${t("settings:shareCopied")} ✓`
+      : backend === "local"
+        ? t("settings:shareGroup")
+        : t("settings:invitesCreate");
+
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1.5">
       <Button variant="secondary" full onClick={share} disabled={busy}>
-        {busy
-          ? "Generando enlace…"
-          : copied
-            ? "Enlace copiado ✓"
-            : backend === "local"
-              ? "Compartir grupo"
-              : "Crear enlace de invitación"}
+        {label}
       </Button>
-      {error ? <p className="text-xs text-red-600">{error}</p> : null}
+      {error ? <p className="text-xs text-danger">{error}</p> : null}
       {backend === "local" ? (
-        <p className="text-xs opacity-55">
-          Sin servidor configurado: el enlace sólo abre el grupo en este
-          dispositivo.
-        </p>
+        <p className="text-xs text-muted">{t("settings:shareLocalHint")}</p>
       ) : null}
     </div>
   );

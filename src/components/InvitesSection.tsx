@@ -9,20 +9,26 @@
  * después. La lista muestra el estado de cada invitación y permite revocarla.
  */
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "./Button";
+import { useLocale } from "./LocaleProvider";
 import { useSyncActions, useSyncState } from "./SyncProvider";
 import type { GroupRole } from "@/sync/RemotePort";
 import type { InviteInfo } from "@/sync/types";
 import { formatDate } from "@/lib/format";
 
-function inviteStatus(i: InviteInfo): string {
-  if (i.revoked_at) return "revocada";
-  if (i.expires_at && new Date(i.expires_at) < new Date()) return "vencida";
-  if (i.max_uses != null && i.uses >= i.max_uses) return "sin usos";
-  return "activa";
+type InviteState = "active" | "revoked" | "expired" | "noUses";
+
+function inviteState(i: InviteInfo): InviteState {
+  if (i.revoked_at) return "revoked";
+  if (i.expires_at && new Date(i.expires_at) < new Date()) return "expired";
+  if (i.max_uses != null && i.uses >= i.max_uses) return "noUses";
+  return "active";
 }
 
 export function InvitesSection({ groupId }: { groupId: string }) {
+  const { t } = useTranslation(["settings", "errors"]);
+  const { lang } = useLocale();
   const { backend, online } = useSyncState();
   const { createInvite, listInvites, revokeInvite, getGroupRole, userId } =
     useSyncActions();
@@ -52,7 +58,7 @@ export function InvitesSection({ groupId }: { groupId: string }) {
       setFreshLink(`${window.location.origin}/join/${token}`);
       refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(err instanceof Error ? err.message : t("errors:generic"));
     } finally {
       setBusy(false);
     }
@@ -64,86 +70,100 @@ export function InvitesSection({ groupId }: { groupId: string }) {
       await revokeInvite(id);
       refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(err instanceof Error ? err.message : t("errors:generic"));
     }
   }
 
-  const active = (invites ?? []).filter((i) => inviteStatus(i) === "activa");
+  const active = (invites ?? []).filter((i) => inviteState(i) === "active");
 
   return (
     <section className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium opacity-60">Invitaciones</h2>
+        <h2 className="text-sm font-medium text-muted">
+          {t("settings:invitesTitle")}
+        </h2>
         {role ? (
-          <span className="text-xs opacity-50">
-            {role === "owner" ? "Sos owner" : "Sos miembro"}
+          <span className="text-xs text-muted">
+            {role === "owner"
+              ? t("settings:invitesRoleOwner")
+              : t("settings:invitesRoleMember")}
           </span>
         ) : null}
       </div>
 
-      <p className="text-xs opacity-55">
-        Compartí el grupo con un enlace de un solo token. Conocer el ID del grupo
-        no alcanza para entrar.
-      </p>
+      <p className="text-xs text-muted">{t("settings:invitesIntro")}</p>
 
       <Button variant="secondary" onClick={create} disabled={busy || !online}>
-        {busy ? "Generando…" : "Crear enlace de invitación"}
+        {busy
+          ? t("settings:invitesCreating")
+          : t("settings:invitesCreate")}
       </Button>
 
       {freshLink ? (
-        <div className="flex flex-col gap-1 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3">
-          <p className="text-xs opacity-70">
-            Copiá el enlace ahora: por seguridad se muestra una sola vez.
-          </p>
+        <div className="flex flex-col gap-1.5 rounded-md border border-accent/40 bg-accent-weak p-3">
+          <p className="text-xs text-muted">{t("settings:invitesCopyNow")}</p>
           <div className="flex gap-2">
             <input
               readOnly
               value={freshLink}
               onFocus={(e) => e.currentTarget.select()}
-              className="min-w-0 flex-1 rounded-lg bg-black/5 px-2 py-1 text-xs dark:bg-white/10"
+              className="min-w-0 flex-1 rounded-sm bg-surface px-2 py-1 text-xs text-text"
+              aria-label={t("settings:invitesTitle")}
             />
             <button
+              type="button"
               onClick={() => void navigator.clipboard?.writeText(freshLink)}
-              className="shrink-0 rounded-lg px-2 py-1 text-xs opacity-70 hover:bg-black/5 hover:opacity-100 dark:hover:bg-white/10"
+              className="min-h-touch shrink-0 rounded-sm px-2 text-xs font-medium text-accent hover:bg-surface"
             >
-              Copiar
+              {t("settings:invitesCopy")}
             </button>
           </div>
         </div>
       ) : null}
 
-      {error ? <p className="text-xs text-red-600">{error}</p> : null}
+      {error ? <p className="text-xs text-danger">{error}</p> : null}
 
       {invites === null ? (
-        <p className="text-sm opacity-50">Cargando invitaciones…</p>
+        <p className="text-sm text-muted">{t("settings:invitesLoading")}</p>
       ) : active.length === 0 ? (
-        <p className="text-sm opacity-50">No hay invitaciones activas.</p>
+        <p className="text-sm text-muted">{t("settings:invitesNone")}</p>
       ) : (
-        <ul className="divide-y divide-black/5 dark:divide-white/10">
+        <ul className="divide-y divide-border">
           {active.map((i) => (
             <li
               key={i.id}
               className="flex items-center justify-between gap-2 py-2 text-sm"
             >
               <span className="min-w-0">
-                <span className="block truncate">
-                  Creada {formatDate(i.created_at.slice(0, 10))}
+                <span className="block truncate text-text">
+                  {t("settings:invitesCreatedOn", {
+                    date: formatDate(i.created_at.slice(0, 10), lang),
+                  })}
                 </span>
-                <span className="block text-xs opacity-55">
-                  {i.uses} uso{i.uses === 1 ? "" : "s"}
-                  {i.max_uses != null ? ` / ${i.max_uses}` : ""}
+                <span className="block text-xs text-muted">
+                  {i.max_uses != null
+                    ? t("settings:invitesUsesOf", {
+                        count: i.uses,
+                        max: i.max_uses,
+                      })
+                    : t("settings:invitesUses", { count: i.uses })}
                   {i.expires_at
-                    ? ` · vence ${formatDate(i.expires_at.slice(0, 10))}`
+                    ? ` · ${t("settings:invitesExpiresOn", {
+                        date: formatDate(i.expires_at.slice(0, 10), lang),
+                      })}`
                     : ""}
-                  {i.created_by === userId ? " · la creaste vos" : ""}
+                  {i.created_by === userId
+                    ? ` · ${t("settings:invitesYours")}`
+                    : ""}
                 </span>
               </span>
               {role === "owner" || i.created_by === userId ? (
                 <button
+                  type="button"
                   onClick={() => void revoke(i.id)}
-                  className="shrink-0 rounded-lg px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
+                  className="min-h-touch shrink-0 rounded-sm px-2 text-xs font-medium text-danger hover:bg-danger/10"
                 >
-                  Revocar
+                  {t("settings:invitesRevoke")}
                 </button>
               ) : null}
             </li>

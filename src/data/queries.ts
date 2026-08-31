@@ -22,6 +22,111 @@ import { listParticipants } from "./repositories/participantRepo";
 import { listExpenses, listGroupShares } from "./repositories/expenseRepo";
 import { listPayments } from "./repositories/paymentRepo";
 
+// --- Actividad del grupo (derivada de timestamps + tombstones) --------------
+
+export type ActivityKind =
+  | "expense_created"
+  | "expense_updated"
+  | "expense_deleted"
+  | "payment_created"
+  | "person_added";
+
+export interface ActivityEvent {
+  id: string;
+  kind: ActivityKind;
+  /** ISO del momento del evento (para ordenar y mostrar). */
+  at: string;
+  /** ids de participantes relacionados (para el filtro por persona). */
+  people: string[];
+  /** Datos para interpolar el texto: nombre/descr., from/to, etc. */
+  name?: string;
+  from_id?: string;
+  to_id?: string;
+  actor_id?: string;
+  /** id del gasto para enlazar, si aplica. */
+  expense_id?: string;
+  amount_minor?: number;
+}
+
+/**
+ * Reconstruye una línea de tiempo del grupo a partir de los `created_at` /
+ * `updated_at` / `deleted_at` que ya existen. No hay tabla de historial: los
+ * eventos de edición sólo indican que hubo una edición y cuándo.
+ */
+export async function getGroupActivity(
+  groupId: string,
+  database: FiviDatabase = defaultDb,
+): Promise<ActivityEvent[]> {
+  const [expenses, payments, participants] = await Promise.all([
+    database.expenses.where("group_id").equals(groupId).toArray(),
+    database.payments.where("group_id").equals(groupId).toArray(),
+    database.participants.where("group_id").equals(groupId).toArray(),
+  ]);
+
+  const events: ActivityEvent[] = [];
+
+  for (const e of expenses) {
+    events.push({
+      id: `${e.id}:created`,
+      kind: "expense_created",
+      at: e.created_at,
+      people: [e.paid_by],
+      name: e.description,
+      actor_id: e.paid_by,
+      expense_id: e.id,
+      amount_minor: e.amount_minor_units,
+    });
+    if (e.deleted_at) {
+      events.push({
+        id: `${e.id}:deleted`,
+        kind: "expense_deleted",
+        at: e.deleted_at,
+        people: [e.paid_by],
+        name: e.description,
+        actor_id: e.paid_by,
+      });
+    } else if (e.version > 1) {
+      // `version` sube en cada edición local (ver repositories/base.ts). No hay
+      // historial, así que sólo se sabe que hubo una última edición y cuándo.
+      events.push({
+        id: `${e.id}:updated`,
+        kind: "expense_updated",
+        at: e.updated_at,
+        people: [e.paid_by],
+        name: e.description,
+        actor_id: e.paid_by,
+        expense_id: e.id,
+      });
+    }
+  }
+
+  for (const p of payments) {
+    if (p.deleted_at) continue;
+    events.push({
+      id: `${p.id}:created`,
+      kind: "payment_created",
+      at: p.created_at,
+      people: [p.from_participant, p.to_participant],
+      from_id: p.from_participant,
+      to_id: p.to_participant,
+      amount_minor: p.amount_minor_units,
+    });
+  }
+
+  for (const p of participants) {
+    if (p.deleted_at) continue;
+    events.push({
+      id: `${p.id}:added`,
+      kind: "person_added",
+      at: p.created_at,
+      people: [p.id],
+      name: p.name,
+    });
+  }
+
+  return events.sort((a, b) => b.at.localeCompare(a.at));
+}
+
 export interface PastExpensePick {
   expense: Expense;
   /** ids de participantes que hoy tiene el gasto. */

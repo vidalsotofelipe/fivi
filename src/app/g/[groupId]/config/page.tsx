@@ -1,15 +1,21 @@
 "use client";
 
-/** Configuración del grupo (secciones 3 y 30). */
+/** Pantalla 16 (detalle) — Configuración del grupo. Se llega desde "Más". */
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { AppShell } from "@/components/AppShell";
 import { AddToPastExpenses } from "@/components/AddToPastExpenses";
-import { Button } from "@/components/Button";
-import { CurrencySelect } from "@/components/CurrencySelect";
+import { Button, IconButton } from "@/components/Button";
+import { CurrencyPicker } from "@/components/CurrencyPicker";
 import { InvitesSection } from "@/components/InvitesSection";
-import { Field, TextArea, TextInput } from "@/components/fields";
+import { TextAreaField, TextField } from "@/components/ui/TextField";
+import { SegmentedControl } from "@/components/ui/primitives";
+import { ConfirmDialog } from "@/components/ui/overlays";
+import { useToast } from "@/components/ui/toast";
 import { useGroupContext } from "@/components/GroupProvider";
+import { useLocale } from "@/components/LocaleProvider";
+import { SUPPORTED_LANGS } from "@/i18n/config";
 import { useGroupHasMovements } from "@/lib/db-hooks";
 import { db } from "@/data/db";
 import type { Participant } from "@/domain/types";
@@ -24,17 +30,30 @@ import {
 } from "@/data/repositories/participantRepo";
 import { getCurrencyInfo } from "@/domain/currencies";
 
+const MAX_DESC = 120;
+
 export default function GroupConfigPage() {
   const router = useRouter();
+  const { t } = useTranslation([
+    "settings",
+    "group",
+    "people",
+    "common",
+    "errors",
+    "a11y",
+  ]);
+  const { lang, setLang } = useLocale();
   const { group, participants } = useGroupContext();
   const hasMovements = useGroupHasMovements(group.id);
+  const toast = useToast();
 
   const [name, setName] = useState(group.name);
   const [description, setDescription] = useState(group.description ?? "");
   const [newName, setNewName] = useState("");
+  const [personError, setPersonError] = useState<string | null>(null);
+  const [currencyError, setCurrencyError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
-  /** Participante recién agregado (o elegido) para preguntar por gastos pasados. */
+  const [deleting, setDeleting] = useState(false);
   const [pastFor, setPastFor] = useState<Participant | null>(null);
 
   const detailsDirty =
@@ -43,97 +62,142 @@ export default function GroupConfigPage() {
 
   async function saveDetails() {
     await renameGroup(group.id, { name, description }, db);
-    setMsg("Datos guardados");
+    toast({ message: t("settings:dataSaved") });
   }
 
   async function pickCurrency(code: string) {
-    setMsg(null);
+    setCurrencyError(null);
     try {
       await changeGroupCurrency(group.id, code, db);
-      setMsg("Moneda actualizada");
+      toast({ message: t("settings:currencyUpdated") });
     } catch (err) {
-      setMsg(err instanceof Error ? err.message : String(err));
+      setCurrencyError(
+        err instanceof Error ? err.message : t("errors:generic"),
+      );
     }
   }
 
-  async function add() {
+  async function addPerson(e: React.FormEvent) {
+    e.preventDefault();
     const n = newName.trim();
-    if (!n) return;
+    if (!n) {
+      setPersonError(t("errors:participantNameRequired"));
+      return;
+    }
+    if (participants.some((p) => p.name.toLowerCase() === n.toLowerCase())) {
+      setPersonError(t("errors:duplicateParticipant"));
+      return;
+    }
     const created = await addParticipant(group.id, n, db);
     setNewName("");
+    setPersonError(null);
     setPastFor(created);
   }
 
+  const langOptions = SUPPORTED_LANGS.map((l) => ({
+    value: l,
+    label:
+      l === "es"
+        ? t("settings:languageSpanish")
+        : t("settings:languageEnglish"),
+  }));
+
   return (
-    <AppShell title="Configuración" back={`/g/${group.id}`}>
-      <section className="flex flex-col gap-4">
-        <Field label="Nombre del grupo">
-          <TextInput
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </Field>
-        <Field label="Descripción" hint="Opcional">
-          <TextArea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </Field>
+    <AppShell title={t("settings:configTitle")} back={`/g/${group.id}/mas`}>
+      {/* Datos del grupo */}
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-medium text-muted">
+          {t("settings:sectionGroup")}
+        </h2>
+        <TextField
+          label={t("settings:groupNameLabel")}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+        <TextAreaField
+          label={t("settings:groupDescriptionLabel")}
+          value={description}
+          maxLength={MAX_DESC}
+          onChange={(e) => setDescription(e.target.value)}
+          hint={t("group:descriptionCount", { count: description.length })}
+        />
         <Button
           variant="secondary"
           disabled={!detailsDirty || name.trim() === ""}
           onClick={saveDetails}
         >
-          Guardar datos
+          {t("settings:saveData")}
         </Button>
       </section>
 
+      {/* Idioma — Más → Configuración → Idioma */}
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium opacity-60">Moneda</h2>
+        <h2 className="text-sm font-medium text-muted">
+          {t("settings:sectionLanguage")}
+        </h2>
+        <SegmentedControl
+          label={t("settings:languageLabel")}
+          options={langOptions}
+          value={lang}
+          onChange={setLang}
+        />
+        <p className="text-xs text-muted">{t("settings:languageHint")}</p>
+      </section>
+
+      {/* Moneda */}
+      <section className="flex flex-col gap-2">
+        <h2 className="text-sm font-medium text-muted">
+          {t("settings:sectionCurrency")}
+        </h2>
         {hasMovements ? (
-          <p className="rounded-xl bg-black/5 px-4 py-3 text-sm dark:bg-white/5">
-            {group.currency_code} — {getCurrencyInfo(group.currency_code).name}.
-            La moneda no puede modificarse porque este grupo ya tiene
-            movimientos registrados.
+          <p className="rounded-md bg-text/[0.04] px-4 py-3 text-sm text-muted">
+            {getCurrencyInfo(group.currency_code).name} ({group.currency_code}).{" "}
+            {t("group:currencyLocked")}
           </p>
         ) : (
-          <CurrencySelect
+          <CurrencyPicker
             value={group.currency_code}
             onChange={pickCurrency}
+            error={currencyError}
           />
         )}
       </section>
 
+      {/* Participantes */}
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium opacity-60">
-          Participantes ({participants.length})
+        <h2 className="text-sm font-medium text-muted">
+          {t("settings:sectionParticipants")} ({participants.length})
         </h2>
-        <ul className="divide-y divide-black/5 dark:divide-white/10">
+        <ul className="flex flex-col divide-y divide-border rounded-md border border-border">
           {participants.map((p) => (
             <li
               key={p.id}
-              className="flex items-center justify-between gap-2 py-2.5"
+              className="flex items-center justify-between gap-2 px-3.5 py-2"
             >
-              <span className="truncate text-[15px]">{p.name}</span>
+              <span className="min-w-0 truncate text-[15px] text-text">
+                {p.name}
+              </span>
               <span className="flex shrink-0 items-center gap-1">
                 <button
+                  type="button"
                   onClick={() => setPastFor(p)}
-                  className="rounded-lg px-2 py-1 text-xs opacity-60 hover:bg-black/5 hover:opacity-100 dark:hover:bg-white/10"
+                  className="min-h-touch rounded-sm px-2 text-xs text-muted hover:text-text"
                 >
-                  Gastos anteriores
+                  {t("people:pastOpen")}
                 </button>
-                <button
+                <IconButton
+                  label={t("a11y:removePerson", { name: p.name })}
+                  className="h-9 w-9 text-danger"
                   onClick={() => removeParticipant(p.id, db)}
-                  className="rounded-lg px-2 py-1 text-xs text-red-600 hover:bg-red-500/10"
                 >
-                  Quitar
-                </button>
+                  <span aria-hidden="true">✕</span>
+                </IconButton>
               </span>
             </li>
           ))}
           {participants.length === 0 ? (
-            <li className="py-2.5 text-sm opacity-50">
-              Todavía no hay participantes.
+            <li className="px-3.5 py-3 text-sm text-muted">
+              {t("people:emptyBody")}
             </li>
           ) : null}
         </ul>
@@ -147,64 +211,55 @@ export default function GroupConfigPage() {
           />
         ) : null}
 
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void add();
-          }}
-          className="flex gap-2"
-        >
-          <TextInput
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder="Nombre"
-          />
+        <form onSubmit={addPerson} className="flex items-end gap-2">
+          <div className="flex-1">
+            <TextField
+              label={t("people:addPerson")}
+              placeholder={t("group:personNamePlaceholder")}
+              value={newName}
+              onChange={(e) => {
+                setNewName(e.target.value);
+                if (personError) setPersonError(null);
+              }}
+              error={personError}
+            />
+          </div>
           <Button type="submit" variant="secondary" disabled={!newName.trim()}>
-            Agregar
+            {t("common:add")}
           </Button>
         </form>
       </section>
 
-      {msg ? <p className="text-sm opacity-70">{msg}</p> : null}
-
       <InvitesSection groupId={group.id} />
 
-      <section className="mt-2 flex flex-col gap-2 border-t border-black/10 pt-4 dark:border-white/10">
-        {confirmDelete ? (
-          <div className="flex flex-col gap-2 rounded-xl border border-red-500/30 p-3">
-            <p className="text-sm">
-              Se eliminará el grupo de este dispositivo. ¿Continuar?
-            </p>
-            <div className="flex gap-2">
-              <Button
-                variant="danger"
-                full
-                onClick={async () => {
-                  await deleteGroup(group.id, db);
-                  router.replace("/");
-                }}
-              >
-                Eliminar grupo
-              </Button>
-              <Button
-                variant="ghost"
-                full
-                onClick={() => setConfirmDelete(false)}
-              >
-                Cancelar
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <Button
-            variant="ghost"
-            className="text-red-600"
-            onClick={() => setConfirmDelete(true)}
-          >
-            Eliminar grupo
-          </Button>
-        )}
+      {/* Zona sensible */}
+      <section className="mt-2 flex flex-col gap-2 border-t border-border pt-4">
+        <h2 className="text-sm font-medium text-danger">
+          {t("settings:sectionDanger")}
+        </h2>
+        <Button
+          variant="ghost"
+          className="self-start text-danger"
+          onClick={() => setConfirmDelete(true)}
+        >
+          {t("settings:deleteGroup")}
+        </Button>
       </section>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        onCancel={() => setConfirmDelete(false)}
+        onConfirm={async () => {
+          setDeleting(true);
+          await deleteGroup(group.id, db);
+          router.replace("/");
+        }}
+        title={t("settings:deleteGroupConfirmTitle", { name: group.name })}
+        body={t("settings:deleteGroupConfirmBody")}
+        confirmLabel={t("settings:deleteGroup")}
+        cancelLabel={t("common:cancel")}
+        busy={deleting}
+      />
     </AppShell>
   );
 }

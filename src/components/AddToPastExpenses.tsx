@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
+import { useTranslation } from "react-i18next";
 import { db } from "@/data/db";
 import { listPastEqualExpensesFor } from "@/data/queries";
 import { addParticipantToExpenses } from "@/data/repositories/expenseRepo";
-import { formatMoney } from "@/domain/money";
 import type { CurrencyCode, Participant } from "@/domain/types";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatMoney } from "@/lib/format";
+import { useLocale } from "./LocaleProvider";
 import { Button } from "./Button";
 
 /**
@@ -28,6 +29,8 @@ export function AddToPastExpenses({
   currency: CurrencyCode;
   onDone: () => void;
 }) {
+  const { t } = useTranslation(["people", "common"]);
+  const { lang } = useLocale();
   const picks = useLiveQuery(
     () => listPastEqualExpensesFor(groupId, participant.id, db),
     [groupId, participant.id],
@@ -79,46 +82,47 @@ export function AddToPastExpenses({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-black/15 p-3 dark:border-white/15">
-      <p className="text-sm font-medium">
-        ¿Sumar a {participant.name} a gastos ya registrados?
+    <div className="flex flex-col gap-3 rounded-md border border-border bg-surface p-3">
+      <p className="text-sm font-medium text-text">
+        {t("people:pastTitle", { name: participant.name })}
       </p>
-      <p className="text-xs opacity-60">
-        Se recalcula el reparto de los que elijas. Los gastos con división
-        personalizada no se listan acá.
-      </p>
+      <p className="text-xs text-muted">{t("people:pastHint")}</p>
 
-      <ul className="flex flex-col divide-y divide-black/5 dark:divide-white/10">
+      <ul className="flex flex-col divide-y divide-border">
         {picks.map(({ expense, current_participant_names }) => {
           const on = selected.has(expense.id);
           return (
             <li key={expense.id}>
               <button
                 type="button"
+                aria-pressed={on}
                 onClick={() => toggle(expense.id)}
                 className="flex w-full items-start gap-3 py-2.5 text-left"
               >
                 <span
+                  aria-hidden="true"
                   className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs ${
                     on
-                      ? "border-transparent bg-gray-900 text-white dark:bg-white dark:text-gray-900"
-                      : "border-black/25 dark:border-white/30"
+                      ? "border-transparent bg-accent text-accent-fg"
+                      : "border-border"
                   }`}
                 >
                   {on ? "✓" : ""}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex items-baseline justify-between gap-2">
-                    <span className="truncate text-[15px]">
+                    <span className="truncate text-[15px] text-text">
                       {expense.description}
                     </span>
-                    <span className="shrink-0 text-sm tabular-nums opacity-70">
-                      {formatMoney(expense.amount_minor_units, currency)}
+                    <span className="shrink-0 text-sm tabular-nums text-muted">
+                      {formatMoney(expense.amount_minor_units, currency, lang)}
                     </span>
                   </span>
-                  <span className="block truncate text-xs opacity-55">
-                    {formatDate(expense.expense_date)} · entre{" "}
-                    {current_participant_names.join(", ")}
+                  <span className="block truncate text-xs text-muted">
+                    {formatDate(expense.expense_date, lang)} ·{" "}
+                    {t("people:pastBetween", {
+                      names: current_participant_names.join(", "),
+                    })}
                   </span>
                 </span>
               </button>
@@ -130,17 +134,16 @@ export function AddToPastExpenses({
       <div className="flex gap-2">
         <Button
           full
+          loading={busy}
           disabled={busy || checkedIds.length === 0}
           onClick={confirm}
         >
-          {busy
-            ? "Aplicando…"
-            : checkedIds.length === 0
-              ? "Elegí al menos uno"
-              : `Sumar a ${checkedIds.length} gasto${checkedIds.length === 1 ? "" : "s"}`}
+          {checkedIds.length === 0
+            ? t("people:pastPickOne")
+            : t("people:pastApply", { count: checkedIds.length })}
         </Button>
         <Button variant="ghost" full disabled={busy} onClick={onDone}>
-          Ahora no
+          {t("people:pastNotNow")}
         </Button>
       </div>
     </div>
