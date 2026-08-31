@@ -94,7 +94,6 @@ export function BottomSheet({
         ) : null}
         <div className="px-4">{children}</div>
       </div>
-      <style>{`@keyframes sheet-in{from{transform:translateY(12px);opacity:.6}to{transform:none;opacity:1}}`}</style>
     </div>,
     document.body,
   );

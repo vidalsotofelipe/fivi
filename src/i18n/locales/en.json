@@ -163,7 +163,8 @@
     "deleteConfirmBody": "The expense is removed and everyone's balances are recalculated.",
     "savedToast": "Expense saved",
     "viewExpense": "View expense",
-    "undoWindow": "You can undo for a few seconds."
+    "undoWindow": "You can undo for a few seconds.",
+    "deletedToast": "Expense deleted"
   },
   "payment": {
     "title": "Record payment",

@@ -163,7 +163,8 @@
     "deleteConfirmBody": "Se quita el gasto y se recalculan los saldos de todos los participantes.",
     "savedToast": "Gasto guardado",
     "viewExpense": "Ver gasto",
-    "undoWindow": "Podés deshacerlo por unos segundos."
+    "undoWindow": "Podés deshacerlo por unos segundos.",
+    "deletedToast": "Gasto eliminado"
   },
   "payment": {
     "title": "Registrar pago",

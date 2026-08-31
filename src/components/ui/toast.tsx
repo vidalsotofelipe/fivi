@@ -68,6 +68,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               className="pointer-events-none fixed inset-x-0 bottom-0 z-[60] flex justify-center px-4 pb-[calc(16px+env(safe-area-inset-bottom))]"
               role="status"
               aria-live="polite"
+              aria-atomic="true"
             >
               {toast ? (
                 <div
@@ -99,7 +100,6 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   ) : null}
                 </div>
               ) : null}
-              <style>{`@keyframes toast-in{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}`}</style>
             </div>,
             document.body,
           )
