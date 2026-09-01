@@ -13,6 +13,51 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.13.0] - 2026-09-01
+
+Foco en saldar deudas de un toque, moneda por ubicación e idioma consistente.
+Sin cambios de esquema. Sin migraciones.
+
+### Added
+
+- **Saldar una deuda en un toque.** En "Quién le debe a quién" cada deuda se
+  muestra como "Felipe le debe $12.500 a Cami" con un botón **Saldar** que abre
+  el pago con pagador, receptor, monto y fecha precargados. Se puede elegir
+  **deuda completa** o **pago parcial** (valida > 0 y ≤ deuda pendiente). Al
+  confirmar: balances al instante, pago en la actividad, toast con **Deshacer**
+  (10 s) y **✕**. Funciona offline; el id de cliente + upsert evitan duplicados
+  en reintentos de sync. El "Registrar pago" manual sigue disponible.
+- **Detección de país → moneda** al crear un grupo: país por IP (header de
+  Vercel, sin guardar la IP) → región del navegador (`Intl.Locale`) → última
+  moneda elegida → USD. Mensaje discreto bajo el selector ("Seleccionamos ARS
+  según tu ubicación. Podés cambiarlo."), es/en. Nunca bloquea la creación.
+  Mapa país→moneda centralizado y ampliable (`src/domain/countryCurrency.ts`).
+- **Quetzal guatemalteco (GTQ)** en el catálogo de monedas (2 decimales,
+  `es-GT`). Guatemala → GTQ en la detección.
+- **Tarjetas de grupo orientadas al usuario**: con "yo" elegido muestran
+  "Debés / Te deben / Estás al día", última actividad y aviso de cambios sin
+  sincronizar; sin elegir, un CTA "Indicá quién sos en este grupo".
+- `docs/ACCOUNT_RECOVERY.md`: diseño (por etapas) de "Guardar / recuperar mi
+  FIVI" con Supabase Auth. Aún no implementado.
+
+### Changed
+
+- **Selector de moneda cerrado por defecto**: pasa a un `<select>` nativo — se
+  abre al tocarlo, se cierra al elegir o tocar afuera, navegable con teclado y
+  accesible; no empuja el contenido.
+- **Auto-archivado más estricto**: un grupo sólo se archiva solo si además de no
+  tener actividad reciente, **todos los balances están en cero** y **no hay
+  cambios sin sincronizar**. Un grupo viejo con deuda pendiente ya no se archiva.
+- Mensajes de validación propios y traducidos (formularios con `noValidate`); se
+  reemplaza el "Please fill out this field" del navegador.
+
+### Fixed
+
+- **Idioma inconsistente** (la app podía verse en inglés con "Español"
+  seleccionado). i18next arranca en el idioma efectivo (preferencia > navegador
+  > es) y un script en `<head>` fija `<html lang>` antes del primer paint: el
+  selector, el atributo y el texto coinciden.
+
 ## [0.12.1] - 2026-09-01
 
 ### Fixed
