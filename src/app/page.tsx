@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { AppShell } from "@/components/AppShell";
 import { Button, LinkButton } from "@/components/Button";
 import { Loading } from "@/components/EmptyState";
+import { JoinInviteDisclosure } from "@/components/JoinInviteDisclosure";
 import { AppMark } from "@/components/Logo";
 import { Money } from "@/components/Money";
 import { useLocale } from "@/components/LocaleProvider";
@@ -19,17 +20,25 @@ import { formatDate } from "@/lib/format";
 import { useHydrated } from "@/lib/useHydrated";
 import type { GroupListItem } from "@/data/queries";
 
-function OnboardingStep({ title, body }: { title: string; body: string }) {
+function OnboardingStep({
+  index,
+  title,
+  body,
+}: {
+  index: number;
+  title: string;
+  body: string;
+}) {
   return (
-    <li className="flex gap-3">
+    <li className="flex gap-3 py-4">
       <span
         aria-hidden="true"
-        className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-accent-weak text-accent"
+        className="mt-0.5 shrink-0 text-[11px] font-bold uppercase tracking-caps text-warm-strong"
       >
-        ●
+        {String(index).padStart(2, "0")}
       </span>
       <span className="min-w-0">
-        <span className="block font-medium text-text">{title}</span>
+        <span className="block font-semibold text-text">{title}</span>
         <span className="block text-sm text-muted">{body}</span>
       </span>
     </li>
@@ -105,18 +114,22 @@ export default function HomePage() {
       <AppShell title={t("common:appName")}>
         <div className="flex flex-1 flex-col">
           <AppMark className="mt-2 h-14 w-14" />
-          <h2 className="mt-5 text-[26px] font-semibold leading-tight text-text">
+          <h1 className="font-display mt-5 text-[32px] font-bold leading-[1.1] tracking-tightest text-text">
             {t("title")}
-          </h2>
-          <ol className="mt-6 flex flex-col gap-4">
-            <OnboardingStep title={t("step1Title")} body={t("step1Body")} />
-            <OnboardingStep title={t("step2Title")} body={t("step2Body")} />
-            <OnboardingStep title={t("step3Title")} body={t("step3Body")} />
+          </h1>
+          <p className="mt-2 text-[15px] text-muted">{t("subtitle")}</p>
+
+          <ol className="mt-6 flex flex-col divide-y divide-border border-y-2 border-border">
+            <OnboardingStep index={1} title={t("step1Title")} body={t("step1Body")} />
+            <OnboardingStep index={2} title={t("step2Title")} body={t("step2Body")} />
+            <OnboardingStep index={3} title={t("step3Title")} body={t("step3Body")} />
           </ol>
-          <div className="mt-auto pt-8">
+
+          <div className="mt-auto flex flex-col gap-2 pt-8">
             <LinkButton href="/nuevo" full>
               {t("createFirst")}
             </LinkButton>
+            <JoinInviteDisclosure />
           </div>
         </div>
       </AppShell>
@@ -145,6 +158,7 @@ export default function HomePage() {
       <LinkButton href="/nuevo" full variant="secondary" className="mt-2">
         {t("createGroup")}
       </LinkButton>
+      <JoinInviteDisclosure />
 
       {archived.length > 0 ? (
         <details className="mt-2 rounded-md border border-border bg-surface">

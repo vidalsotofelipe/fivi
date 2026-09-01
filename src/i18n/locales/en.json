@@ -66,6 +66,7 @@
   },
   "onboarding": {
     "title": "Organize shared expenses without loose ends",
+    "subtitle": "Log an expense in seconds and fivi works out who owes who, even offline.",
     "step1Title": "Create a group",
     "step1Body": "Invite everyone involved.",
     "step2Title": "Add expenses",
@@ -76,7 +77,13 @@
     "myGroups": "My groups",
     "createGroup": "Create group",
     "emptyGroupsTitle": "You don't have any groups yet",
-    "emptyGroupsBody": "Create a group to start logging shared expenses."
+    "emptyGroupsBody": "Create a group to start logging shared expenses.",
+    "haveInvite": "Have an invite?",
+    "inviteLabel": "Invite link or code",
+    "invitePlaceholder": "Paste the link someone shared with you",
+    "inviteHint": "You can also type the code by hand if you got it another way.",
+    "inviteSubmit": "Join group",
+    "inviteRequired": "Paste the invite link or code"
   },
   "group": {
     "newTitle": "New group",

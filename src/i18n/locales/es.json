@@ -66,6 +66,7 @@
   },
   "onboarding": {
     "title": "Organizá gastos compartidos sin cuentas pendientes",
+    "subtitle": "Cargá un gasto en segundos y fivi calcula quién le debe a quién, aunque no tengas conexión.",
     "step1Title": "Creá un grupo",
     "step1Body": "Invitá a quienes participan.",
     "step2Title": "Sumá gastos",
@@ -76,7 +77,13 @@
     "myGroups": "Mis grupos",
     "createGroup": "Crear grupo",
     "emptyGroupsTitle": "Todavía no tenés grupos",
-    "emptyGroupsBody": "Creá un grupo para empezar a cargar gastos compartidos."
+    "emptyGroupsBody": "Creá un grupo para empezar a cargar gastos compartidos.",
+    "haveInvite": "¿Tenés una invitación?",
+    "inviteLabel": "Enlace o código de invitación",
+    "invitePlaceholder": "Pegá el enlace que te compartieron",
+    "inviteHint": "También podés escribir el código a mano si te lo pasaron de otra forma.",
+    "inviteSubmit": "Unirme al grupo",
+    "inviteRequired": "Pegá el enlace o el código de invitación"
   },
   "group": {
     "newTitle": "Nuevo grupo",
