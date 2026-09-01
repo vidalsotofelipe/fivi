@@ -79,7 +79,7 @@ export default function BalancesPage() {
 
       {summary.transfers.length > 0 ? (
         <section className="flex flex-col gap-2">
-          <h2 className="text-sm font-medium text-muted">
+          <h2 className="label-caps">
             {t("payment:suggestionsTitle")}
           </h2>
           <ul className="flex flex-col gap-2">

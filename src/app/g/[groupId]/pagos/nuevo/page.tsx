@@ -18,7 +18,7 @@ import { useGroupContext } from "@/components/GroupProvider";
 import { db } from "@/data/db";
 import { createPayment } from "@/data/repositories/paymentRepo";
 import { minorToRawInput } from "@/domain/money";
-import { parseAmount } from "@/components/MoneyInput";
+import { parseAmount } from "@/lib/amount";
 import { useGroupSummary } from "@/lib/db-hooks";
 import { todayIso } from "@/lib/format";
 

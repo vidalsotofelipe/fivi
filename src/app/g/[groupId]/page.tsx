@@ -84,12 +84,12 @@ export default function GroupSummaryPage() {
   return (
     <AppShell title={group.name} back="/" bottomNav={bottomNav}>
       <p className="-mt-2 flex items-center gap-1.5 text-xs text-muted">
-        <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-accent" />
+        <span aria-hidden="true" className="h-2 w-2 bg-accent" />
         <SyncLine />
       </p>
 
       {group.archived_at ? (
-        <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-text/[0.04] px-4 py-3 text-sm">
+        <div className="flex items-center justify-between gap-3 border-2 border-warm bg-warm-weak px-4 py-3 text-sm">
           <span className="min-w-0 text-muted">{t("archive:bannerBody")}</span>
           <button
             type="button"
@@ -146,7 +146,7 @@ export default function GroupSummaryPage() {
       </div>
 
       {participants.length === 0 ? (
-        <div className="rounded-md bg-warning/10 px-4 py-3 text-sm">
+        <div className="border-2 border-warm bg-warm-weak px-4 py-3 text-sm">
           {t("group:participantsQuestion")}{" "}
           <Link
             href={`/g/${group.id}/personas`}
@@ -159,12 +159,12 @@ export default function GroupSummaryPage() {
 
       <section className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium text-muted">
+          <h2 className="label-caps">
             {t("group:whoOwesWho")}
           </h2>
         </div>
         {summary.transfers.length === 0 ? (
-          <p className="rounded-md bg-text/[0.04] px-4 py-3 text-sm text-muted">
+          <p className="border-2 border-border bg-surface-raised px-4 py-3 text-sm text-muted">
             {t("group:settledUp")}
           </p>
         ) : (
@@ -199,7 +199,7 @@ export default function GroupSummaryPage() {
 
       <section className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium text-muted">
+          <h2 className="label-caps">
             {t("group:recentActivity")}
           </h2>
           <Link

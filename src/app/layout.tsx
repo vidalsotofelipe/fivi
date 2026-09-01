@@ -3,6 +3,7 @@ import "./globals.css";
 import { ServiceWorkerRegister } from "./sw-register";
 import { LocaleProvider } from "@/components/LocaleProvider";
 import { SyncProvider } from "@/components/SyncProvider";
+import { ThemeProvider, themeInitScript } from "@/components/ThemeProvider";
 import { ToastProvider } from "@/components/ui/toast";
 
 export const metadata: Metadata = {
@@ -30,10 +31,9 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f7f9f8" },
-    { media: "(prefers-color-scheme: dark)", color: "#0e1111" },
-  ],
+  // Un único <meta name="theme-color"> que ThemeProvider/el script mutan según
+  // el tema efectivo (Sistema / Claro / Oscuro).
+  themeColor: "#ffffff",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -47,11 +47,15 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning>
       <body className="font-sans antialiased">
-        <LocaleProvider>
-          <ToastProvider>
-            <SyncProvider>{children}</SyncProvider>
-          </ToastProvider>
-        </LocaleProvider>
+        {/* Aplica el tema guardado antes de pintar el contenido (sin flash). */}
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <ThemeProvider>
+          <LocaleProvider>
+            <ToastProvider>
+              <SyncProvider>{children}</SyncProvider>
+            </ToastProvider>
+          </LocaleProvider>
+        </ThemeProvider>
         <ServiceWorkerRegister />
       </body>
     </html>

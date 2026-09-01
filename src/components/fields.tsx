@@ -3,10 +3,10 @@
 import type { ComponentProps, ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
-/** Clase base de los controles de formulario (tokens). */
+/** Clase base de los controles de formulario (estilo flat: recto, borde 2 px). */
 export const controlClass =
-  "w-full min-h-touch rounded-md border border-border bg-surface px-3.5 py-3 text-[15px] text-text " +
-  "placeholder:text-muted outline-none focus:border-accent";
+  "w-full min-h-touch border-2 border-border bg-surface px-3.5 py-3 text-[15px] text-text " +
+  "placeholder:text-faint outline-none focus:border-accent";
 
 export function Field({
   label,
@@ -64,7 +64,7 @@ export function FormError({ messages }: { messages: string[] }) {
   return (
     <div
       role="alert"
-      className="rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger"
+      className="border-2 border-danger bg-danger/10 px-3 py-2 text-sm font-medium text-danger"
     >
       {messages.length === 1 ? (
         messages[0]

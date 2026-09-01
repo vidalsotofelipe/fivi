@@ -22,7 +22,7 @@ import {
 import { FormError } from "@/components/fields";
 import { TextField } from "@/components/ui/TextField";
 import { DateField, MoneyField, SelectField } from "@/components/ui/formfields";
-import { parseAmount } from "@/components/MoneyInput";
+import { parseAmount } from "@/lib/amount";
 
 export interface ExpenseDraft {
   description: string;
@@ -397,7 +397,7 @@ export function ExpenseWizard({
               </span>
               <span
                 className={cn(
-                  remainingMinor === 0 ? "text-accent" : "text-warning",
+                  remainingMinor === 0 ? "text-accent" : "text-warm-strong",
                 )}
               >
                 {t("expense:remaining")}:{" "}

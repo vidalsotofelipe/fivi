@@ -73,12 +73,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               {toast ? (
                 <div
                   key={toast.id}
-                  className="pointer-events-auto flex w-full max-w-app items-center gap-3 rounded-md border border-border bg-surface-raised px-4 py-3 text-sm shadow-lg motion-safe:animate-[toast-in_0.18s_ease-out]"
+                  className="pointer-events-auto flex w-full max-w-app items-center gap-3 border-2 border-border-strong bg-surface-raised px-4 py-3 text-sm motion-safe:animate-[toast-in_0.18s_ease-out]"
                 >
                   <span className="min-w-0 flex-1">{toast.message}</span>
                   {toast.undoLabel && toast.onUndo ? (
                     <button
-                      className="shrink-0 font-medium text-accent underline-offset-2 hover:underline"
+                      className="shrink-0 font-bold uppercase tracking-caps text-accent-strong hover:underline"
                       onClick={() => {
                         toast.onUndo?.();
                         dismiss();
@@ -89,7 +89,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   ) : null}
                   {toast.actionLabel && toast.onAction ? (
                     <button
-                      className="shrink-0 font-medium text-accent underline-offset-2 hover:underline"
+                      className="shrink-0 font-bold uppercase tracking-caps text-accent-strong hover:underline"
                       onClick={() => {
                         toast.onAction?.();
                         dismiss();

@@ -27,30 +27,30 @@ export function AppBar({
   const { t } = useTranslation();
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-1 border-b border-border bg-bg/90 px-2 backdrop-blur">
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-1 border-b-2 border-border-strong bg-bg/95 px-2 backdrop-blur">
       {back ? (
         back === true ? (
           <button
             onClick={() => router.back()}
             aria-label={t("back")}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-xl text-text hover:bg-text/[0.06]"
+            className="flex h-11 w-11 shrink-0 items-center justify-center text-xl text-text hover:bg-accent-weak"
           >
-            <span aria-hidden="true">‹</span>
+            <span aria-hidden="true">←</span>
           </button>
         ) : (
           <Link
             href={back}
             aria-label={t("back")}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-xl text-text hover:bg-text/[0.06]"
+            className="flex h-11 w-11 shrink-0 items-center justify-center text-xl text-text hover:bg-accent-weak"
           >
-            <span aria-hidden="true">‹</span>
+            <span aria-hidden="true">←</span>
           </Link>
         )
       ) : (
         <span className="w-2 shrink-0" />
       )}
 
-      <h1 className="min-w-0 flex-1 truncate px-1 text-base font-semibold text-text">
+      <h1 className="min-w-0 flex-1 truncate px-1 text-base font-bold text-text">
         {title}
       </h1>
 

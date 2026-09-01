@@ -52,20 +52,22 @@ export function BottomNav({ groupId }: { groupId: string }) {
   return (
     <nav
       aria-label={t("primaryNav")}
-      className="sticky bottom-0 z-30 mt-auto border-t border-border bg-bg/95 backdrop-blur"
+      className="sticky bottom-0 z-30 mt-auto border-t-2 border-border-strong bg-bg/95 backdrop-blur"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <ul className="mx-auto flex max-w-app">
-        {items.map(({ dest, href, match }) => {
+        {items.map(({ dest, href, match }, i) => {
           const active = match(pathname);
           return (
-            <li key={dest} className="flex-1">
+            <li key={dest} className={cn("flex-1", i > 0 && "border-l-2 border-border")}>
               <Link
                 href={href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex min-h-touch flex-col items-center justify-center gap-0.5 py-2 text-[11px] font-medium",
-                  active ? "text-accent" : "text-muted hover:text-text",
+                  "flex min-h-touch flex-col items-center justify-center gap-0.5 py-2.5 text-[10px] font-bold uppercase tracking-caps",
+                  active
+                    ? "bg-accent-weak text-accent-strong"
+                    : "text-faint hover:text-text",
                 )}
               >
                 <span aria-hidden="true" className="text-base leading-none">

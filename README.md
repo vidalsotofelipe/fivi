@@ -145,6 +145,18 @@ Etapa 9 — **grupos archivables** ✅
   Postgres guarda un JSON completo del grupo al archivarse (export/backup
   futuro), visible sólo para miembros.
 
+Etapa 10 — **rediseño visual flat + modo oscuro** ✅
+
+- Estilo "flat / editorial": paleta azul + naranja sobre neutros cálidos,
+  esquinas rectas, bordes de 2 px, micro-labels en mayúsculas. Tipografías
+  **Archivo** y **Space Grotesk** self-host (offline). Tokens en `globals.css` +
+  `tailwind.config.ts`; el resto de componentes/pantallas los consume.
+- **Modo oscuro** con selector Sistema / Claro / Oscuro en
+  `Más → Configuración → Apariencia` (`ThemeProvider`, `fivi:theme` en
+  `localStorage`, sin flash, actualiza `<meta theme-color>`). Paleta oscura con
+  contraste AA.
+- Saldos: a favor en azul, deuda en naranja (además del signo).
+
 Pendiente
 
 - ⬜ Persistir el cursor entre sesiones (hoy cada sesión arranca con un pull

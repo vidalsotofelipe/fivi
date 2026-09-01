@@ -30,7 +30,7 @@ export function SyncBanner() {
     return (
       <div
         role="alert"
-        className="rounded-md border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger"
+        className="border-2 border-danger bg-danger/10 px-4 py-3 text-sm text-danger"
       >
         {t("noAccess")}
       </div>
@@ -41,9 +41,9 @@ export function SyncBanner() {
     return (
       <div
         role="alert"
-        className="flex flex-col gap-2 rounded-md border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger"
+        className="flex flex-col gap-2 border-2 border-danger bg-danger/10 px-4 py-3 text-sm text-danger"
       >
-        <p className="font-medium">{t("errorTitle")}</p>
+        <p className="font-bold">{t("errorTitle")}</p>
         <Button
           variant="secondary"
           className="self-start"
@@ -67,7 +67,7 @@ export function SyncBanner() {
     return (
       <div
         role="status"
-        className="rounded-md border border-border bg-text/[0.04] px-4 py-3 text-sm text-muted"
+        className="border-2 border-border bg-surface-raised px-4 py-3 text-sm text-muted"
       >
         {t("offlineBanner")}
       </div>

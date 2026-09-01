@@ -50,7 +50,7 @@ export function Card({
   return (
     <div
       className={cn(
-        "rounded-md border border-border p-4",
+        "border-2 border-border p-4",
         raised ? "bg-surface-raised" : "bg-surface",
         className,
       )}
@@ -70,10 +70,10 @@ export function Chip({
       type="button"
       aria-pressed={selected}
       className={cn(
-        "inline-flex min-h-touch items-center gap-1 whitespace-nowrap rounded-full border px-3.5 text-sm transition-colors",
+        "inline-flex min-h-touch items-center gap-1 whitespace-nowrap border-2 px-3.5 text-[12px] font-bold uppercase tracking-caps transition-colors",
         selected
-          ? "border-accent bg-accent-weak font-medium text-accent"
-          : "border-border bg-surface text-muted hover:text-text",
+          ? "border-accent bg-accent text-accent-fg"
+          : "border-border bg-surface text-muted hover:border-border-strong hover:text-text",
         className,
       )}
       {...props}
@@ -92,7 +92,7 @@ export function StickyActionBar({
   return (
     <div
       className={cn(
-        "sticky bottom-0 z-20 -mx-4 mt-4 border-t border-border bg-bg/95 px-4 pt-3 backdrop-blur",
+        "sticky bottom-0 z-20 -mx-4 mt-4 border-t-2 border-border-strong bg-bg/95 px-4 pt-3 backdrop-blur",
         "pb-[calc(12px+env(safe-area-inset-bottom))]",
         className,
       )}
@@ -129,18 +129,18 @@ export function StepIndicator({
           >
             <span
               className={cn(
-                "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold",
-                done && "bg-accent text-accent-fg",
-                active && "border-2 border-accent text-accent",
-                !done && !active && "border border-border text-muted",
+                "flex h-5 w-5 shrink-0 items-center justify-center border-2 text-[11px] font-bold",
+                done && "border-accent bg-accent text-accent-fg",
+                active && "border-accent text-accent-strong",
+                !done && !active && "border-border text-faint",
               )}
             >
               {done ? "✓" : i + 1}
             </span>
             <span
               className={cn(
-                "truncate",
-                active ? "font-medium text-text" : "text-muted",
+                "truncate text-[11px] font-bold uppercase tracking-caps",
+                active ? "text-text" : "text-faint",
               )}
             >
               {label}
@@ -175,12 +175,9 @@ export function SegmentedControl<T extends string>({
     <div
       role="tablist"
       aria-label={label}
-      className={cn(
-        "flex rounded-md border border-border bg-surface p-1",
-        className,
-      )}
+      className={cn("flex border-2 border-border-strong", className)}
     >
-      {options.map((o) => {
+      {options.map((o, i) => {
         const active = o.value === value;
         return (
           <button
@@ -190,10 +187,11 @@ export function SegmentedControl<T extends string>({
             aria-selected={active}
             onClick={() => onChange(o.value)}
             className={cn(
-              "min-h-touch flex-1 rounded-sm px-3 text-sm font-medium transition-colors",
+              "min-h-touch flex-1 px-3 text-[12px] font-bold uppercase tracking-caps transition-colors",
+              i > 0 && "border-l-2 border-border-strong",
               active
                 ? "bg-accent text-accent-fg"
-                : "text-muted hover:text-text",
+                : "bg-surface text-muted hover:text-text",
             )}
           >
             {o.label}

@@ -74,7 +74,7 @@ export function MoneyField({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={fieldId} className="text-sm font-medium text-text">
+      <label htmlFor={fieldId} className="text-sm font-semibold text-text">
         {label}
       </label>
       <div
@@ -85,7 +85,7 @@ export function MoneyField({
       >
         <span
           aria-hidden="true"
-          className="flex items-center rounded-l-md bg-text/[0.06] px-3 text-sm font-semibold text-muted"
+          className="flex items-center bg-surface-raised px-3 text-sm font-bold text-muted"
         >
           {currency}
         </span>
@@ -125,7 +125,7 @@ export function DateField({
   const { fieldId, errId, hintId, describedBy } = labelledIds(id, auto, error, hint);
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={fieldId} className="text-sm font-medium text-text">
+      <label htmlFor={fieldId} className="text-sm font-semibold text-text">
         {label}
       </label>
       <input
@@ -159,7 +159,7 @@ export function SelectField({
   const { fieldId, errId, hintId, describedBy } = labelledIds(id, auto, error, hint);
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={fieldId} className="text-sm font-medium text-text">
+      <label htmlFor={fieldId} className="text-sm font-semibold text-text">
         {label}
       </label>
       <select

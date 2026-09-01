@@ -58,7 +58,7 @@ export function Combobox<V extends string>({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={listId} className="text-sm font-medium text-text">
+      <label htmlFor={listId} className="text-sm font-semibold text-text">
         {label}
       </label>
 
@@ -101,7 +101,7 @@ export function Combobox<V extends string>({
                   setQuery("");
                 }}
                 className={cn(
-                  "flex min-h-touch w-full items-center gap-3 px-3.5 py-2.5 text-left text-[15px] hover:bg-text/[0.06] disabled:pointer-events-none",
+                  "flex min-h-touch w-full items-center gap-3 px-3.5 py-2.5 text-left text-[15px] hover:bg-accent-weak disabled:pointer-events-none",
                   isSel && "bg-accent-weak",
                 )}
               >

@@ -148,7 +148,7 @@ export default function ExpenseListPage() {
           <LinkButton
             href={`/g/${group.id}/gastos/nuevo`}
             aria-label={t("expense:addTitle")}
-            className="rounded-full px-5 shadow-lg"
+            className="px-5"
           >
             + {t("expense:addTitle")}
           </LinkButton>

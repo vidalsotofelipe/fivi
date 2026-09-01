@@ -8,7 +8,7 @@ type Tone = "ok" | "info" | "warn" | "danger" | "muted";
 const dotClass: Record<Tone, string> = {
   ok: "bg-accent",
   info: "bg-accent animate-pulse",
-  warn: "bg-warning",
+  warn: "bg-warm",
   danger: "bg-danger",
   muted: "bg-muted",
 };
@@ -71,7 +71,7 @@ export function SyncBadge() {
     >
       <span
         aria-hidden="true"
-        className={`h-2 w-2 shrink-0 rounded-full ${dotClass[tone]}`}
+        className={`h-2 w-2 shrink-0 ${dotClass[tone]}`}
       />
       <span>{label}</span>
     </span>

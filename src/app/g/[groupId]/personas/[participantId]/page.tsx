@@ -105,7 +105,7 @@ export default function PersonDetailPage() {
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium text-muted">
+        <h2 className="label-caps">
           {t("people:theirExpenses")}
         </h2>
         {theirExpenses.length === 0 ? (

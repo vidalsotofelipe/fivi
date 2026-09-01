@@ -37,7 +37,7 @@ test("cambio de idioma instantáneo y persistente", async ({ page }) => {
   await expect(page.locator("html")).toHaveAttribute("lang", "es");
 
   // Más → Configuración → Idioma → English.
-  await page.getByRole("link", { name: "Editar datos del grupo" }).click();
+  await page.getByRole("link", { name: "Configuración" }).click();
   await page.waitForURL(/\/config$/);
   await page.getByRole("tab", { name: "English" }).click();
 
@@ -61,11 +61,42 @@ test("cambio de idioma instantáneo y persistente", async ({ page }) => {
   await expect(page.getByRole("link", { name: "More" })).toBeVisible();
 
   // Volver a español desde Configuración.
-  await page.getByRole("link", { name: "Edit group details" }).click();
+  await page.getByRole("link", { name: "Settings" }).click();
   await page.waitForURL(/\/config$/);
   await page.getByRole("tab", { name: "Español" }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "es");
   await expect(
     page.getByRole("heading", { name: "Datos del grupo" }),
   ).toBeVisible();
+});
+
+test("tema Sistema / Claro / Oscuro: cambio instantáneo y persistente", async ({
+  page,
+}) => {
+  const id = await seedGroup(page);
+  await page.goto(`/g/${id}/config`);
+
+  const html = page.locator("html");
+  // Por defecto: "Sistema" → sin data-theme.
+  await expect(html).not.toHaveAttribute("data-theme", /.+/);
+
+  // Oscuro.
+  await page.getByRole("tab", { name: "Oscuro" }).click();
+  await expect(html).toHaveAttribute("data-theme", "dark");
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute(
+    "content",
+    "#17161a",
+  );
+
+  // Persiste tras recargar (script en <head>, antes del paint).
+  await page.reload();
+  await expect(html).toHaveAttribute("data-theme", "dark");
+
+  // Claro.
+  await page.getByRole("tab", { name: "Claro" }).click();
+  await expect(html).toHaveAttribute("data-theme", "light");
+
+  // Volver a Sistema quita el atributo.
+  await page.getByRole("tab", { name: "Sistema" }).click();
+  await expect(html).not.toHaveAttribute("data-theme", /.+/);
 });

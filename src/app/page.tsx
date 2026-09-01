@@ -47,7 +47,7 @@ function GroupRow({
     <li>
       <Link
         href={`/g/${item.group.id}`}
-        className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface px-4 py-4 hover:bg-text/[0.03]"
+        className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface px-4 py-4 hover:bg-accent-weak"
       >
         <span className="min-w-0">
           <span className="block truncate font-medium text-text">
@@ -104,7 +104,7 @@ export default function HomePage() {
     return (
       <AppShell title={t("common:appName")}>
         <div className="flex flex-1 flex-col">
-          <AppMark className="mt-2 h-14 w-14 rounded-[18px] shadow-sm" />
+          <AppMark className="mt-2 h-14 w-14" />
           <h2 className="mt-5 text-[26px] font-semibold leading-tight text-text">
             {t("title")}
           </h2>
@@ -125,7 +125,7 @@ export default function HomePage() {
 
   return (
     <AppShell title={t("common:appName")}>
-      <h2 className="text-sm font-medium text-muted">{t("myGroups")}</h2>
+      <h2 className="label-caps">{t("myGroups")}</h2>
       {groups.length > 0 ? (
         <ul className="flex flex-col gap-2">
           {groups.map((item) => (

@@ -15,6 +15,7 @@ import { ConfirmDialog } from "@/components/ui/overlays";
 import { useToast } from "@/components/ui/toast";
 import { useGroupContext } from "@/components/GroupProvider";
 import { useLocale } from "@/components/LocaleProvider";
+import { useTheme } from "@/components/ThemeProvider";
 import { SUPPORTED_LANGS } from "@/i18n/config";
 import { useGroupHasMovements } from "@/lib/db-hooks";
 import { db } from "@/data/db";
@@ -47,6 +48,7 @@ export default function GroupConfigPage() {
     "a11y",
   ]);
   const { lang, setLang } = useLocale();
+  const { theme, setTheme } = useTheme();
   const { group, participants } = useGroupContext();
   const hasMovements = useGroupHasMovements(group.id);
   const toast = useToast();
@@ -114,7 +116,7 @@ export default function GroupConfigPage() {
     <AppShell title={t("settings:configTitle")} back={`/g/${group.id}/mas`}>
       {/* Datos del grupo */}
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium text-muted">
+        <h2 className="label-caps">
           {t("settings:sectionGroup")}
         </h2>
         <TextField
@@ -140,9 +142,7 @@ export default function GroupConfigPage() {
 
       {/* Idioma — Más → Configuración → Idioma */}
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium text-muted">
-          {t("settings:sectionLanguage")}
-        </h2>
+        <h2 className="label-caps">{t("settings:sectionLanguage")}</h2>
         <SegmentedControl
           label={t("settings:languageLabel")}
           options={langOptions}
@@ -152,9 +152,25 @@ export default function GroupConfigPage() {
         <p className="text-xs text-muted">{t("settings:languageHint")}</p>
       </section>
 
+      {/* Apariencia — Sistema / Claro / Oscuro */}
+      <section className="flex flex-col gap-2">
+        <h2 className="label-caps">{t("settings:sectionAppearance")}</h2>
+        <SegmentedControl
+          label={t("settings:sectionAppearance")}
+          options={[
+            { value: "system", label: t("settings:appearanceSystem") },
+            { value: "light", label: t("settings:appearanceLight") },
+            { value: "dark", label: t("settings:appearanceDark") },
+          ]}
+          value={theme}
+          onChange={setTheme}
+        />
+        <p className="text-xs text-muted">{t("settings:appearanceHint")}</p>
+      </section>
+
       {/* Moneda */}
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium text-muted">
+        <h2 className="label-caps">
           {t("settings:sectionCurrency")}
         </h2>
         {hasMovements ? (
@@ -173,7 +189,7 @@ export default function GroupConfigPage() {
 
       {/* Participantes */}
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium text-muted">
+        <h2 className="label-caps">
           {t("settings:sectionParticipants")} ({participants.length})
         </h2>
         <ul className="flex flex-col divide-y divide-border rounded-md border border-border">
@@ -242,7 +258,7 @@ export default function GroupConfigPage() {
 
       {/* Archivar / restaurar (reversible) */}
       <section className="mt-2 flex flex-col gap-1.5 border-t border-border pt-4">
-        <h2 className="text-sm font-medium text-muted">
+        <h2 className="label-caps">
           {t("archive:sectionTitle")}
         </h2>
         <p className="text-xs text-muted">
@@ -277,7 +293,7 @@ export default function GroupConfigPage() {
 
       {/* Zona sensible */}
       <section className="mt-2 flex flex-col gap-2 border-t border-border pt-4">
-        <h2 className="text-sm font-medium text-danger">
+        <h2 className="label-caps text-danger">
           {t("settings:sectionDanger")}
         </h2>
         <Button

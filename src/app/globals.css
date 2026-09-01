@@ -2,61 +2,117 @@
 @tailwind components;
 @tailwind utilities;
 
+/* --- Tipografías (self-host, offline-first) ---------------------------------- */
+@font-face {
+  font-family: "Archivo";
+  src: url("/fonts/archivo.woff2") format("woff2");
+  font-weight: 400 700;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Space Grotesk";
+  src: url("/fonts/space-grotesk.woff2") format("woff2");
+  font-weight: 400 700;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+
 /*
- * Tokens de diseño (handoff mobile-first). Los colores son canales RGB
- * separados por espacio para que Tailwind pueda aplicar opacidad
- * (`bg-surface/60`). Tema claro por defecto + oscuro por `prefers-color-scheme`.
+ * Tokens de diseño — estilo "flat / editorial" (ver artefacto de referencia):
+ * neutros cálidos, azul (#1F5FD6/#1648A6) + naranja (#E2662F/#B94718), esquinas
+ * rectas, bordes de 2 px, micro-labels en mayúsculas. Canales RGB separados por
+ * espacio para poder aplicar opacidad con Tailwind (`bg-surface/60`).
+ *
+ * Tema: `:root` = claro. `[data-theme="dark"]` fuerza oscuro; sin atributo se
+ * sigue `prefers-color-scheme`. Lo maneja `ThemeProvider` (Sistema/Claro/Oscuro).
  */
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
 
-  /* superficies / texto — paleta CLARA (contraste >= 4.5:1 sobre --bg) */
-  --bg: 247 249 248;
+  --bg: 255 255 255;
   --surface: 255 255 255;
-  --surface-raised: 255 255 255;
-  --border: 221 227 225;
-  --text: 16 32 28;
-  --text-muted: 79 96 91;
+  --surface-raised: 247 246 248; /* #F7F6F8 */
+  --border: 218 216 224; /* #DAD8E0 — divisores sutiles */
+  --border-strong: 23 22 26; /* #17161A — divisores fuertes / subrayados clave */
+  --text: 23 22 26; /* #17161A */
+  --muted: 89 87 98; /* #595762 — texto secundario */
+  --faint: 128 125 137; /* #807D89 — micro-labels */
 
-  /* acento e intención */
-  --accent: 10 125 97;
-  --accent-pressed: 8 105 81;
+  --accent: 31 95 214; /* #1F5FD6 — azul primario */
+  --accent-strong: 22 72 166; /* #1648A6 — links, números grandes, pressed */
   --accent-fg: 255 255 255;
-  --accent-weak: 230 244 240;
-  --danger: 197 42 42;
+  --accent-weak: 242 246 255; /* #F2F6FF — hover / fondo tenue */
+
+  --warm: 226 102 47; /* #E2662F — naranja */
+  --warm-strong: 185 71 24; /* #B94718 — "debés", hover de link */
+  --warm-fg: 255 255 255;
+  --warm-weak: 255 245 240; /* #FFF5F0 */
+
+  --positive: 20 122 90; /* #147A5A — "al día" */
+  --danger: 176 0 32; /* #B00020 */
   --danger-fg: 255 255 255;
-  --warning: 176 106 0;
 
-  /* radios */
-  --radius-sm: 10px;
-  --radius-md: 14px;
-  --radius-lg: 20px;
+  --radius: 0px;
+}
 
-  /* espaciado */
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 24px;
-  --space-6: 32px;
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: 23 22 26; /* #17161A */
+  --surface: 30 29 34; /* #1E1D22 */
+  --surface-raised: 38 36 43; /* #26242B */
+  --border: 51 49 58; /* #33313A */
+  --border-strong: 245 244 242; /* #F5F4F2 — el divisor fuerte se invierte */
+  --text: 245 244 242; /* #F5F4F2 */
+  --muted: 184 181 191; /* #B8B5BF */
+  --faint: 139 136 146; /* #8B8892 */
+
+  --accent: 91 141 239; /* #5B8DEF */
+  --accent-strong: 143 178 255; /* #8FB2FF */
+  --accent-fg: 11 18 32; /* #0B1220 */
+  --accent-weak: 27 39 64; /* #1B2740 */
+
+  --warm: 240 132 78; /* #F0844E */
+  --warm-strong: 255 158 107; /* #FF9E6B */
+  --warm-fg: 23 22 26;
+  --warm-weak: 58 36 27; /* #3A241B */
+
+  --positive: 63 191 147; /* #3FBF93 */
+  --danger: 255 107 107; /* #FF6B6B */
+  --danger-fg: 23 22 26;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --bg: 14 17 17;
-    --surface: 23 28 27;
-    --surface-raised: 30 37 35;
-    --border: 49 65 61;
-    --text: 244 247 246;
-    --text-muted: 174 184 181;
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
 
-    --accent: 46 211 165;
-    --accent-pressed: 34 185 143;
-    --accent-fg: 12 24 20;
-    --accent-weak: 24 44 39;
+    --bg: 23 22 26;
+    --surface: 30 29 34;
+    --surface-raised: 38 36 43;
+    --border: 51 49 58;
+    --border-strong: 245 244 242;
+    --text: 245 244 242;
+    --muted: 184 181 191;
+    --faint: 139 136 146;
+
+    --accent: 91 141 239;
+    --accent-strong: 143 178 255;
+    --accent-fg: 11 18 32;
+    --accent-weak: 27 39 64;
+
+    --warm: 240 132 78;
+    --warm-strong: 255 158 107;
+    --warm-fg: 23 22 26;
+    --warm-weak: 58 36 27;
+
+    --positive: 63 191 147;
     --danger: 255 107 107;
-    --danger-fg: 15 17 17;
-    --warning: 255 184 77;
+    --danger-fg: 23 22 26;
   }
 }
 
@@ -70,20 +126,35 @@ body {
 body {
   background: rgb(var(--bg));
   color: rgb(var(--text));
+  font-family: "Archivo", system-ui, -apple-system, "Segoe UI", Roboto,
+    sans-serif;
   /* nunca scroll horizontal a nivel documento */
   overflow-x: hidden;
 }
 
-/* Foco visible consistente (WCAG 2.2): outline 2px + 2px de separación */
+/* Números y títulos de despliegue: Space Grotesk. */
+.font-display {
+  font-family: "Space Grotesk", "Archivo", system-ui, sans-serif;
+}
+
+/* Micro-label en mayúsculas, recurrente en este estilo. */
+.label-caps {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgb(var(--faint));
+}
+
+/* Foco visible (WCAG 2.2): outline 2px + separación, sin radio. */
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {
   outline: 2px solid rgb(var(--accent));
   outline-offset: 2px;
-  border-radius: 4px;
 }
 
-@keyframes toast-in {
+@keyframes fivi-up {
   from {
-    transform: translateY(8px);
+    transform: translateY(14px);
     opacity: 0;
   }
   to {
@@ -91,7 +162,24 @@ body {
     opacity: 1;
   }
 }
-
+@keyframes fivi-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes toast-in {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
 @keyframes sheet-in {
   from {
     transform: translateY(12px);

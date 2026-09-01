@@ -83,7 +83,7 @@ export default function ExpenseDetailPage() {
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium text-muted">
+        <h2 className="label-caps">
           {t("expense:splitLabel")} · {splitStrategyLabel(e.split_strategy)}
         </h2>
         <ul className="divide-y divide-border rounded-md border border-border">

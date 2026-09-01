@@ -38,7 +38,7 @@ export function MePicker({
                 onClose();
               }}
               className={cn(
-                "flex min-h-touch w-full items-center justify-between px-4 py-2.5 text-left text-[15px] hover:bg-text/[0.06]",
+                "flex min-h-touch w-full items-center justify-between px-4 py-2.5 text-left text-[15px] hover:bg-accent-weak",
                 currentId === p.id && "bg-accent-weak",
               )}
             >

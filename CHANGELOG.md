@@ -13,6 +13,46 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.10.0] - 2026-09-01
+
+Rediseño visual "flat / editorial" según el artefacto de estilo + modo oscuro
+con selector. Sin cambios de lógica de negocio, modelo de datos ni de API. Sin
+migraciones.
+
+### Added
+
+- **Modo oscuro con selector de 3 opciones** (`Más → Configuración →
+  Apariencia`): Sistema / Claro / Oscuro. Preferencia en `localStorage`
+  (`fivi:theme`), se aplica al instante sin recarga, sin flash (script en
+  `<body>` antes del paint), y actualiza `<meta name="theme-color">` y
+  `<html data-theme>`. "Sistema" sigue `prefers-color-scheme` en vivo.
+  Paleta oscura derivada del mismo lenguaje visual, con contraste AA.
+- `ThemeProvider` + `useTheme()`.
+
+### Changed
+
+- **Nuevo sistema de tokens y estilo flat**: paleta azul (`#1F5FD6`/`#1648A6`) +
+  naranja (`#E2662F`/`#B94718`) sobre neutros cálidos; esquinas rectas (sin
+  `border-radius`), bordes de 2 px (`border-strong` `#17161A` / `border` sutil),
+  micro-labels en mayúsculas (`.label-caps`). Tipografías **Archivo** (UI) y
+  **Space Grotesk** (números / display), self-host offline (`public/fonts/`).
+- Saldos: positivo (a favor) en **azul**, negativo (debés) en **naranja** — el
+  signo +/− lo sigue indicando además del color.
+- Todos los componentes base y las 19 pantallas migrados a los tokens nuevos.
+  Service worker `v8` (fuentes + CSS cambiaron).
+- `Money` usa `Space Grotesk` tabular.
+
+### Removed
+
+- Componentes muertos de antes del rediseño (`BalanceList`, `CurrencySelect`,
+  `ExpenseForm`, `MoneyInput`, `MoneyText`, `TransferList`). `parseAmount` se
+  movió a `src/lib/amount.ts`.
+
+### Tests
+
+- `idioma.spec.ts`: pasada nueva para el tema (Sistema/Claro/Oscuro cambia
+  `data-theme` y `<meta theme-color>` al instante y persiste tras recargar).
+
 ## [0.9.1] - 2026-08-31
 
 Auditoría responsive mobile + fix de fecha relativa. Sin cambios de lógica de

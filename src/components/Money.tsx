@@ -25,17 +25,23 @@ export function Money({
 
   if (!signed) {
     return (
-      <span className={cn("tabular-nums", className)}>
+      <span className={cn("font-display tabular-nums", className)}>
         {formatMoney(minor, currency, lang)}
       </span>
     );
   }
 
+  // Positivo (a favor) = azul de marca; negativo (debés) = naranja de marca.
+  // El signo +/− también lo indica: nunca depende sólo del color.
   const tone =
-    minor > 0 ? "text-accent" : minor < 0 ? "text-danger" : "text-muted";
+    minor > 0
+      ? "text-accent-strong"
+      : minor < 0
+        ? "text-warm-strong"
+        : "text-faint";
   const sign = minor > 0 ? "+" : minor < 0 ? "−" : "";
   return (
-    <span className={cn("tabular-nums", tone, className)}>
+    <span className={cn("font-display tabular-nums", tone, className)}>
       {sign}
       {formatMoney(Math.abs(minor), currency, lang)}
     </span>

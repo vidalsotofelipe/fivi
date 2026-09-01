@@ -79,7 +79,7 @@ export function InvitesSection({ groupId }: { groupId: string }) {
   return (
     <section className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium text-muted">
+        <h2 className="label-caps">
           {t("settings:invitesTitle")}
         </h2>
         {role ? (

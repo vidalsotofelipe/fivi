@@ -44,7 +44,7 @@ export default function GroupReadyPage() {
       <div className="flex flex-1 flex-col items-center gap-4 pt-6 text-center">
         <span
           aria-hidden="true"
-          className="flex h-16 w-16 items-center justify-center rounded-full bg-accent-weak text-3xl text-accent"
+          className="flex h-16 w-16 items-center justify-center bg-accent-weak text-3xl text-accent"
         >
           ✓
         </span>

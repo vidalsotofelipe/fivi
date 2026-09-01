@@ -35,7 +35,7 @@ export function TextField({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={fieldId} className="text-sm font-medium text-text">
+      <label htmlFor={fieldId} className="text-sm font-semibold text-text">
         {label}
       </label>
       <div
@@ -94,7 +94,7 @@ export function TextAreaField({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={fieldId} className="text-sm font-medium text-text">
+      <label htmlFor={fieldId} className="text-sm font-semibold text-text">
         {label}
       </label>
       <textarea

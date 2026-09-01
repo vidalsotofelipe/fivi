@@ -19,6 +19,11 @@ export function nameOf(participants: Participant[], id: string): string {
   return participants.find((p) => p.id === id)?.name ?? "—";
 }
 
+/** Fila enlazable (gasto / persona / transferencia / actividad). */
+const ROW =
+  "flex items-center justify-between gap-3 border-2 border-border bg-surface px-4 py-3";
+const ROW_LINK = cn(ROW, "hover:border-accent hover:bg-accent-weak");
+
 /** Tarjeta grande "Tu balance" / "Total gastado" del resumen. */
 export function BalanceCard({
   amountMinor,
@@ -32,12 +37,16 @@ export function BalanceCard({
   statusLabel: string;
 }) {
   return (
-    <section className="rounded-md border border-border bg-surface-raised p-5 text-center">
-      <p className="text-xs uppercase tracking-wide text-muted">{caption}</p>
-      <p className="mt-1 text-3xl font-semibold">
-        <Money minor={amountMinor} currency={currency} signed={amountMinor !== 0} />
+    <section className="border-2 border-border-strong bg-surface p-5 text-center">
+      <p className="label-caps">{caption}</p>
+      <p className="mt-2 text-[40px] leading-none">
+        <Money
+          minor={amountMinor}
+          currency={currency}
+          signed={amountMinor !== 0}
+        />
       </p>
-      <p className="mt-1 text-sm text-muted">{statusLabel}</p>
+      <p className="mt-2 label-caps">{statusLabel}</p>
     </section>
   );
 }
@@ -64,22 +73,22 @@ export function BalanceRow({
   return (
     <li
       className={cn(
-        "flex items-center justify-between gap-3 py-2.5",
-        highlight && "font-medium",
+        "flex items-center justify-between gap-3 border-t-2 border-border py-3",
+        highlight && "border-accent",
       )}
     >
       <span className="min-w-0">
         <span className="block truncate text-[15px] text-text">
           {nameOf(participants, balance.participant_id)}
         </span>
-        <span className="block text-xs text-muted">{status}</span>
+        <span className="mt-0.5 block label-caps">{status}</span>
       </span>
       <Money minor={balance.balance_minor} currency={currency} signed />
     </li>
   );
 }
 
-/** "X → Y  $monto" con dirección inequívoca (flecha + nombres, no sólo color). */
+/** "X le paga a Y  $monto" con dirección inequívoca (nombres, no sólo color). */
 export function TransferRow({
   transfer,
   participants,
@@ -98,7 +107,7 @@ export function TransferRow({
     <li>
       <Link
         href={`/g/${groupId}/pagos/nuevo?from=${transfer.from_id}&to=${transfer.to_id}&amount=${transfer.amount_minor}`}
-        className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface px-4 py-3 hover:bg-text/[0.03]"
+        className={ROW_LINK}
       >
         <span className="min-w-0 text-[15px] text-text">
           {t("paysTo", { from, to })}
@@ -106,14 +115,14 @@ export function TransferRow({
         <Money
           minor={transfer.amount_minor}
           currency={currency}
-          className="shrink-0 font-medium"
+          className="shrink-0 font-bold"
         />
       </Link>
     </li>
   );
 }
 
-/** Fila de persona en la lista de Personas: nombre + estado + saldo, enlaza al detalle. */
+/** Fila de persona en la lista de Personas: nombre + estado + saldo. */
 export function PersonRow({
   participant,
   balanceMinor,
@@ -136,13 +145,13 @@ export function PersonRow({
     <li>
       <Link
         href={`/g/${groupId}/personas/${participant.id}`}
-        className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface px-4 py-3 hover:bg-text/[0.03]"
+        className={ROW_LINK}
       >
         <span className="min-w-0">
           <span className="block truncate text-[15px] text-text">
             {participant.name}
           </span>
-          <span className="block text-xs text-muted">{status}</span>
+          <span className="mt-0.5 block label-caps">{status}</span>
         </span>
         <Money minor={balanceMinor} currency={currency} signed />
       </Link>
@@ -191,38 +200,33 @@ export function ActivityItem({
   }
 
   const body = (
-    <>
-      <span className="min-w-0 text-[15px] text-text">
-        {text}
-        <span className="block text-xs text-muted">
-          {formatRelative(event.at, lang)}
-          {event.amount_minor != null ? (
-            <>
-              {" · "}
-              <Money minor={event.amount_minor} currency={currency} />
-            </>
-          ) : null}
-        </span>
+    <span className="min-w-0 text-[15px] text-text">
+      {text}
+      <span className="mt-0.5 block text-xs text-muted">
+        {formatRelative(event.at, lang)}
+        {event.amount_minor != null ? (
+          <>
+            {" · "}
+            <Money minor={event.amount_minor} currency={currency} />
+          </>
+        ) : null}
       </span>
-    </>
+    </span>
   );
-
-  const cls =
-    "flex items-center justify-between gap-3 rounded-md border border-border bg-surface px-4 py-3";
 
   if (event.expense_id) {
     return (
       <li>
         <Link
           href={`/g/${groupId}/gastos/${event.expense_id}`}
-          className={cn(cls, "hover:bg-text/[0.03]")}
+          className={ROW_LINK}
         >
           {body}
         </Link>
       </li>
     );
   }
-  return <li className={cls}>{body}</li>;
+  return <li className={ROW}>{body}</li>;
 }
 
 /** Tarjeta de gasto en la lista / actividad. */
@@ -242,15 +246,12 @@ export function ExpenseCard({
   const payer = nameOf(participants, expense.paid_by);
   return (
     <li>
-      <Link
-        href={`/g/${groupId}/gastos/${expense.id}`}
-        className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface px-4 py-3 hover:bg-text/[0.03]"
-      >
+      <Link href={`/g/${groupId}/gastos/${expense.id}`} className={ROW_LINK}>
         <span className="min-w-0">
-          <span className="block truncate text-[15px] text-text">
+          <span className="block truncate text-[15px] font-medium text-text">
             {expense.description}
           </span>
-          <span className="block text-xs text-muted">
+          <span className="mt-0.5 block text-xs text-muted">
             {formatDate(expense.expense_date, lang)} ·{" "}
             {t("expense:paidBy", { name: payer })}
           </span>
