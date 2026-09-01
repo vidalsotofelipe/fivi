@@ -8,6 +8,7 @@ import {
   minorToRawInput,
   toMinorUnits,
 } from "@/domain/money";
+import { getCurrencyInfo } from "@/domain/currencies";
 
 describe("minorFromDecimal / fromMinorUnits", () => {
   it("convierte a unidades mínimas según los decimales de la moneda", () => {
@@ -52,7 +53,7 @@ describe("toMinorUnits (parseo de texto del usuario)", () => {
 
 describe("minorToRawInput", () => {
   it("produce texto re-parseable con toMinorUnits en cada moneda", () => {
-    for (const code of ["ARS", "USD", "EUR", "BRL", "CLP", "GBP"]) {
+    for (const code of ["ARS", "USD", "EUR", "BRL", "CLP", "GBP", "GTQ"]) {
       for (const minor of [0, 5, 100, 12345, 1000000]) {
         const raw = minorToRawInput(minor, code);
         expect(toMinorUnits(raw, code)).toBe(minor);
@@ -75,6 +76,21 @@ describe("formatMoney", () => {
     const out = formatMoney(12500, "CLP", "es-CL");
     expect(out).toContain("12.500");
     expect(out).not.toContain(",00");
+  });
+
+  it("GTQ: quetzal guatemalteco, 2 decimales, símbolo Q", () => {
+    expect(getCurrencyInfo("GTQ")).toMatchObject({
+      code: "GTQ",
+      decimal_digits: 2,
+      locale: "es-GT",
+    });
+    // 123456 unidades mínimas = Q 1.234,56
+    expect(toMinorUnits("Q 1,234.56", "GTQ")).toBe(123456);
+    const out = formatMoney(123456, "GTQ", "es-GT");
+    expect(out).toMatch(/1[.,]234[.,]56/);
+    expect(out).toMatch(/Q/);
+    // reparto entero exacto en GTQ
+    expect(distributeMinor(10000, 3)).toEqual([3334, 3333, 3333]);
   });
 });
 

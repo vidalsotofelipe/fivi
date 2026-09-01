@@ -54,7 +54,7 @@
   "errors": {
     "generic": "Something went wrong. Try again.",
     "requiredName": "Enter a name to continue",
-    "groupNameRequired": "The group name is required",
+    "groupNameRequired": "Enter the group name.",
     "currencyRequired": "Choose a currency",
     "participantNameRequired": "Enter a name",
     "duplicateParticipant": "Someone with that name is already added",
@@ -95,6 +95,9 @@
     "currencyLabel": "Currency",
     "currencyHint": "It can't be changed once the group has expenses or payments.",
     "currencyLocked": "The currency can't be changed because this group already has activity.",
+    "currencyDetectedHint": "We picked {{code}} based on your location. You can change it.",
+    "currencyDefaultHint": "We couldn't detect your currency. We picked USD, but you can change it.",
+    "currencyLastHint": "Using {{code}}, your last chosen currency. You can change it.",
     "creating": "Creating…",
     "setupStep": "Step {{current}} of {{total}}",
     "participantsQuestion": "Who's in?",

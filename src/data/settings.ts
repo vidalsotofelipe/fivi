@@ -46,6 +46,18 @@ export function useSetting<T = unknown>(key: string): T | null | undefined {
   );
 }
 
+// Preferencias globales del dispositivo ------------------------------------
+/** Última moneda que el usuario eligió a mano al crear un grupo. */
+export const LAST_CURRENCY_KEY = "last_currency";
+
+export function getLastCurrency(database: FiviDatabase = db): Promise<string | undefined> {
+  return getSetting<string>(LAST_CURRENCY_KEY, database);
+}
+
+export function rememberLastCurrency(code: string, database: FiviDatabase = db): Promise<void> {
+  return setSetting(LAST_CURRENCY_KEY, code, database);
+}
+
 // Claves con scope de grupo -------------------------------------------------
 export const meKey = (groupId: string) => `me:${groupId}`;
 export const lastPayerKey = (groupId: string) => `last_payer:${groupId}`;

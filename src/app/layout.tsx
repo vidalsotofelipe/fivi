@@ -5,6 +5,7 @@ import { LocaleProvider } from "@/components/LocaleProvider";
 import { SyncProvider } from "@/components/SyncProvider";
 import { ThemeProvider, themeInitScript } from "@/components/ThemeProvider";
 import { ToastProvider } from "@/components/ui/toast";
+import { langInitScript } from "@/i18n/langScript";
 
 export const metadata: Metadata = {
   title: "fivi — gastos compartidos",
@@ -47,8 +48,9 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning>
       <body className="font-sans antialiased">
-        {/* Aplica el tema guardado antes de pintar el contenido (sin flash). */}
+        {/* Tema + idioma efectivos antes del primer paint (sin flash ni desajuste). */}
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <script dangerouslySetInnerHTML={{ __html: langInitScript }} />
         <ThemeProvider>
           <LocaleProvider>
             <ToastProvider>

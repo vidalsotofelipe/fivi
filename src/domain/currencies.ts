@@ -30,6 +30,7 @@ export const CURRENCIES: Record<string, CurrencyInfo> = {
   BRL: { code: "BRL", name: "Real brasileño", decimal_digits: 2, locale: "pt-BR" },
   CLP: { code: "CLP", name: "Peso chileno", decimal_digits: 0, locale: "es-CL" },
   UYU: { code: "UYU", name: "Peso uruguayo", decimal_digits: 2, locale: "es-UY" },
+  GTQ: { code: "GTQ", name: "Quetzal guatemalteco", decimal_digits: 2, locale: "es-GT" },
   GBP: { code: "GBP", name: "Libra esterlina", decimal_digits: 2, locale: "en-GB" },
   MXN: { code: "MXN", name: "Peso mexicano", decimal_digits: 2, locale: "es-MX" },
   JPY: { code: "JPY", name: "Yen japonés", decimal_digits: 0, locale: "ja-JP" },

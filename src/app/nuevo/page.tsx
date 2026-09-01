@@ -2,17 +2,23 @@
 
 /** Pantalla 02 — nuevo grupo (paso 1 de 3). */
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/Button";
-import { CurrencyPicker } from "@/components/CurrencyPicker";
+import { CurrencySelect } from "@/components/CurrencySelect";
 import { TextAreaField, TextField } from "@/components/ui/TextField";
 import { FormError } from "@/components/fields";
 import { StepIndicator, StickyActionBar } from "@/components/ui/primitives";
 import { db } from "@/data/db";
 import { createGroup } from "@/data/repositories/groupRepo";
-import type { CurrencyCode } from "@/domain/types";
+import { getLastCurrency, rememberLastCurrency } from "@/data/settings";
+import {
+  detectInitialCurrency,
+  localeRegionCurrency,
+  type CurrencySource,
+} from "@/lib/detectCurrency";
+import { DEFAULT_CURRENCY } from "@/domain/countryCurrency";
 
 const MAX_DESC = 120;
 
@@ -22,20 +28,44 @@ export default function NewGroupPage() {
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [currency, setCurrency] = useState<CurrencyCode | "">("");
+  // Arranca con una estimación síncrona (nunca vacío, nunca bloquea) y se
+  // refina con la detección por IP en un efecto.
+  const [currency, setCurrency] = useState<string>(
+    () => localeRegionCurrency() ?? DEFAULT_CURRENCY,
+  );
+  const [detection, setDetection] = useState<CurrencySource | null>(null);
+  const currencyTouched = useRef(false);
   const [busy, setBusy] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
-  const [currencyError, setCurrencyError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getLastCurrency(db)
+      .then((last) => detectInitialCurrency(last))
+      .then((d) => {
+        if (cancelled || currencyTouched.current) return;
+        setCurrency(d.code);
+        setDetection(d.source);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function onPickCurrency(code: string) {
+    currencyTouched.current = true;
+    setCurrency(code);
+    setDetection(null); // el usuario decidió: ocultamos el aviso
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const cleanName = name.trim();
-    const missName = cleanName === "" ? t("errors:requiredName") : null;
-    const missCur = currency === "" ? t("errors:currencyRequired") : null;
-    setNameError(missName);
-    setCurrencyError(missCur);
-    if (missName || missCur || currency === "") return;
+    if (cleanName === "") {
+      setNameError(t("errors:groupNameRequired"));
+      return;
+    }
 
     setBusy(true);
     setSubmitError(null);
@@ -44,12 +74,22 @@ export default function NewGroupPage() {
         { name: cleanName, description, currency_code: currency },
         db,
       );
+      void rememberLastCurrency(currency, db);
       router.replace(`/g/${group.id}/nuevo/personas`);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : String(err));
       setBusy(false);
     }
   }
+
+  const currencyHint =
+    detection === "geo" || detection === "locale"
+      ? t("group:currencyDetectedHint", { code: currency })
+      : detection === "default"
+        ? t("group:currencyDefaultHint")
+        : detection === "last"
+          ? t("group:currencyLastHint", { code: currency })
+          : undefined;
 
   return (
     <AppShell title={t("group:newTitle")} back="/" showSync={false}>
@@ -58,7 +98,7 @@ export default function NewGroupPage() {
         current={0}
       />
 
-      <form onSubmit={handleSubmit} className="flex flex-1 flex-col gap-4">
+      <form onSubmit={handleSubmit} noValidate className="flex flex-1 flex-col gap-4">
         {submitError ? <FormError messages={[submitError]} /> : null}
 
         <TextField
@@ -70,7 +110,6 @@ export default function NewGroupPage() {
             if (nameError) setNameError(null);
           }}
           error={nameError}
-          required
         />
 
         <TextAreaField
@@ -82,15 +121,7 @@ export default function NewGroupPage() {
           hint={t("group:descriptionCount", { count: description.length })}
         />
 
-        <CurrencyPicker
-          value={currency}
-          onChange={(c) => {
-            setCurrency(c);
-            if (currencyError) setCurrencyError(null);
-          }}
-          error={currencyError}
-          hint={t("group:currencyHint")}
-        />
+        <CurrencySelect value={currency} onChange={onPickCurrency} hint={currencyHint} />
 
         <StickyActionBar>
           <Button type="submit" full loading={busy}>

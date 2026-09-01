@@ -162,15 +162,28 @@ export function SelectField({
       <label htmlFor={fieldId} className="text-sm font-semibold text-text">
         {label}
       </label>
-      <select
-        id={fieldId}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={describedBy}
-        className={cn(controlClass, "appearance-none", error && "border-danger", className)}
-        {...props}
-      >
-        {children}
-      </select>
+      <div className="relative">
+        <select
+          id={fieldId}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={describedBy}
+          className={cn(
+            controlClass,
+            "appearance-none pr-10",
+            error && "border-danger",
+            className,
+          )}
+          {...props}
+        >
+          {children}
+        </select>
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted"
+        >
+          ▾
+        </span>
+      </div>
       <Feedback error={error} hint={hint} errId={errId} hintId={hintId} />
     </div>
   );

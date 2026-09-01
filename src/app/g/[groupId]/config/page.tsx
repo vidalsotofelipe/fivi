@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import { AppShell } from "@/components/AppShell";
 import { AddToPastExpenses } from "@/components/AddToPastExpenses";
 import { Button, IconButton } from "@/components/Button";
-import { CurrencyPicker } from "@/components/CurrencyPicker";
+import { CurrencySelect } from "@/components/CurrencySelect";
 import { InvitesSection } from "@/components/InvitesSection";
 import { TextAreaField, TextField } from "@/components/ui/TextField";
 import { SegmentedControl } from "@/components/ui/primitives";
@@ -179,7 +179,7 @@ export default function GroupConfigPage() {
             {t("group:currencyLocked")}
           </p>
         ) : (
-          <CurrencyPicker
+          <CurrencySelect
             value={group.currency_code}
             onChange={pickCurrency}
             error={currencyError}

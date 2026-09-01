@@ -7,11 +7,12 @@ import i18next from "i18next";
 import { initReactI18next } from "react-i18next";
 import es from "./locales/es.json";
 import en from "./locales/en.json";
+import { LANG_STORAGE_KEY, langInitScript } from "./langScript";
 
 export const SUPPORTED_LANGS = ["es", "en"] as const;
 export type Lang = (typeof SUPPORTED_LANGS)[number];
 export const DEFAULT_LANG: Lang = "es";
-export const LANG_STORAGE_KEY = "fivi:lang";
+export { LANG_STORAGE_KEY, langInitScript };
 
 /** BCP-47 para los formateadores `Intl`. */
 export const BCP47: Record<Lang, string> = {
@@ -21,22 +22,6 @@ export const BCP47: Record<Lang, string> = {
 
 export function isLang(v: unknown): v is Lang {
   return v === "es" || v === "en";
-}
-
-if (!i18next.isInitialized) {
-  void i18next.use(initReactI18next).init({
-    resources: { es, en },
-    lng: DEFAULT_LANG,
-    fallbackLng: DEFAULT_LANG,
-    ns: Object.keys(es),
-    defaultNS: "common",
-    interpolation: { escapeValue: false },
-    returnNull: false,
-    returnEmptyString: false,
-    // Recursos embebidos: nunca hace falta suspender esperando cargas. Sin esto,
-    // react-i18next suspende en SSR y rompe la hidratación (Next App Router).
-    react: { useSuspense: false },
-  });
 }
 
 /** Idioma inicial: preferencia guardada > idioma del navegador > español. */
@@ -61,6 +46,25 @@ export function persistLang(lang: Lang): void {
   } catch {
     /* sin persistencia: se pierde al recargar, no rompe */
   }
+}
+
+if (!i18next.isInitialized) {
+  // En el cliente arranca ya en el idioma efectivo (preferencia/navegador), así
+  // `i18n.language` es correcto antes de que monte `LocaleProvider` y no hay
+  // desajuste entre el selector ("Español"/"English") y el texto visible.
+  void i18next.use(initReactI18next).init({
+    resources: { es, en },
+    lng: detectInitialLang(),
+    fallbackLng: DEFAULT_LANG,
+    ns: Object.keys(es),
+    defaultNS: "common",
+    interpolation: { escapeValue: false },
+    returnNull: false,
+    returnEmptyString: false,
+    // Recursos embebidos: nunca hace falta suspender esperando cargas. Sin esto,
+    // react-i18next suspende en SSR y rompe la hidratación (Next App Router).
+    react: { useSuspense: false },
+  });
 }
 
 export default i18next;

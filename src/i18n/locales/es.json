@@ -54,7 +54,7 @@
   "errors": {
     "generic": "Algo salió mal. Probá de nuevo.",
     "requiredName": "Ingresá un nombre para continuar",
-    "groupNameRequired": "El nombre del grupo es obligatorio",
+    "groupNameRequired": "Ingresá el nombre del grupo.",
     "currencyRequired": "Elegí una moneda",
     "participantNameRequired": "Ingresá un nombre",
     "duplicateParticipant": "Ya agregaste a alguien con ese nombre",
@@ -95,6 +95,9 @@
     "currencyLabel": "Moneda",
     "currencyHint": "No se puede cambiar una vez que el grupo tiene gastos o pagos.",
     "currencyLocked": "La moneda no puede modificarse porque este grupo ya tiene movimientos registrados.",
+    "currencyDetectedHint": "Seleccionamos {{code}} según tu ubicación. Podés cambiarlo.",
+    "currencyDefaultHint": "No pudimos detectar tu moneda. Seleccionamos USD, pero podés cambiarlo.",
+    "currencyLastHint": "Usamos {{code}}, tu última moneda elegida. Podés cambiarlo.",
     "creating": "Creando…",
     "setupStep": "Paso {{current}} de {{total}}",
     "participantsQuestion": "¿Quiénes participan?",
