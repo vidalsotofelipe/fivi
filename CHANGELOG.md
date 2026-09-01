@@ -13,7 +13,22 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
-## [0.10.0] - 2026-09-01
+## [0.10.1] - 2026-09-01
+
+### Changed
+
+- **Saldo a favor en verde** (`#147A5A` claro / `#3FBF93` oscuro), no en azul.
+  Deuda sigue en naranja; el signo +/− lo indica igual. Contraste AA en ambos
+  temas.
+
+### Verificado
+
+- Auditoría de sincronización en producción: sesión anónima válida; push
+  (grupo + participantes + gasto + reparto + pago) llega a Supabase sin rechazo
+  de RLS y la cola se vacía; pull completo e incremental 200 con avance de
+  cursor; 12/12 requests REST OK; WebSocket de Realtime conecta y la suscripción
+  `postgres_changes` responde `status: ok`; UI en "Sincronizado", cola sin
+  items agotados. **Sin errores; sin cambios necesarios.**
 
 Rediseño visual "flat / editorial" según el artefacto de estilo + modo oscuro
 con selector. Sin cambios de lógica de negocio, modelo de datos ni de API. Sin

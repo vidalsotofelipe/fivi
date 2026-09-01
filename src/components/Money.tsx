@@ -31,11 +31,11 @@ export function Money({
     );
   }
 
-  // Positivo (a favor) = azul de marca; negativo (debés) = naranja de marca.
+  // Positivo (a favor) = verde; negativo (debés) = naranja de marca.
   // El signo +/− también lo indica: nunca depende sólo del color.
   const tone =
     minor > 0
-      ? "text-accent-strong"
+      ? "text-positive"
       : minor < 0
         ? "text-warm-strong"
         : "text-faint";
