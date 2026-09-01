@@ -12,6 +12,8 @@ import type {
 import type { ActivityEvent } from "@/data/queries";
 import { cn } from "@/lib/cn";
 import { formatDate, formatRelative } from "@/lib/format";
+import { formatMoney } from "@/domain/money";
+import { BCP47 } from "@/i18n/config";
 import { useLocale } from "@/components/LocaleProvider";
 import { Money } from "@/components/Money";
 
@@ -88,7 +90,10 @@ export function BalanceRow({
   );
 }
 
-/** "X le paga a Y  $monto" con dirección inequívoca (nombres, no sólo color). */
+/**
+ * Deuda pendiente + botón "Saldar". Dirección inequívoca (nombres, no color):
+ * "Felipe le debe $12.500 a Cami". El botón abre el pago con todo precargado.
+ */
 export function TransferRow({
   transfer,
   participants,
@@ -101,22 +106,24 @@ export function TransferRow({
   groupId: string;
 }) {
   const { t } = useTranslation("payment");
+  const { lang } = useLocale();
   const from = nameOf(participants, transfer.from_id);
   const to = nameOf(participants, transfer.to_id);
+  const amount = formatMoney(transfer.amount_minor, currency, BCP47[lang]);
+  const settleHref =
+    `/g/${groupId}/pagos/nuevo?from=${transfer.from_id}&to=${transfer.to_id}` +
+    `&amount=${transfer.amount_minor}&max=${transfer.amount_minor}`;
+
   return (
-    <li>
+    <li className={cn(ROW, "flex-wrap gap-y-2")}>
+      <span className="min-w-0 flex-1 text-[15px] text-text">
+        {t("owesTo", { from, to, amount })}
+      </span>
       <Link
-        href={`/g/${groupId}/pagos/nuevo?from=${transfer.from_id}&to=${transfer.to_id}&amount=${transfer.amount_minor}`}
-        className={ROW_LINK}
+        href={settleHref}
+        className="min-h-touch shrink-0 border-2 border-accent bg-accent px-4 py-1.5 text-sm font-bold text-accent-fg hover:bg-accent-strong hover:border-accent-strong"
       >
-        <span className="min-w-0 text-[15px] text-text">
-          {t("paysTo", { from, to })}
-        </span>
-        <Money
-          minor={transfer.amount_minor}
-          currency={currency}
-          className="shrink-0 font-bold"
-        />
+        {t("settle")}
       </Link>
     </li>
   );

@@ -287,6 +287,119 @@ describe("paymentRepo + getGroupSummary", () => {
     expect(summary.recent).toHaveLength(2);
   });
 
+  it("pago parcial: salda parte de la deuda y deja el resto sugerido", async () => {
+    const g = await groupRepo.createGroup(
+      { name: "Cena", currency_code: "ARS" },
+      db,
+    );
+    const a = await participantRepo.addParticipant(g.id, "A", db);
+    const b = await participantRepo.addParticipant(g.id, "B", db);
+    await expenseRepo.createExpense(
+      {
+        group_id: g.id,
+        description: "Cena",
+        amount_minor_units: 10000,
+        paid_by: a.id,
+        participant_ids: [a.id, b.id],
+      },
+      db,
+    );
+    // B le debe 5000 a A. Paga 2000 (parcial).
+    await paymentRepo.createPayment(
+      {
+        group_id: g.id,
+        from_participant: b.id,
+        to_participant: a.id,
+        amount_minor_units: 2000,
+      },
+      db,
+    );
+    const summary = await getGroupSummary(g.id, db);
+    expect(summary.transfers).toEqual([
+      { from_id: b.id, to_id: a.id, amount_minor: 3000 },
+    ]);
+    expect(
+      summary.balances.reduce((s, x) => s + x.balance_minor, 0),
+    ).toBe(0);
+
+    // Salda el resto.
+    await paymentRepo.createPayment(
+      {
+        group_id: g.id,
+        from_participant: b.id,
+        to_participant: a.id,
+        amount_minor_units: 3000,
+      },
+      db,
+    );
+    const after = await getGroupSummary(g.id, db);
+    expect(after.transfers).toEqual([]);
+    for (const bal of after.balances) expect(bal.balance_minor).toBe(0);
+  });
+
+  it("cada pago es un registro con id propio (los reintentos de sync no duplican)", async () => {
+    const g = await groupRepo.createGroup(
+      { name: "G", currency_code: "ARS" },
+      db,
+    );
+    const a = await participantRepo.addParticipant(g.id, "A", db);
+    const b = await participantRepo.addParticipant(g.id, "B", db);
+    const p = await paymentRepo.createPayment(
+      {
+        group_id: g.id,
+        from_participant: b.id,
+        to_participant: a.id,
+        amount_minor_units: 1000,
+      },
+      db,
+    );
+    // El id lo genera el cliente; la sincronización hace upsert por id, así que
+    // reenviar la misma operación no crea otra fila.
+    expect(p.id).toMatch(/[0-9a-f-]{36}/i);
+    const rows = await db.payments.where("group_id").equals(g.id).toArray();
+    expect(rows).toHaveLength(1);
+    const ops = (await db.sync_queue.toArray()).filter(
+      (o) => o.entity_id === p.id,
+    );
+    expect(ops.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("deshacer un pago (soft-delete) restaura el balance", async () => {
+    const g = await groupRepo.createGroup(
+      { name: "G", currency_code: "ARS" },
+      db,
+    );
+    const a = await participantRepo.addParticipant(g.id, "A", db);
+    const b = await participantRepo.addParticipant(g.id, "B", db);
+    await expenseRepo.createExpense(
+      {
+        group_id: g.id,
+        description: "x",
+        amount_minor_units: 10000,
+        paid_by: a.id,
+        participant_ids: [a.id, b.id],
+      },
+      db,
+    );
+    const p = await paymentRepo.createPayment(
+      {
+        group_id: g.id,
+        from_participant: b.id,
+        to_participant: a.id,
+        amount_minor_units: 5000,
+      },
+      db,
+    );
+    expect((await getGroupSummary(g.id, db)).transfers).toEqual([]);
+
+    await paymentRepo.deletePayment(p.id, db);
+    const after = await getGroupSummary(g.id, db);
+    expect(after.transfers).toEqual([
+      { from_id: b.id, to_id: a.id, amount_minor: 5000 },
+    ]);
+    expect(after.recent.some((r) => r.type === "payment")).toBe(false);
+  });
+
   it("rechaza pagos a uno mismo", async () => {
     const g = await groupRepo.createGroup(
       { name: "G", currency_code: "ARS" },

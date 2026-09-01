@@ -1,6 +1,6 @@
 "use client";
 
-/** Pantalla 13 — registrar pago entre participantes. */
+/** Pantalla 13 — registrar pago entre participantes (manual o "Saldar"). */
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -12,13 +12,16 @@ import { nameOf } from "@/components/ui/cards";
 import { TextField } from "@/components/ui/TextField";
 import { DateField, MoneyField, SelectField } from "@/components/ui/formfields";
 import { FormError } from "@/components/fields";
-import { StickyActionBar } from "@/components/ui/primitives";
+import { SegmentedControl, StickyActionBar } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
 import { useGroupContext } from "@/components/GroupProvider";
 import { db } from "@/data/db";
-import { createPayment } from "@/data/repositories/paymentRepo";
-import { minorToRawInput } from "@/domain/money";
+import { createPayment, deletePayment } from "@/data/repositories/paymentRepo";
+import { formatMoney, minorToRawInput } from "@/domain/money";
+import { BCP47 } from "@/i18n/config";
+import { useLocale } from "@/components/LocaleProvider";
 import { parseAmount } from "@/lib/amount";
+import { settleAmountError } from "@/lib/settle";
 import { useGroupSummary } from "@/lib/db-hooks";
 import { todayIso } from "@/lib/format";
 
@@ -34,16 +37,23 @@ function NewPaymentForm() {
   const router = useRouter();
   const params = useSearchParams();
   const { t } = useTranslation(["payment", "common", "errors"]);
+  const { lang } = useLocale();
   const { group, participants } = useGroupContext();
   const summary = useGroupSummary(group.id);
   const toast = useToast();
   const cc = group.currency_code;
 
   const preset = Number(params.get("amount"));
+  const maxRaw = Number(params.get("max"));
+  // `max` presente ⇒ se llegó desde "Saldar": hay una deuda concreta a saldar.
+  const maxMinor =
+    Number.isFinite(maxRaw) && maxRaw > 0 ? Math.round(maxRaw) : null;
+
   const [from, setFrom] = useState(
     params.get("from") ?? participants[0]?.id ?? "",
   );
   const [to, setTo] = useState(params.get("to") ?? participants[1]?.id ?? "");
+  const [mode, setMode] = useState<"full" | "partial">("full");
   const [amountRaw, setAmountRaw] = useState(
     Number.isFinite(preset) && preset > 0 ? minorToRawInput(preset, cc) : "",
   );
@@ -52,19 +62,32 @@ function NewPaymentForm() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const amountMinor = parseAmount(amountRaw, cc);
+  // En "saldar deuda completa" el monto es el pendiente, fijo.
+  const effectiveAmount =
+    maxMinor != null && mode === "full" ? maxMinor : parseAmount(amountRaw, cc);
+
+  const amountError = useMemo<string | null>(() => {
+    const kind = settleAmountError(effectiveAmount, maxMinor);
+    if (kind === "positive") return t("errors:amountPositive");
+    if (kind === "over") {
+      return t("errors:amountOverDebt", {
+        amount: formatMoney(maxMinor ?? 0, cc, BCP47[lang]),
+      });
+    }
+    return null;
+  }, [effectiveAmount, maxMinor, cc, lang, t]);
 
   const preview = useMemo(() => {
-    if (!summary || amountMinor == null || from === to) return null;
+    if (!summary || effectiveAmount == null || from === to) return null;
     const bal = (id: string) =>
       summary.balances.find((b) => b.participant_id === id)?.balance_minor ?? 0;
     return {
       fromBefore: bal(from),
-      fromAfter: bal(from) + amountMinor,
+      fromAfter: bal(from) + effectiveAmount,
       toBefore: bal(to),
-      toAfter: bal(to) - amountMinor,
+      toAfter: bal(to) - effectiveAmount,
     };
-  }, [summary, amountMinor, from, to]);
+  }, [summary, effectiveAmount, from, to]);
 
   if (participants.length < 2) {
     return (
@@ -82,26 +105,38 @@ function NewPaymentForm() {
   }
 
   const canSubmit =
-    from !== "" && to !== "" && from !== to && amountMinor != null && !busy;
+    from !== "" &&
+    to !== "" &&
+    from !== to &&
+    effectiveAmount != null &&
+    effectiveAmount > 0 &&
+    amountError == null &&
+    !busy;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!canSubmit || amountMinor == null) return;
+    if (!canSubmit || effectiveAmount == null) return;
     setBusy(true);
     setError(null);
     try {
-      await createPayment(
+      // id de cliente + upsert en la sincronización ⇒ reintentos no duplican.
+      const payment = await createPayment(
         {
           group_id: group.id,
           from_participant: from,
           to_participant: to,
-          amount_minor_units: amountMinor,
+          amount_minor_units: effectiveAmount,
           payment_date: date,
         },
         db,
       );
       router.replace(`/g/${group.id}`);
-      toast({ message: t("payment:savedToast") });
+      toast({
+        message: t("payment:savedToast"),
+        undoLabel: t("common:undo"),
+        onUndo: () => void deletePayment(payment.id, db),
+        durationMs: 10_000,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setBusy(false);
@@ -110,8 +145,32 @@ function NewPaymentForm() {
 
   return (
     <AppShell title={t("payment:title")} back={`/g/${group.id}`} showSync={false}>
-      <form onSubmit={submit} className="flex flex-1 flex-col gap-4">
+      <form onSubmit={submit} noValidate className="flex flex-1 flex-col gap-4">
         {error ? <FormError messages={[error]} /> : null}
+
+        {maxMinor != null ? (
+          <div className="flex flex-col gap-2 border-2 border-border bg-surface-raised p-3">
+            <p className="text-sm text-muted">
+              {t("payment:pendingDebt", {
+                amount: formatMoney(maxMinor, cc, BCP47[lang]),
+              })}
+            </p>
+            <SegmentedControl
+              label={t("payment:settleMode")}
+              value={mode}
+              onChange={(m) => {
+                setMode(m);
+                if (m === "partial" && amountRaw === "") {
+                  setAmountRaw(minorToRawInput(maxMinor, cc));
+                }
+              }}
+              options={[
+                { value: "full", label: t("payment:settleFull") },
+                { value: "partial", label: t("payment:settlePartial") },
+              ]}
+            />
+          </div>
+        ) : null}
 
         <SelectField
           label={t("payment:payerLabel")}
@@ -140,13 +199,25 @@ function NewPaymentForm() {
           ))}
         </SelectField>
 
-        <MoneyField
-          label={t("payment:amountLabel")}
-          hint={t("payment:amountHint")}
-          currency={cc}
-          value={amountRaw}
-          onChange={setAmountRaw}
-        />
+        {maxMinor != null && mode === "full" ? (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-sm font-semibold text-text">
+              {t("payment:amountLabel")}
+            </span>
+            <p className="min-h-touch border-2 border-border bg-surface px-3.5 py-3 text-base font-bold tabular-nums">
+              {formatMoney(maxMinor, cc, BCP47[lang])}
+            </p>
+          </div>
+        ) : (
+          <MoneyField
+            label={t("payment:amountLabel")}
+            hint={t("payment:amountHint")}
+            currency={cc}
+            value={amountRaw}
+            onChange={setAmountRaw}
+            error={amountError}
+          />
+        )}
 
         <DateField
           label={t("payment:dateLabel")}
@@ -162,7 +233,7 @@ function NewPaymentForm() {
         />
 
         {preview ? (
-          <section className="rounded-md border border-border bg-surface-raised p-4 text-sm">
+          <section className="border-2 border-border bg-surface-raised p-4 text-sm">
             <p className="font-medium text-text">
               {t("payment:resultingBalance")}
             </p>
