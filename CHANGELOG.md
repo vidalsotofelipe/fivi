@@ -13,6 +13,18 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.12.1] - 2026-09-01
+
+### Fixed
+
+- **Abrir un enlace de invitación directamente** (`/join/<token>`, como cuando
+  un amigo lo recibe compartido) fallaba con "Las invitaciones requieren
+  Supabase configurado". `SyncProvider` sembraba su estado con `remote_ready:
+  true`, así que la página de canje actuaba contra el remoto stub antes de que
+  Supabase cargara. Ahora se siembra con el estado real del motor (en modo
+  cloud, `remote_ready` es `false` hasta que el remoto real está listo). Entrar
+  a la invitación desde dentro de la app ya funcionaba. Sin cambios de esquema.
+
 ## [0.12.0] - 2026-09-01
 
 Mejoras de UX en la carga de gastos y corrección de un problema de escala en
