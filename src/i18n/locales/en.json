@@ -84,7 +84,8 @@
     "invitePlaceholder": "Paste the link someone shared with you",
     "inviteHint": "You can also type the code by hand if you got it another way.",
     "inviteSubmit": "Join group",
-    "inviteRequired": "Paste the invite link or code"
+    "inviteRequired": "Paste the invite link or code",
+    "whoAreYouCta": "Tell us who you are in this group"
   },
   "group": {
     "newTitle": "New group",
@@ -129,7 +130,9 @@
     "backHome": "Back to home",
     "wiz1": "Group",
     "wiz2": "People",
-    "wiz3": "Done"
+    "wiz3": "Done",
+    "youAreOwed": "You are owed",
+    "pendingSync": "Unsynced changes"
   },
   "expense": {
     "listTitle": "Expenses",

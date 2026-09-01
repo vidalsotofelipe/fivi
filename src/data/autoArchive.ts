@@ -1,14 +1,17 @@
 /**
- * Archivado automático de grupos por inactividad.
+ * Archivado automático de grupos.
  *
- * Un grupo cuyo último movimiento (gasto o pago **registrado**, o la creación
- * del grupo si no hay ninguno) es más viejo que `ARCHIVE_AFTER_DAYS` se archiva
- * solo: sale de la lista principal a "Archivados", pero NO se borra y se puede
- * restaurar. La comprobación corre en el cliente al abrir la app.
+ * Un grupo activo se archiva solo únicamente cuando se cumplen las TRES:
+ *   1. no tiene actividad reciente (último movimiento / toque > `ARCHIVE_AFTER_DAYS`),
+ *   2. todos los participantes están al día (ningún balance ≠ 0),
+ *   3. no tiene operaciones pendientes de sincronización.
+ * Nunca se borra: sale de la lista principal a "Archivados" y se puede restaurar.
+ * La comprobación corre en el cliente al abrir la app.
  */
 import { FiviDatabase, db as defaultDb } from "./db";
 import { isLive } from "./repositories/base";
 import { archiveGroup } from "./repositories/groupRepo";
+import { getGroupSummary, groupIdsWithPendingSync } from "./queries";
 
 /** Días de inactividad tras los cuales un grupo se archiva automáticamente. */
 export const ARCHIVE_AFTER_DAYS = 30;
@@ -16,8 +19,8 @@ export const ARCHIVE_AFTER_DAYS = 30;
 const DAY_MS = 86_400_000;
 
 /**
- * Archiva los grupos activos sin actividad reciente. Idempotente (no toca los
- * ya archivados ni los borrados). Devuelve los ids archivados en esta pasada.
+ * Archiva los grupos activos sin actividad reciente **y** sin deudas pendientes
+ * **y** sin cambios sin sincronizar. Idempotente. Devuelve los ids archivados.
  */
 export async function autoArchiveStaleGroups(
   database: FiviDatabase = defaultDb,
@@ -27,6 +30,7 @@ export async function autoArchiveStaleGroups(
   const groups = (await database.groups.toArray()).filter(
     (g) => isLive(g) && g.archived_at === null,
   );
+  const pendingSync = await groupIdsWithPendingSync(database);
 
   const archived: string[] = [];
   for (const g of groups) {
@@ -44,10 +48,19 @@ export async function autoArchiveStaleGroups(
       ...payments.filter(isLive).map((p) => new Date(p.created_at).getTime()),
     ].filter((t) => Number.isFinite(t));
 
-    if (times.length > 0 && Math.max(...times) < cutoff) {
-      await archiveGroup(g.id, database);
-      archived.push(g.id);
-    }
+    const stale = times.length > 0 && Math.max(...times) < cutoff;
+    if (!stale) continue;
+
+    // No archivar si hay cambios sin sincronizar de este grupo.
+    if (pendingSync.has(g.id)) continue;
+
+    // No archivar si todavía hay deudas pendientes entre los participantes.
+    const summary = await getGroupSummary(g.id, database);
+    const allSettled = summary.balances.every((b) => b.balance_minor === 0);
+    if (!allSettled) continue;
+
+    await archiveGroup(g.id, database);
+    archived.push(g.id);
   }
   return archived;
 }

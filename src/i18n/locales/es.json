@@ -84,7 +84,8 @@
     "invitePlaceholder": "Pegá el enlace que te compartieron",
     "inviteHint": "También podés escribir el código a mano si te lo pasaron de otra forma.",
     "inviteSubmit": "Unirme al grupo",
-    "inviteRequired": "Pegá el enlace o el código de invitación"
+    "inviteRequired": "Pegá el enlace o el código de invitación",
+    "whoAreYouCta": "Indicá quién sos en este grupo"
   },
   "group": {
     "newTitle": "Nuevo grupo",
@@ -129,7 +130,9 @@
     "backHome": "Volver al inicio",
     "wiz1": "Grupo",
     "wiz2": "Personas",
-    "wiz3": "Listo"
+    "wiz3": "Listo",
+    "youAreOwed": "Te deben",
+    "pendingSync": "Cambios sin sincronizar"
   },
   "expense": {
     "listTitle": "Gastos",

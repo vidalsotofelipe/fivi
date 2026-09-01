@@ -26,6 +26,9 @@ import { listParticipants } from "./repositories/participantRepo";
 import { listExpenses, listGroupShares } from "./repositories/expenseRepo";
 import { listPayments } from "./repositories/paymentRepo";
 
+/** Clave del setting "yo" por grupo (misma que `data/settings.ts`, sin arrastrar hooks). */
+const meKey = (groupId: string) => `me:${groupId}`;
+
 // --- Actividad del grupo (derivada de timestamps + tombstones) --------------
 
 export type ActivityKind =
@@ -200,20 +203,88 @@ export interface GroupListItem {
   group: Group;
   total_spent_minor: number;
   participant_count: number;
+  /** Balance del participante marcado como "yo" en este dispositivo; `null` si no se eligió. */
+  my_balance_minor: number | null;
+  /** ISO del último gasto o pago; `null` si no hay movimientos. */
+  last_activity_at: string | null;
+  /** Hay operaciones de este grupo sin sincronizar. */
+  has_pending_sync: boolean;
+  /** Todos los balances en cero: nadie debe nada. */
+  all_settled: boolean;
 }
 
-/** Grupos vivos con su total gastado, para la pantalla inicial (sección 28). */
+/** Ids de grupo con al menos una operación pendiente/sincronizando en la cola. */
+export async function groupIdsWithPendingSync(
+  database: FiviDatabase = defaultDb,
+): Promise<Set<string>> {
+  const items = await database.sync_queue
+    .where("sync_status")
+    .anyOf("pending", "syncing")
+    .toArray();
+  const ids = new Set<string>();
+  for (const it of items) {
+    if (it.entity_type === "group") ids.add(it.entity_id);
+    const gid = (it.payload as { group_id?: unknown } | null)?.group_id;
+    if (typeof gid === "string") ids.add(gid);
+  }
+  return ids;
+}
+
+/** Grupos vivos con su total gastado + la situación del usuario (sección 28). */
 export async function listGroupsWithTotals(
   database: FiviDatabase = defaultDb,
   options: ListGroupsOptions = {},
 ): Promise<GroupListItem[]> {
-  const groups = await listGroups(database, options);
+  const [groups, pendingGroups] = await Promise.all([
+    listGroups(database, options),
+    groupIdsWithPendingSync(database),
+  ]);
+
   return Promise.all(
     groups.map(async (group) => {
-      const [expenses, participants] = await Promise.all([
-        listExpenses(group.id, database),
-        listParticipants(group.id, database),
-      ]);
+      const [expenses, participants, shares, payments, meRow] =
+        await Promise.all([
+          listExpenses(group.id, database),
+          listParticipants(group.id, database),
+          listGroupShares(group.id, database),
+          listPayments(group.id, database),
+          database.settings.get(meKey(group.id)),
+        ]);
+
+      const balances = computeBalances({
+        participant_ids: participants.map((p) => p.id),
+        expenses: expenses.map((e) => ({
+          id: e.id,
+          paid_by: e.paid_by,
+          amount_minor_units: e.amount_minor_units,
+        })),
+        shares: shares.map((s) => ({
+          expense_id: s.expense_id,
+          participant_id: s.participant_id,
+          share_minor_units: s.share_minor_units,
+        })),
+        payments: payments.map((p) => ({
+          from_participant: p.from_participant,
+          to_participant: p.to_participant,
+          amount_minor_units: p.amount_minor_units,
+        })),
+      });
+
+      const meId = typeof meRow?.value === "string" ? meRow.value : null;
+      const myBalance =
+        meId != null
+          ? (balances.find((b) => b.participant_id === meId)?.balance_minor ?? 0)
+          : null;
+
+      const activityTimes = [
+        ...expenses.map((e) => e.created_at),
+        ...payments.map((p) => p.created_at),
+      ].filter(Boolean);
+      const lastActivity =
+        activityTimes.length > 0
+          ? activityTimes.reduce((a, b) => (a > b ? a : b))
+          : null;
+
       return {
         group,
         total_spent_minor: totalSpentMinor(
@@ -224,6 +295,10 @@ export async function listGroupsWithTotals(
           })),
         ),
         participant_count: participants.length,
+        my_balance_minor: myBalance,
+        last_activity_at: lastActivity,
+        has_pending_sync: pendingGroups.has(group.id),
+        all_settled: balances.every((b) => b.balance_minor === 0),
       };
     }),
   );

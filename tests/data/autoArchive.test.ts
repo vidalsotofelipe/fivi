@@ -20,6 +20,18 @@ beforeEach(async () => {
 const daysAgo = (n: number) =>
   new Date(Date.now() - n * 86_400_000).toISOString();
 
+/**
+ * Marca la cola como sincronizada y corre el auto-archivado. En la app real el
+ * motor de sync drena la cola; acá lo simulamos para probar el resto del guard
+ * (antigüedad + saldos). Los tests de "bloquea si hay pendientes" no lo usan.
+ */
+async function archiveNow(database: FiviDatabase, now?: number) {
+  await database.sync_queue.toCollection().modify((it) => {
+    it.sync_status = "synced";
+  });
+  return autoArchiveStaleGroups(database, now);
+}
+
 /** Envejece un grupo: created_at y updated_at a `iso` (grupo sin tocar hace X). */
 async function ageGroup(id: string, iso: string) {
   await db.groups.where("id").equals(id).modify((g) => {
@@ -66,7 +78,7 @@ describe("autoArchiveStaleGroups", () => {
     );
     await ageGroup(g.id, daysAgo(ARCHIVE_AFTER_DAYS + 1));
 
-    const ids = await autoArchiveStaleGroups(db);
+    const ids = await archiveNow(db);
     expect(ids).toEqual([g.id]);
     expect((await groupRepo.getGroup(g.id, db))?.archived_at).not.toBeNull();
   });
@@ -89,7 +101,7 @@ describe("autoArchiveStaleGroups", () => {
       db,
     );
 
-    const ids = await autoArchiveStaleGroups(db);
+    const ids = await archiveNow(db);
     expect(ids).toEqual([]);
   });
 
@@ -104,13 +116,13 @@ describe("autoArchiveStaleGroups", () => {
     );
     await ageGroup(old.id, daysAgo(ARCHIVE_AFTER_DAYS + 5));
 
-    expect(await autoArchiveStaleGroups(db)).toEqual([old.id]);
+    expect(await archiveNow(db)).toEqual([old.id]);
     // segunda pasada: nada nuevo
-    expect(await autoArchiveStaleGroups(db)).toEqual([]);
+    expect(await archiveNow(db)).toEqual([]);
     expect((await groupRepo.getGroup(fresh.id, db))?.archived_at).toBeNull();
   });
 
-  it("usa el created_at del último pago como referencia", async () => {
+  it("usa el created_at del último pago como referencia (grupo saldado)", async () => {
     const g = await groupRepo.createGroup(
       { name: "G", currency_code: "ARS" },
       db,
@@ -118,25 +130,93 @@ describe("autoArchiveStaleGroups", () => {
     await ageGroup(g.id, daysAgo(200));
     const a = await participantRepo.addParticipant(g.id, "A", db);
     const b = await participantRepo.addParticipant(g.id, "B", db);
-    const { createPayment } = await import(
-      "@/data/repositories/paymentRepo"
+    const e = await expenseRepo.createExpense(
+      {
+        group_id: g.id,
+        description: "x",
+        amount_minor_units: 1000,
+        paid_by: a.id,
+        participant_ids: [a.id, b.id],
+      },
+      db,
     );
+    await db.expenses.where("id").equals(e.expense.id).modify((row) => {
+      row.created_at = daysAgo(ARCHIVE_AFTER_DAYS + 10);
+    });
+    const { createPayment } = await import("@/data/repositories/paymentRepo");
     const pay = await createPayment(
       {
         group_id: g.id,
-        from_participant: a.id,
-        to_participant: b.id,
-        amount_minor_units: 1000,
-        payment_date: "2020-01-01",
+        from_participant: b.id,
+        to_participant: a.id,
+        amount_minor_units: 500, // salda la mitad que le tocaba a B
       },
       db,
     );
     // el pago se registró hace poco (created_at = ahora) -> no se archiva
-    expect(await autoArchiveStaleGroups(db)).toEqual([]);
+    expect(await archiveNow(db)).toEqual([]);
 
-    // envejecemos el created_at del pago -> ahora sí
+    // envejecemos el created_at del pago -> ahora sí (y está saldado)
     await db.payments.where("id").equals(pay.id).modify((row) => {
       row.created_at = daysAgo(ARCHIVE_AFTER_DAYS + 1);
+    });
+    expect(await archiveNow(db)).toEqual([g.id]);
+  });
+
+  it("NO archiva un grupo viejo si todavía hay deudas pendientes", async () => {
+    const g = await groupRepo.createGroup(
+      { name: "Con deuda", currency_code: "ARS" },
+      db,
+    );
+    const a = await participantRepo.addParticipant(g.id, "A", db);
+    const b = await participantRepo.addParticipant(g.id, "B", db);
+    const e = await expenseRepo.createExpense(
+      {
+        group_id: g.id,
+        description: "Cena",
+        amount_minor_units: 10000,
+        paid_by: a.id,
+        participant_ids: [a.id, b.id],
+      },
+      db,
+    );
+    // todo viejo, pero B le debe 5000 a A
+    await ageGroup(g.id, daysAgo(365));
+    await db.expenses.where("id").equals(e.expense.id).modify((row) => {
+      row.created_at = daysAgo(365);
+    });
+
+    expect(await archiveNow(db)).toEqual([]);
+
+    // saldar la deuda -> ahora sí se archiva
+    const { createPayment } = await import("@/data/repositories/paymentRepo");
+    const pay = await createPayment(
+      {
+        group_id: g.id,
+        from_participant: b.id,
+        to_participant: a.id,
+        amount_minor_units: 5000,
+      },
+      db,
+    );
+    await db.payments.where("id").equals(pay.id).modify((row) => {
+      row.created_at = daysAgo(365);
+    });
+    expect(await archiveNow(db)).toEqual([g.id]);
+  });
+
+  it("NO archiva si el grupo tiene cambios sin sincronizar", async () => {
+    const g = await groupRepo.createGroup(
+      { name: "Sin sync", currency_code: "ARS" },
+      db,
+    );
+    await ageGroup(g.id, daysAgo(ARCHIVE_AFTER_DAYS + 5));
+    // La cola tiene el CREATE del grupo en 'pending' (no se llamó archiveNow).
+    expect(await autoArchiveStaleGroups(db)).toEqual([]);
+
+    // Una vez sincronizado, sí se archiva.
+    await db.sync_queue.toCollection().modify((it) => {
+      it.sync_status = "synced";
     });
     expect(await autoArchiveStaleGroups(db)).toEqual([g.id]);
   });
@@ -148,6 +228,6 @@ describe("autoArchiveStaleGroups", () => {
     );
     await ageGroup(g.id, nowIso()); // creado 'ahora'
     const future = Date.now() + (ARCHIVE_AFTER_DAYS + 2) * 86_400_000;
-    expect(await autoArchiveStaleGroups(db, future)).toEqual([g.id]);
+    expect(await archiveNow(db, future)).toEqual([g.id]);
   });
 });

@@ -12,11 +12,12 @@ import { AppMark } from "@/components/Logo";
 import { Money } from "@/components/Money";
 import { useLocale } from "@/components/LocaleProvider";
 import { useToast } from "@/components/ui/toast";
+import { cn } from "@/lib/cn";
 import { db } from "@/data/db";
 import { ARCHIVE_AFTER_DAYS, autoArchiveStaleGroups } from "@/data/autoArchive";
 import { restoreGroup } from "@/data/repositories/groupRepo";
 import { useArchivedGroups, useGroups } from "@/lib/db-hooks";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatRelative } from "@/lib/format";
 import { useHydrated } from "@/lib/useHydrated";
 import type { GroupListItem } from "@/data/queries";
 
@@ -45,32 +46,54 @@ function OnboardingStep({
   );
 }
 
-function GroupRow({
-  item,
-  personLabel,
-}: {
-  item: GroupListItem;
-  personLabel: string;
-}) {
+function GroupRow({ item }: { item: GroupListItem }) {
+  const { t } = useTranslation(["onboarding", "group", "common"]);
+  const { lang } = useLocale();
+  const cc = item.group.currency_code;
+  const bal = item.my_balance_minor;
+
   return (
     <li>
       <Link
         href={`/g/${item.group.id}`}
-        className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface px-4 py-4 hover:bg-accent-weak"
+        className="flex items-center justify-between gap-3 border-2 border-border bg-surface px-4 py-3.5 hover:border-accent hover:bg-accent-weak"
       >
         <span className="min-w-0">
-          <span className="block truncate font-medium text-text">
+          <span className="block truncate font-semibold text-text">
             {item.group.name}
           </span>
-          <span className="block text-xs text-muted">
-            {item.group.currency_code} · {personLabel}
+          {bal == null ? (
+            <span className="mt-0.5 block text-xs font-semibold text-accent-strong">
+              {t("onboarding:whoAreYouCta")}
+            </span>
+          ) : bal === 0 ? (
+            <span className="mt-0.5 block text-xs font-semibold text-positive">
+              {t("group:settledUp")}
+            </span>
+          ) : (
+            <span className="mt-0.5 block text-xs font-semibold">
+              <span className={bal < 0 ? "text-warm-strong" : "text-positive"}>
+                {bal < 0 ? t("group:youOwe") : t("group:youAreOwed")}{" "}
+                <Money minor={Math.abs(bal)} currency={cc} />
+              </span>
+            </span>
+          )}
+          <span className="mt-0.5 block text-xs text-muted">
+            {item.last_activity_at
+              ? formatRelative(item.last_activity_at, lang)
+              : t("common:person", { count: item.participant_count })}
+            {item.has_pending_sync ? ` · ${t("group:pendingSync")}` : ""}
           </span>
         </span>
-        <Money
-          minor={item.total_spent_minor}
-          currency={item.group.currency_code}
-          className="shrink-0 font-medium"
-        />
+        <span
+          className={cn(
+            "shrink-0 text-right",
+            bal != null && bal !== 0 ? "text-muted" : "font-semibold",
+          )}
+        >
+          <span className="block label-caps">{t("group:totalSpent")}</span>
+          <Money minor={item.total_spent_minor} currency={cc} />
+        </span>
       </Link>
     </li>
   );
@@ -142,13 +165,7 @@ export default function HomePage() {
       {groups.length > 0 ? (
         <ul className="flex flex-col gap-2">
           {groups.map((item) => (
-            <GroupRow
-              key={item.group.id}
-              item={item}
-              personLabel={t("common:person", {
-                count: item.participant_count,
-              })}
-            />
+            <GroupRow key={item.group.id} item={item} />
           ))}
         </ul>
       ) : (
@@ -161,11 +178,11 @@ export default function HomePage() {
       <JoinInviteDisclosure />
 
       {archived.length > 0 ? (
-        <details className="mt-2 rounded-md border border-border bg-surface">
-          <summary className="min-h-touch cursor-pointer list-none px-4 py-3 text-sm font-medium text-muted marker:hidden">
+        <details className="mt-4 border-t-2 border-border-strong pt-3">
+          <summary className="label-caps flex min-h-touch cursor-pointer list-none items-center gap-2 marker:hidden">
             {t("archive:sectionTitle")} ({archived.length})
           </summary>
-          <ul className="flex flex-col divide-y divide-border border-t border-border">
+          <ul className="mt-2 flex flex-col divide-y divide-border border-2 border-border">
             {archived.map((item) => (
               <li
                 key={item.group.id}

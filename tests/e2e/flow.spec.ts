@@ -10,8 +10,7 @@ import { test, expect, type Page } from "@playwright/test";
 async function createGroup(page: Page, name: string): Promise<string> {
   await page.goto("/nuevo");
   await page.getByPlaceholder("Viaje a Bariloche").fill(name);
-  await page.getByRole("combobox", { name: "Moneda" }).fill("ARS");
-  await page.getByRole("button", { name: /ARS/ }).first().click();
+  await page.getByLabel("Moneda").selectOption("ARS");
   await page.getByRole("button", { name: "Continuar" }).click();
   await page.waitForURL(/\/g\/[0-9a-f-]{36}\/nuevo\/personas$/);
   return page.url().split("/g/")[1]!.split("/")[0]!;
@@ -69,7 +68,7 @@ test("flujo completo: grupo → personas → gasto → balance → pago → edit
   // --- balance: Ana recibe, hay una transferencia sugerida ---
   await page.goto(`/g/${id}/balance`);
   await expect(page.getByText("Recibe")).toBeVisible();
-  await expect(page.getByText(/le paga a/).first()).toBeVisible();
+  await expect(page.getByText(/le debe .* a /).first()).toBeVisible();
 
   // --- pago: Beto -> Ana 1000 ---
   await page.goto(`/g/${id}/pagos/nuevo`);

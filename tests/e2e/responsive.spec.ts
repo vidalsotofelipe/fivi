@@ -79,8 +79,7 @@ async function seedGroup(page: Page): Promise<string> {
   await page.setViewportSize({ width: 390, height: 800 });
   await page.goto("/nuevo");
   await page.getByPlaceholder("Viaje a Bariloche").fill("Responsive E2E");
-  await page.getByRole("combobox", { name: "Moneda" }).fill("ARS");
-  await page.getByRole("button", { name: /ARS/ }).first().click();
+  await page.getByLabel("Moneda").selectOption("ARS");
   await page.getByRole("button", { name: "Continuar" }).click();
   await page.waitForURL(/\/g\/[0-9a-f-]{36}\/nuevo\/personas$/);
   const id = page.url().split("/g/")[1]!.split("/")[0]!;

@@ -9,8 +9,7 @@ import { test, expect, type Page } from "@playwright/test";
 async function seedGroup(page: Page): Promise<string> {
   await page.goto("/nuevo");
   await page.getByPlaceholder("Viaje a Bariloche").fill("Idioma E2E");
-  await page.getByRole("combobox", { name: "Moneda" }).fill("ARS");
-  await page.getByRole("button", { name: /ARS/ }).first().click();
+  await page.getByLabel("Moneda").selectOption("ARS");
   await page.getByRole("button", { name: "Continuar" }).click();
   await page.waitForURL(/\/g\/[0-9a-f-]{36}\/nuevo\/personas$/);
   const id = page.url().split("/g/")[1]!.split("/")[0]!;
@@ -47,8 +46,7 @@ test("cambio de idioma instantáneo y persistente", async ({ page }) => {
     page.getByRole("heading", { name: "Group details" }),
   ).toBeVisible();
   // La moneda del grupo NO cambió con el idioma: el selector sigue en ARS.
-  await expect(page.getByRole("combobox", { name: "Currency" })).toBeVisible();
-  await expect(page.getByText(/^ARS —/)).toBeVisible();
+  await expect(page.getByLabel("Currency")).toHaveValue("ARS");
 
   // La navegación inferior también quedó en inglés.
   await page.goto(`/g/${id}/mas`);
