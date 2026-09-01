@@ -166,6 +166,31 @@ body {
   }
 }
 
+/*
+ * `input[type="date"]` en iOS Safari: trae ancho intrínseco propio (se sale del
+ * contenedor y "desacomoda" la pantalla) y centra el valor. Se lo normaliza para
+ * que se comporte como el resto de los campos: mismo ancho, texto a la
+ * izquierda. El selector nativo sigue funcionando igual.
+ */
+input[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-width: 0;
+  max-width: 100%;
+  text-align: left;
+}
+input[type="date"]::-webkit-date-and-time-value {
+  text-align: left;
+  margin: 0;
+}
+input[type="date"]::-webkit-datetime-edit {
+  text-align: left;
+}
+/* El ícono de calendario queda a la derecha, sin empujar el contenido. */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  margin-inline-start: auto;
+}
+
 @keyframes fivi-up {
   from {
     transform: translateY(14px);

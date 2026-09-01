@@ -3,7 +3,8 @@
  * errores. La autorización real la hace el backend en cada endpoint; esto es
  * sólo el transporte.
  */
-import { getAdminSupabase } from "./adminSupabase";
+import { adminSupabaseConfigured, getAdminSupabase } from "./adminSupabase";
+import { readAdminKey } from "./adminKey";
 
 export class AdminApiError extends Error {
   constructor(
@@ -16,6 +17,10 @@ export class AdminApiError extends Error {
 }
 
 async function authHeader(): Promise<Record<string, string>> {
+  // La llave de acceso guardada en este navegador gana sobre la sesión Supabase.
+  const key = readAdminKey();
+  if (key) return { authorization: `Bearer ${key}` };
+  if (!adminSupabaseConfigured()) return {};
   const client = await getAdminSupabase();
   const token = client ? (await client.auth.getSession()).data.session?.access_token : null;
   return token ? { authorization: `Bearer ${token}` } : {};

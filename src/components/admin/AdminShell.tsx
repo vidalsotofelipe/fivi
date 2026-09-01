@@ -77,7 +77,7 @@ function ThemeToggle() {
 }
 
 export function AdminShell({ children }: { children: ReactNode }) {
-  const { email, signOut } = useAdminSession();
+  const { email, byAccessKey, signOut } = useAdminSession();
   const [drawer, setDrawer] = useState(false);
 
   return (
@@ -104,7 +104,16 @@ export function AdminShell({ children }: { children: ReactNode }) {
         </span>
         <div className="ml-auto flex items-center gap-3">
           <ThemeToggle />
-          {email ? <span className="hidden text-xs text-muted sm:inline">{email}</span> : null}
+          {email ? (
+            <span className="hidden text-xs text-muted sm:inline">{email}</span>
+          ) : byAccessKey ? (
+            <span
+              className="hidden border border-warm px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-caps text-warm-strong sm:inline"
+              title="Acceso con llave compartida (provisorio)"
+            >
+              llave
+            </span>
+          ) : null}
           <button
             type="button"
             onClick={() => void signOut()}

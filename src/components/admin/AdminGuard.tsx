@@ -21,20 +21,22 @@ function FullScreen({ children }: { children: ReactNode }) {
  */
 export function AdminGuard({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const { loading, configured, token, signOut } = useAdminSession();
+  const { loading, configured, token, byAccessKey, signOut } = useAdminSession();
+  // Con llave de acceso no hace falta el cliente Supabase del navegador.
+  const usable = configured || byAccessKey;
 
   // Sólo consultamos /me cuando ya hay token (evita un 401 esperado).
   const me = useApi<{ adminId: string; email: string | null }>(token ? "/api/admin/me" : null);
 
   useEffect(() => {
-    if (!loading && configured && !token) router.replace("/admin/login");
-  }, [loading, configured, token, router]);
+    if (!loading && usable && !token) router.replace("/admin/login");
+  }, [loading, usable, token, router]);
 
   useEffect(() => {
     if (token && me.status === 401) router.replace("/admin/login");
   }, [token, me.status, router]);
 
-  if (!configured) {
+  if (!usable) {
     return (
       <FullScreen>
         <h1 className="font-display text-xl font-bold">Panel no disponible</h1>

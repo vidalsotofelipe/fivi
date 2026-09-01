@@ -1,34 +1,48 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { useAdminSession } from "@/components/admin/AdminSession";
 import { Button } from "@/components/admin/ui";
 
 export default function AdminLoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdminLoginForm />
+    </Suspense>
+  );
+}
+
+/**
+ * Acceso al panel con la **llave compartida** (etapa previa a la autenticación
+ * de administradores). Se puede llegar con la llave en la URL (`?k=…`), que se
+ * guarda en este navegador y se limpia de la barra de direcciones, o pegarla a
+ * mano. La verificación real la hace el backend en cada endpoint.
+ */
+function AdminLoginForm() {
   const router = useRouter();
-  const { token, configured, signIn } = useAdminSession();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const params = useSearchParams();
+  const { token, signInWithKey } = useAdminSession();
+  const [key, setKey] = useState("");
+
+  // Llave en la URL: se guarda y se saca de la barra (no queda en el historial).
+  useEffect(() => {
+    const fromUrl = params.get("k");
+    if (fromUrl && fromUrl.trim() !== "") {
+      signInWithKey(fromUrl);
+      router.replace("/admin");
+    }
+  }, [params, signInWithKey, router]);
 
   useEffect(() => {
     if (token) router.replace("/admin");
   }, [token, router]);
 
-  async function onSubmit(e: React.FormEvent) {
+  function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      await signIn(email.trim(), password);
-      router.replace("/admin");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo iniciar sesión.");
-    } finally {
-      setBusy(false);
-    }
+    if (key.trim() === "") return;
+    signInWithKey(key);
+    router.replace("/admin");
   }
 
   return (
@@ -37,48 +51,31 @@ export default function AdminLoginPage() {
         <h1 className="font-display text-xl font-bold tracking-tightest">
           FIVI <span className="text-muted">· Admin</span>
         </h1>
-        <p className="mt-1 text-sm text-muted">Acceso restringido a administradores.</p>
+        <p className="mt-1 text-sm text-muted">Acceso restringido.</p>
 
-        {!configured ? (
-          <p className="mt-4 border border-danger bg-surface p-3 text-sm text-danger" role="alert">
-            El panel no está configurado en este entorno.
-          </p>
-        ) : (
-          <form onSubmit={onSubmit} className="mt-5 space-y-4">
-            <label className="block">
-              <span className="label-caps">Email</span>
-              <input
-                type="email"
-                autoComplete="username"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 w-full border border-border-strong bg-bg px-3 py-2 text-sm"
-              />
-            </label>
-            <label className="block">
-              <span className="label-caps">Contraseña</span>
-              <input
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 w-full border border-border-strong bg-bg px-3 py-2 text-sm"
-              />
-            </label>
+        <form onSubmit={onSubmit} noValidate className="mt-5 space-y-4">
+          <label className="block">
+            <span className="label-caps">Llave de acceso</span>
+            <input
+              type="password"
+              autoComplete="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              value={key}
+              onChange={(e) => setKey(e.target.value)}
+              className="mt-1 w-full border border-border-strong bg-bg px-3 py-2 text-base"
+            />
+          </label>
 
-            {error ? (
-              <p className="border border-danger bg-surface p-2 text-sm text-danger" role="alert">
-                {error}
-              </p>
-            ) : null}
+          <Button type="submit" disabled={key.trim() === ""} className="w-full">
+            Entrar
+          </Button>
+        </form>
 
-            <Button type="submit" disabled={busy} className="w-full">
-              {busy ? "Ingresando…" : "Ingresar"}
-            </Button>
-          </form>
-        )}
+        <p className="mt-4 text-xs text-muted">
+          Provisorio: la llave se guarda en este navegador. En la próxima etapa se
+          reemplaza por cuentas de administrador con email y contraseña.
+        </p>
       </div>
     </div>
   );

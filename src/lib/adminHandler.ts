@@ -5,7 +5,12 @@
  *  - normaliza los errores (nunca filtra detalles internos al cliente).
  */
 import { NextResponse } from "next/server";
-import { AdminAuthError, requireAdmin, type AdminIdentity } from "./adminAuth";
+import {
+  ACCESS_KEY_ADMIN_ID,
+  AdminAuthError,
+  requireAdmin,
+  type AdminIdentity,
+} from "./adminAuth";
 import { getAdminClient } from "./supabaseAdmin";
 
 export interface AuditEvent {
@@ -31,16 +36,21 @@ type Handler = (
 ) => Promise<Response> | Response;
 
 async function writeAudit(adminId: string, e: AuditEvent): Promise<void> {
+  // Con la llave de acceso compartida no hay un usuario detrás: `admin_user_id`
+  // (uuid) queda en null y el modo se anota en `metadata` para no perder el rastro.
+  const byKey = adminId === ACCESS_KEY_ADMIN_ID;
   try {
     await getAdminClient()
       .from("admin_audit_log")
       .insert({
-        admin_user_id: adminId,
+        admin_user_id: byKey ? null : adminId,
         action: e.action,
         entity: e.entity ?? null,
         entity_id: e.entityId ?? null,
         result: e.result ?? "ok",
-        metadata: e.metadata ?? {},
+        metadata: byKey
+          ? { ...(e.metadata ?? {}), auth: "access-key" }
+          : (e.metadata ?? {}),
       });
   } catch (err) {
     console.error("[admin] audit failed:", (err as Error)?.message);

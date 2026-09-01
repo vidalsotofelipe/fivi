@@ -46,7 +46,33 @@ test("/admin no expone el panel sin backend configurado", async ({ page }) => {
   await expect(page.getByRole("link", { name: "Usuarios" })).toHaveCount(0);
 });
 
-test("/admin/login informa que el panel no está configurado", async ({ page }) => {
+test("/admin/login pide la llave de acceso y no revela nada más", async ({ page }) => {
   await page.goto("/admin/login");
-  await expect(page.getByText(/no está configurado/i)).toBeVisible();
+  await expect(page.getByLabel("Llave de acceso")).toBeVisible();
+  // El campo es de tipo password: la llave no queda a la vista.
+  await expect(page.getByLabel("Llave de acceso")).toHaveAttribute(
+    "type",
+    "password",
+  );
+  // Sin llave no se entra: "Entrar" está deshabilitado y no hay panel.
+  await expect(page.getByRole("button", { name: "Entrar" })).toBeDisabled();
+  await expect(page.getByRole("link", { name: "Usuarios" })).toHaveCount(0);
+});
+
+test("una llave inventada no da acceso (el backend la rechaza)", async ({
+  page,
+}) => {
+  // La llave se guarda en el navegador, pero la verificación es del servidor:
+  // sin ADMIN_ACCESS_KEY correcto, /api/admin/* responde 401.
+  await page.goto("/admin/login?k=llave-inventada-que-no-es-la-correcta");
+  await page.waitForURL(/\/admin$/);
+  await expect(page.getByRole("link", { name: "Usuarios" })).toHaveCount(0);
+
+  const res = await page.request.get("/api/admin/me", {
+    headers: { authorization: "Bearer llave-inventada-que-no-es-la-correcta" },
+  });
+  // 401 si la llave no coincide; 503 en este build, que además corre sin
+  // service-role. Nunca 200: no hay forma de entrar con una llave inventada.
+  expect([401, 503]).toContain(res.status());
+  expect(await res.json()).toHaveProperty("error");
 });

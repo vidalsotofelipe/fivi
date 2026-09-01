@@ -13,6 +13,35 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.14.1] - 2026-09-01
+
+### Added
+
+- **Acceso provisorio al panel con llave compartida.** Si existe la variable
+  server-only `ADMIN_ACCESS_KEY`, un bearer token igual a esa llave habilita
+  `/api/admin/*` sin necesidad de crear usuarios. Se entra una vez por
+  `/admin/login?k=<LLAVE>` (se guarda en el navegador y se limpia la URL) o
+  pegándola en el campo "Llave de acceso". Es un **secreto compartido, no una
+  identidad**: en auditoría queda `admin_user_id = null` y
+  `metadata.auth = "access-key"`, y el topbar muestra el distintivo "llave".
+  El camino de Supabase Auth (`app_admins`) queda intacto para la etapa 2:
+  se vuelve a él quitando la variable.
+
+### Changed
+
+- **Alta de gasto**: los atajos de "Gastos frecuentes" pasan **debajo** del
+  campo Descripción — funcionan como sugerencias para completarlo, no como un
+  paso previo.
+
+### Fixed
+
+- **Campo de fecha desbordando el layout en iOS Safari.** `input[type="date"]`
+  trae ancho intrínseco propio y centra el valor, así que se salía del
+  contenedor y descolocaba la pantalla. Ahora se normaliza (`appearance: none`,
+  `max-width: 100%`, valor alineado a la izquierda vía
+  `::-webkit-date-and-time-value`): mismo ancho que el resto de los campos. El
+  selector nativo sigue funcionando igual.
+
 ## [0.14.0] - 2026-09-01
 
 Panel de administración `/admin`. **Requiere aplicar las migraciones

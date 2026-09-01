@@ -228,3 +228,36 @@ español; tablas con scroll horizontal contenido; navegación por teclado.
 - Sin log de errores de negocio → `/admin/estado` es diagnóstico de infra.
 - Etapa 2 documentada: zona horaria y más flags en Configuración, tabla
   `app_events` + beacon para errores, más exportaciones, diagnóstico ampliado.
+
+## Acceso provisorio con llave compartida
+
+Mientras el panel está en pruebas se puede entrar **sin crear usuarios**, con una
+llave compartida:
+
+1. Generar la llave (mínimo 16 caracteres):
+
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))"
+   ```
+
+2. Cargarla como variable **server-only** `ADMIN_ACCESS_KEY` (Vercel →
+   Settings → Environment Variables → Production, o `vercel env add`).
+
+3. Entrar una vez a `/admin/login?k=<LLAVE>`. La llave se guarda en el
+   `localStorage` de ese navegador (`fivi:admin-key`) y la URL se limpia; a
+   partir de ahí `/admin` entra directo. También se puede pegar a mano en el
+   campo "Llave de acceso".
+
+`requireAdmin` la compara en tiempo constante contra `ADMIN_ACCESS_KEY` y, si
+coincide, devuelve la identidad sintética `access-key`. En la auditoría queda
+`admin_user_id = null` y `metadata.auth = "access-key"`.
+
+> **Es un secreto compartido, no una identidad.** Quien tenga la llave entra.
+> No sirve para saber *quién* hizo cada acción. Sigue haciendo falta
+> `SUPABASE_SERVICE_ROLE_KEY`: sin ella los endpoints responden 503.
+
+### Volver a cuentas de administrador (etapa 2)
+
+Quitar `ADMIN_ACCESS_KEY` del entorno. El camino de Supabase Auth
+(`requireAdmin` modo 2 + `app_admins`) sigue intacto en el código; sólo hay que
+devolver el formulario de email + contraseña a `/admin/login`.

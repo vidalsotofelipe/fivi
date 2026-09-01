@@ -11,7 +11,7 @@ vi.mock("@/lib/supabaseAdmin", () => ({
   }),
 }));
 
-import { requireAdmin } from "@/lib/adminAuth";
+import { ACCESS_KEY_ADMIN_ID, requireAdmin } from "@/lib/adminAuth";
 
 const req = (headers: Record<string, string> = {}) =>
   new Request("http://x/api/admin/x", { headers });
@@ -19,6 +19,7 @@ const req = (headers: Record<string, string> = {}) =>
 beforeEach(() => {
   getUser.mockReset();
   maybeSingle.mockReset();
+  delete process.env.ADMIN_ACCESS_KEY;
 });
 
 describe("requireAdmin", () => {
@@ -65,5 +66,46 @@ describe("requireAdmin", () => {
     await expect(
       requireAdmin(req({ authorization: "bearer   tok  " })),
     ).resolves.toEqual({ adminId: "u2", email: null });
+  });
+});
+
+describe("requireAdmin · llave de acceso (ADMIN_ACCESS_KEY)", () => {
+  const KEY = "llave-de-prueba-suficientemente-larga";
+
+  it("la llave correcta entra sin tocar Supabase Auth", async () => {
+    process.env.ADMIN_ACCESS_KEY = KEY;
+    await expect(
+      requireAdmin(req({ authorization: `Bearer ${KEY}` })),
+    ).resolves.toEqual({ adminId: ACCESS_KEY_ADMIN_ID, email: null });
+    expect(getUser).not.toHaveBeenCalled();
+  });
+
+  it("una llave incorrecta cae al camino de sesión (y da 401)", async () => {
+    process.env.ADMIN_ACCESS_KEY = KEY;
+    getUser.mockResolvedValue({ data: { user: null }, error: { message: "bad jwt" } });
+    await expect(
+      requireAdmin(req({ authorization: "Bearer llave-incorrecta-pero-larga" })),
+    ).rejects.toMatchObject({ status: 401 });
+    expect(getUser).toHaveBeenCalled();
+  });
+
+  it("sin ADMIN_ACCESS_KEY la llave no sirve: se valida como sesión", async () => {
+    getUser.mockResolvedValue({ data: { user: null }, error: { message: "bad jwt" } });
+    await expect(
+      requireAdmin(req({ authorization: `Bearer ${KEY}` })),
+    ).rejects.toMatchObject({ status: 401 });
+  });
+
+  it("una llave demasiado corta se ignora (no habilita el modo)", async () => {
+    process.env.ADMIN_ACCESS_KEY = "corta";
+    getUser.mockResolvedValue({ data: { user: null }, error: { message: "bad jwt" } });
+    await expect(
+      requireAdmin(req({ authorization: "Bearer corta" })),
+    ).rejects.toMatchObject({ status: 401 });
+  });
+
+  it("sigue exigiendo token: sin Authorization es 401", async () => {
+    process.env.ADMIN_ACCESS_KEY = KEY;
+    await expect(requireAdmin(req())).rejects.toMatchObject({ status: 401 });
   });
 });

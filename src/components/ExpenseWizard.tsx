@@ -261,27 +261,31 @@ export function ExpenseWizard({
 
       {step === 0 ? (
         <div className="flex flex-col gap-4">
-          <QuickExpensePicker
-            groupId={groupId}
-            value={description}
-            onPick={(label) => {
-              setDescription(label);
-              if (stepErrors.length > 0) setStepErrors([]);
-              // El concepto ya está: dejamos el foco en el importe, que es lo
-              // único que falta. Foco por gesto del usuario (no auto al cargar).
-              if (label) {
-                requestAnimationFrame(() =>
-                  document.getElementById("expense-amount")?.focus(),
-                );
-              }
-            }}
-          />
-          <TextField
-            label={t("expense:descriptionLabel")}
-            placeholder="Cena, supermercado, Uber…"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
+          {/* Descripción primero; los atajos van debajo, como sugerencias para
+              completarla (no como un paso previo). */}
+          <div className="flex flex-col gap-2">
+            <TextField
+              label={t("expense:descriptionLabel")}
+              placeholder="Cena, supermercado, Uber…"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+            <QuickExpensePicker
+              groupId={groupId}
+              value={description}
+              onPick={(label) => {
+                setDescription(label);
+                if (stepErrors.length > 0) setStepErrors([]);
+                // El concepto ya está: dejamos el foco en el importe, que es lo
+                // único que falta. Foco por gesto del usuario (no auto al cargar).
+                if (label) {
+                  requestAnimationFrame(() =>
+                    document.getElementById("expense-amount")?.focus(),
+                  );
+                }
+              }}
+            />
+          </div>
           <MoneyField
             id="expense-amount"
             label={t("expense:amountLabel")}
