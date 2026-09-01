@@ -13,6 +13,43 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.14.0] - 2026-09-01
+
+Panel de administración `/admin`. **Requiere aplicar las migraciones
+`0010_admin.sql` + `0011_admin_functions.sql`** (aditivas, ya aplicadas en el
+proyecto de producción) y la variable server-only **`SUPABASE_SERVICE_ROLE_KEY`**
+(sin ella `/api/admin/*` responde 503 y el panel muestra "no disponible"; la app
+principal no se ve afectada). Ver `docs/ADMIN.md`.
+
+### Added
+
+- **`/admin`**: sección privada con login propio por email + contraseña (cliente
+  Supabase con `storageKey` separado; la app principal sigue 100% anónima).
+  Dashboard con datos reales (KPIs + comparativo + gráfico), Usuarios (tabla
+  paginada, detalle, activar/desactivar, conceder/quitar rol admin con
+  protección del último), Grupos, Movimientos (gastos + pagos, export CSV),
+  Auditoría de acciones administrativas, Estado (versión/entorno/pings, sin
+  secretos) y Configuración (moneda por defecto, feature flags).
+- **Autorización real por endpoint**: cada Route Handler de `src/app/api/admin/*`
+  verifica el Bearer token contra Supabase Auth y la pertenencia a `app_admins`
+  antes de responder; usa un cliente **service-role** server-only. Ocultar
+  links/componentes no alcanza — la seguridad está en el backend.
+- **Migración `0010_admin.sql`**: tablas `app_admins` (con trigger que impide
+  quedarse sin ningún administrador), `admin_audit_log`, `admin_settings`
+  (defaults seguros), + índices por `created_at`. RLS activada **sin policies**
+  (sólo `service_role` accede).
+- **Migración `0011_admin_functions.sql`**: funciones SQL que hacen toda la
+  agregación del panel (el backend no baja filas), sólo ejecutables por
+  `service_role`.
+
+### Notas
+
+- `SyncProvider` no arranca el motor local-first ni la sesión anónima en rutas
+  `/admin`.
+- Limitaciones del modelo actual (documentadas): `expenses`/`payments` no tienen
+  `created_by` → no hay métricas de movimientos por usuario; no hay categorías;
+  no hay log de errores de negocio.
+
 ## [0.13.0] - 2026-09-01
 
 Foco en saldar deudas de un toque, moneda por ubicación e idioma consistente.
