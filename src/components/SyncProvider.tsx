@@ -43,7 +43,10 @@ const SyncContext = createContext<SyncStatus>(INITIAL);
 export interface SyncActions {
   /** Pide sincronizar un grupo aunque no esté en la base local (acceso por enlace). */
   requestGroup: (groupId: string) => void;
-  /** Fuerza una corrida de sincronización ahora (botón "Reintentar"). */
+  /**
+   * Botón "Reintentar": devuelve a la cola los cambios que agotaron los
+   * reintentos y fuerza una corrida.
+   */
   syncNow: () => Promise<void>;
   /** id del usuario anónimo actual (Supabase), o `null` (modo local o sin sesión). */
   userId: string | null;
@@ -164,7 +167,12 @@ export function SyncProvider({ children }: { children: ReactNode }) {
           const { data } = client.auth.onAuthStateChange((event, session) => {
             if (session) client.realtime.setAuth(session.access_token);
             setUserId(session?.user.id ?? null);
-            if (event === "TOKEN_REFRESHED" || event === "SIGNED_IN") {
+            // Sesión nueva: cambian las condiciones, así que se les da otra
+            // chance a los cambios que el servidor había rechazado (típico
+            // cuando la sesión anterior quedó inválida y todo se "agotó").
+            if (event === "SIGNED_IN") {
+              void engine.retryFailed();
+            } else if (event === "TOKEN_REFRESHED") {
               void engine.syncNow(true);
             }
           });
@@ -218,8 +226,11 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const actions = useMemo<SyncActions>(
     () => ({
       requestGroup: (groupId) => engine.trackGroup(groupId),
+      // Es el "Reintentar" del usuario: además de forzar la corrida, devuelve a
+      // la cola lo que había agotado los reintentos (si no, el botón no haría
+      // nada para justamente el caso en que se lo muestra).
       syncNow: async () => {
-        await engine.syncNow(true);
+        await engine.retryFailed();
       },
       userId,
       redeemInvite: (token) => engine.redeemInvite(token),

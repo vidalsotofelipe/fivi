@@ -112,6 +112,36 @@ export async function requeueStaleSyncing(
   return stale.length;
 }
 
+/**
+ * Devuelve a la cola los items que agotaron `MAX_ATTEMPTS`, reseteando sus
+ * intentos. Es lo que necesita un **reintento pedido por el usuario** o un
+ * cambio de condiciones (sesión nueva): sin esto `getPendingItems` los filtra
+ * para siempre y el botón "Reintentar" no puede hacer nada.
+ *
+ * No se llama sola en cada corrida: si no, un dato que el servidor rechaza de
+ * verdad se reintentaría en bucle.
+ */
+export async function resetExhausted(
+  database: FiviDatabase = defaultDb,
+): Promise<number> {
+  const stuck = (await database.sync_queue.toArray()).filter(
+    (i) => i.sync_status === "error" && i.attempts >= MAX_ATTEMPTS,
+  );
+  if (stuck.length === 0) return 0;
+  await database.transaction("rw", database.sync_queue, async () => {
+    for (const item of stuck) {
+      await database.sync_queue.put({
+        ...item,
+        sync_status: "pending",
+        attempts: 0,
+        next_attempt_at: null,
+        error: null,
+      });
+    }
+  });
+  return stuck.length;
+}
+
 export interface QueueStats {
   /** pending + error que todavía puede reintentar. */
   pending: number;

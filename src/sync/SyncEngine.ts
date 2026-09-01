@@ -36,6 +36,7 @@ import {
   markStatus,
   purgeSynced,
   requeueStaleSyncing,
+  resetExhausted,
 } from "./queue";
 
 export interface SyncEngineOptions {
@@ -146,6 +147,20 @@ export class SyncEngine {
     this.subscription = null;
     this.subscribedKey = "";
     return this.markRemoteReady();
+  }
+
+  /**
+   * Reintento pedido por el usuario ("Reintentar sincronización") o disparado
+   * por un cambio de condiciones (sesión nueva). Devuelve a la cola los items
+   * que agotaron los reintentos y limpia el backoff de corrida: sin esto, un
+   * item agotado nunca se vuelve a enviar y el botón no haría nada.
+   */
+  async retryFailed(): Promise<SyncState> {
+    await resetExhausted(this.db);
+    this.consecutiveFailures = 0;
+    this.nextRunAllowedAt = 0;
+    await this.emitQueueCounts({ last_error: null, access_error: null });
+    return this.syncNow(true);
   }
 
   /**
@@ -359,6 +374,10 @@ export class SyncEngine {
     const startedAt = new Date().toISOString();
     // ¿Hubo en esta corrida un rechazo por falta de acceso (RLS / sesión)?
     let accessDenied = false;
+    // Cambios que el servidor rechazó uno por uno. Si hay aunque sea uno, la
+    // corrida NO cuenta como "sincronizado": `last_synced_at` no avanza (si no,
+    // la UI diría "sincronizado recién" con cambios sin subir).
+    let rejectedCount = 0;
 
     try {
       await requeueStaleSyncing(this.db);
@@ -411,6 +430,7 @@ export class SyncEngine {
           if (r.error === ACCESS_DENIED_MESSAGE) accessDenied = true;
           await markStatus([r.id], "error", this.db, { error: r.error });
         }
+        rejectedCount = result.rejected.length;
       }
 
       const localGroupIds = (await this.db.groups.toArray())
@@ -461,7 +481,8 @@ export class SyncEngine {
       await this.emitQueueCounts({
         syncing: false,
         online: true,
-        last_synced_at: startedAt,
+        // Sólo si TODO pasó: con rechazos se conserva la marca anterior.
+        ...(rejectedCount === 0 ? { last_synced_at: startedAt } : {}),
         access_error: accessDenied ? ACCESS_DENIED_MESSAGE : null,
         hydrating_group_ids: [...this.hydratingGroups],
       });

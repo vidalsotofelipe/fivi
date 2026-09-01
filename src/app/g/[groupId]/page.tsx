@@ -21,6 +21,7 @@ import { Card } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
 import { useGroupContext } from "@/components/GroupProvider";
 import { useSyncState } from "@/components/SyncProvider";
+import { useSyncStatus } from "@/components/useSyncStatus";
 import { useLocale } from "@/components/LocaleProvider";
 import { db } from "@/data/db";
 import { restoreGroup } from "@/data/repositories/groupRepo";
@@ -29,10 +30,19 @@ import { useGroupSummary } from "@/lib/db-hooks";
 import { formatDate, minutesSince } from "@/lib/format";
 import { useHydrated } from "@/lib/useHydrated";
 
+/**
+ * "Sincronizado hace X" en el resumen. Sólo se muestra cuando **todo** está al
+ * día: si hay pendientes o un error, el badge de la barra y el banner ya lo
+ * dicen (y con más detalle), así que repetirlo acá sólo agrega ruido — y decir
+ * "sincronizado recién" mientras hay 19 cambios rechazados sería mentira.
+ */
 function SyncLine() {
   const { t } = useTranslation("sync");
-  const { last_synced_at, backend } = useSyncState();
-  if (backend === "local") return <span>{t("onDevice")}</span>;
+  const { kind, fullySynced } = useSyncStatus();
+  const { last_synced_at } = useSyncState();
+
+  if (kind === "local") return <span>{t("onDevice")}</span>;
+  if (!fullySynced) return null;
   if (!last_synced_at) return <span>{t("synced")}</span>;
   const mins = minutesSince(last_synced_at);
   return (

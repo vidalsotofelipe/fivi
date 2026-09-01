@@ -169,3 +169,76 @@ describe("SyncEngine: backoff a nivel corrida", () => {
     engine.stop();
   });
 });
+
+describe("SyncEngine.retryFailed: el botón 'Reintentar' recupera lo agotado", () => {
+  it("un item que agotó MAX_ATTEMPTS vuelve a enviarse y puede sincronizar", async () => {
+    // Regresión: getPendingItems descarta `attempts >= MAX_ATTEMPTS` incluso con
+    // ignoreBackoff, así que el botón "Reintentar sincronización" no hacía nada
+    // justo en el caso en el que se lo muestra (19 cambios trabados).
+    await groupRepo.createGroup({ name: "G", currency_code: "ARS" }, db);
+
+    let reject = true;
+    let pushes = 0;
+    const remote: RemotePort = {
+      push: async (items) => {
+        pushes++;
+        return reject
+          ? { accepted_ids: [], rejected: items.map((i) => ({ id: i.id, error: "rls" })) }
+          : { accepted_ids: items.map((i) => i.id), rejected: [] };
+      },
+      pull: async () => [],
+    };
+    const engine = new SyncEngine({ remote, database: db, pollIntervalMs: 0 });
+
+    // Agotar los reintentos.
+    for (let i = 0; i < MAX_ATTEMPTS; i++) await engine.syncNow(true);
+    expect((await getQueueStats(db)).exhausted).toBe(1);
+
+    // Forzar de nuevo NO alcanza: el item está fuera de la selección.
+    const pushesBefore = pushes;
+    await engine.syncNow(true);
+    expect(pushes).toBe(pushesBefore);
+
+    // El reintento del usuario sí lo recupera; con el servidor sano, sincroniza.
+    reject = false;
+    const state = await engine.retryFailed();
+    expect(pushes).toBeGreaterThan(pushesBefore);
+    expect(state.exhausted_count).toBe(0);
+    expect((await getQueueStats(db)).exhausted).toBe(0);
+
+    engine.stop();
+  });
+});
+
+describe("SyncEngine: last_synced_at sólo cuando pasó todo", () => {
+  it("si el servidor rechaza un cambio, NO avanza last_synced_at", async () => {
+    // Regresión: la barra decía "19 sin sincronizar" y el resumen
+    // "Sincronizado recién" a la vez. El push no lanza cuando el rechazo es por
+    // item, así que la corrida llegaba al camino feliz y marcaba la hora igual.
+    await groupRepo.createGroup({ name: "G", currency_code: "ARS" }, db);
+
+    let rejectAll = true;
+    const remote: RemotePort = {
+      push: async (items) =>
+        rejectAll
+          ? { accepted_ids: [], rejected: items.map((i) => ({ id: i.id, error: "rls" })) }
+          : { accepted_ids: items.map((i) => i.id), rejected: [] },
+      pull: async () => [],
+    };
+    const engine = new SyncEngine({ remote, database: db, pollIntervalMs: 0 });
+
+    const rejected = await engine.syncNow(true);
+    expect(rejected.last_synced_at).toBeNull();
+
+    // Cuando el servidor acepta, sí se marca la hora.
+    rejectAll = false;
+    await db.sync_queue.toCollection().modify((it) => {
+      it.sync_status = "pending";
+      it.next_attempt_at = null;
+    });
+    const ok = await engine.syncNow(true);
+    expect(ok.last_synced_at).not.toBeNull();
+
+    engine.stop();
+  });
+});

@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "./Button";
-import { useSyncActions, useSyncState } from "./SyncProvider";
+import { useSyncActions } from "./SyncProvider";
+import { useSyncStatus } from "./useSyncStatus";
 
 /**
  * Avisos transversales de sincronización, por encima del contenido (sección 21):
@@ -20,13 +21,13 @@ import { useSyncActions, useSyncState } from "./SyncProvider";
  */
 export function SyncBanner() {
   const { t } = useTranslation("sync");
-  const { backend, online, exhausted_count, access_error } = useSyncState();
+  const { kind, label } = useSyncStatus();
   const { syncNow } = useSyncActions();
   const [retrying, setRetrying] = useState(false);
 
-  if (backend === "local") return null;
+  if (kind === "local") return null;
 
-  if (access_error) {
+  if (kind === "no-access") {
     return (
       <div
         role="alert"
@@ -37,13 +38,15 @@ export function SyncBanner() {
     );
   }
 
-  if (exhausted_count > 0) {
+  if (kind === "exhausted") {
     return (
       <div
         role="alert"
         className="flex flex-col gap-2 border-2 border-danger bg-danger/10 px-4 py-3 text-sm text-danger"
       >
         <p className="font-bold">{t("errorTitle")}</p>
+        {/* El mismo texto que el badge de arriba: no puede contradecirlo. */}
+        <p>{label}</p>
         <Button
           variant="secondary"
           className="self-start"
@@ -63,7 +66,7 @@ export function SyncBanner() {
     );
   }
 
-  if (!online) {
+  if (kind === "offline" || kind === "offline-pending") {
     return (
       <div
         role="status"

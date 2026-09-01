@@ -13,6 +13,33 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.14.2] - 2026-09-01
+
+Estado de sincronización coherente y reintento que funciona de verdad. Sin
+cambios de esquema. Sin migraciones.
+
+### Fixed
+
+- **La pantalla se contradecía a sí misma.** En el resumen de un grupo podía
+  verse "19 sin sincronizar" en la barra, "No se pudo guardar en el servidor"
+  en el banner y "Sincronizado recién" en el cuerpo, todo a la vez. Eran tres
+  componentes decidiendo por su cuenta sobre el mismo estado. Ahora la decisión
+  vive en una sola función pura (`src/sync/statusKind.ts`) que usan el badge, el
+  banner y la línea del resumen: no pueden discrepar. La marca de tiempo
+  ("sincronizado hace X") sólo aparece cuando **todo** está al día; si hay algo
+  pendiente o con error, el badge y el banner ya lo informan.
+- **`last_synced_at` avanzaba con cambios rechazados.** Cuando el servidor
+  rechaza filas una por una el push no lanza excepción, así que la corrida
+  llegaba al camino feliz y marcaba la hora igual. Ahora sólo se actualiza si no
+  hubo ningún rechazo.
+- **El botón "Reintentar sincronización" no hacía nada.** `getPendingItems`
+  descarta los items que agotaron `MAX_ATTEMPTS` incluso al forzar, así que el
+  reintento no los alcanzaba — justo en el caso en el que se muestra el botón.
+  Nuevo `resetExhausted` + `SyncEngine.retryFailed()`: el reintento del usuario
+  devuelve esos cambios a la cola con los intentos en cero. También se dispara
+  al iniciar **una sesión nueva** (`SIGNED_IN`), que es cuando los rechazos
+  causados por una sesión inválida merecen otra oportunidad.
+
 ## [0.14.1] - 2026-09-01
 
 ### Added
