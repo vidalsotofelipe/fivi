@@ -3,9 +3,15 @@
 import type { ComponentProps, ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
-/** Clase base de los controles de formulario (estilo flat: recto, borde 2 px). */
+/**
+ * Clase base de los controles de formulario (estilo flat: recto, borde 2 px).
+ *
+ * `text-base` (16px) es deliberado: por debajo de 16px iOS Safari hace zoom
+ * automático al enfocar el campo y no lo revierte al navegar (SPA). 16px lo
+ * evita sin bloquear el zoom manual del usuario.
+ */
 export const controlClass =
-  "w-full min-h-touch border-2 border-border bg-surface px-3.5 py-3 text-[15px] text-text " +
+  "w-full min-h-touch border-2 border-border bg-surface px-3.5 py-3 text-base text-text " +
   "placeholder:text-faint outline-none focus:border-accent";
 
 export function Field({

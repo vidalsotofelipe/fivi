@@ -27,7 +27,11 @@ export function AppShell({
   children: ReactNode;
 }) {
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-app flex-col bg-bg">
+    // Alto mínimo estable: `svh` (viewport chico) no cambia al abrir/cerrar el
+    // teclado ni al mostrarse/ocultarse la barra del navegador, así no hay
+    // saltos de layout tras navegar (p. ej. al crear un grupo). `min-h-screen`
+    // queda de fallback para navegadores sin `svh`.
+    <div className="mx-auto flex min-h-screen min-h-[100svh] w-full max-w-app flex-col bg-bg">
       <AppBar title={title} back={back} menu={menu} showSync={showSync} />
       <main className="flex flex-1 flex-col gap-5 px-4 py-5">
         {showSync ? <SyncBanner /> : null}

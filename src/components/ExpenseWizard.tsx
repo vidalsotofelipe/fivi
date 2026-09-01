@@ -13,6 +13,7 @@ import { cn } from "@/lib/cn";
 import { formatDate, formatMoney, todayIso } from "@/lib/format";
 import { Button } from "@/components/Button";
 import { Money } from "@/components/Money";
+import { QuickExpensePicker } from "@/components/QuickExpensePicker";
 import { useLocale } from "@/components/LocaleProvider";
 import {
   StepIndicator,
@@ -260,14 +261,29 @@ export function ExpenseWizard({
 
       {step === 0 ? (
         <div className="flex flex-col gap-4">
+          <QuickExpensePicker
+            groupId={groupId}
+            value={description}
+            onPick={(label) => {
+              setDescription(label);
+              if (stepErrors.length > 0) setStepErrors([]);
+              // El concepto ya está: dejamos el foco en el importe, que es lo
+              // único que falta. Foco por gesto del usuario (no auto al cargar).
+              if (label) {
+                requestAnimationFrame(() =>
+                  document.getElementById("expense-amount")?.focus(),
+                );
+              }
+            }}
+          />
           <TextField
             label={t("expense:descriptionLabel")}
             placeholder="Cena, supermercado, Uber…"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            autoFocus
           />
           <MoneyField
+            id="expense-amount"
             label={t("expense:amountLabel")}
             currency={currency}
             value={amountRaw}
@@ -359,7 +375,7 @@ export function ExpenseWizard({
                             onChange={(e) =>
                               setRows((r) => ({ ...r, [p.id]: e.target.value }))
                             }
-                            className="w-24 rounded-md border border-border bg-surface px-2 py-1.5 text-right text-[15px] outline-none focus:border-accent"
+                            className="w-24 border border-border bg-surface px-2 py-1.5 text-right text-base outline-none focus:border-accent"
                           />
                           <span className="w-3 text-xs text-muted">
                             {customKind === "percent"

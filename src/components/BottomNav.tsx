@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/cn";
 
@@ -22,6 +23,24 @@ export function BottomNav({ groupId }: { groupId: string }) {
   const { t } = useTranslation("nav");
   const pathname = usePathname();
   const baseHref = `/g/${groupId}`;
+  const navRef = useRef<HTMLElement>(null);
+
+  // Publica el alto real del menú (incluye borde + safe-area) para que otros
+  // elementos fijos —el toast— se posicionen por encima y no lo tapen.
+  useEffect(() => {
+    const el = navRef.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const apply = () =>
+      root.style.setProperty("--fivi-bottomnav", `${el.offsetHeight}px`);
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      root.style.removeProperty("--fivi-bottomnav");
+    };
+  }, []);
 
   const items: { dest: Dest; href: string; match: (p: string) => boolean }[] = [
     {
@@ -51,6 +70,7 @@ export function BottomNav({ groupId }: { groupId: string }) {
 
   return (
     <nav
+      ref={navRef}
       aria-label={t("primaryNav")}
       className="sticky bottom-0 z-30 mt-auto border-t-2 border-border-strong bg-bg/95 backdrop-blur"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}

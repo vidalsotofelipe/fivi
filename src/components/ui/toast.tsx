@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 
 export interface ToastOptions {
   message: string;
@@ -33,6 +34,7 @@ let counter = 0;
 
 /** Envuelve la app: expone `useToast()` y renderiza la región `aria-live`. */
 export function ToastProvider({ children }: { children: ReactNode }) {
+  const { t } = useTranslation("common");
   const [toast, setToast] = useState<ToastState | null>(null);
   const [mounted, setMounted] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -65,7 +67,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {mounted && typeof document !== "undefined"
         ? createPortal(
             <div
-              className="pointer-events-none fixed inset-x-0 bottom-0 z-[60] flex justify-center px-4 pb-[calc(16px+env(safe-area-inset-bottom))]"
+              className="pointer-events-none fixed inset-x-0 bottom-0 z-[60] flex items-end justify-center px-4"
+              // Se levanta por encima del menú inferior (que publica su alto en
+              // `--fivi-bottomnav`); sin menú, respeta al menos 12px + safe-area.
+              // `items-end` evita el stretch vertical del flex (que dejaba la
+              // tarjeta desbordando el padding y tapando el menú).
+              style={{
+                // El +16px de holgura absorbe el desplazamiento de entrada de
+                // `toast-in` (translateY 16px→0): ni durante la animación el
+                // toast toca el menú.
+                paddingBottom:
+                  "calc(var(--fivi-bottomnav, 0px) + max(16px, env(safe-area-inset-bottom)))",
+              }}
               role="status"
               aria-live="polite"
               aria-atomic="true"
@@ -73,12 +86,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               {toast ? (
                 <div
                   key={toast.id}
-                  className="pointer-events-auto flex w-full max-w-app items-center gap-3 border-2 border-border-strong bg-surface-raised px-4 py-3 text-sm motion-safe:animate-[toast-in_0.18s_ease-out]"
+                  className="pointer-events-auto flex w-full max-w-app items-center gap-1 border-2 border-border-strong bg-surface-raised py-1.5 pl-4 pr-1.5 text-sm shadow-lg motion-safe:animate-[toast-in_0.18s_ease-out]"
                 >
-                  <span className="min-w-0 flex-1">{toast.message}</span>
+                  <span className="min-w-0 flex-1 py-1">{toast.message}</span>
                   {toast.undoLabel && toast.onUndo ? (
                     <button
-                      className="shrink-0 font-bold uppercase tracking-caps text-accent-strong hover:underline"
+                      className="min-h-touch shrink-0 px-1 font-bold uppercase tracking-caps text-accent-strong hover:underline"
                       onClick={() => {
                         toast.onUndo?.();
                         dismiss();
@@ -89,7 +102,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   ) : null}
                   {toast.actionLabel && toast.onAction ? (
                     <button
-                      className="shrink-0 font-bold uppercase tracking-caps text-accent-strong hover:underline"
+                      className="min-h-touch shrink-0 px-1 font-bold uppercase tracking-caps text-accent-strong hover:underline"
                       onClick={() => {
                         toast.onAction?.();
                         dismiss();
@@ -98,6 +111,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                       {toast.actionLabel}
                     </button>
                   ) : null}
+                  <button
+                    type="button"
+                    aria-label={t("close")}
+                    onClick={dismiss}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center text-base leading-none text-muted transition-colors hover:text-text"
+                  >
+                    <span aria-hidden="true">✕</span>
+                  </button>
                 </div>
               ) : null}
             </div>,

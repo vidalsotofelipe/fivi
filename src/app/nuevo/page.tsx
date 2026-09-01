@@ -70,7 +70,6 @@ export default function NewGroupPage() {
             if (nameError) setNameError(null);
           }}
           error={nameError}
-          autoFocus
           required
         />
 

@@ -171,7 +171,14 @@
     "savedToast": "Expense saved",
     "viewExpense": "View expense",
     "undoWindow": "You can undo for a few seconds.",
-    "deletedToast": "Expense deleted"
+    "deletedToast": "Expense deleted",
+    "quickTitle": "Frequent expenses",
+    "quickSupermarket": "Groceries",
+    "quickFuel": "Fuel",
+    "quickFood": "Food",
+    "quickCoffee": "Coffee",
+    "quickDrink": "Drinks",
+    "quickTransport": "Transport"
   },
   "payment": {
     "title": "Record payment",

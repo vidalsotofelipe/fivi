@@ -171,7 +171,14 @@
     "savedToast": "Gasto guardado",
     "viewExpense": "Ver gasto",
     "undoWindow": "Podés deshacerlo por unos segundos.",
-    "deletedToast": "Gasto eliminado"
+    "deletedToast": "Gasto eliminado",
+    "quickTitle": "Gastos frecuentes",
+    "quickSupermarket": "Supermercado",
+    "quickFuel": "Nafta",
+    "quickFood": "Comida",
+    "quickCoffee": "Café",
+    "quickDrink": "Bebida",
+    "quickTransport": "Transporte"
   },
   "payment": {
     "title": "Registrar pago",

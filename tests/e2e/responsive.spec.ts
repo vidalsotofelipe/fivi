@@ -160,6 +160,54 @@ test("responsive: sin desborde ni columnas angostas (320–430 px)", async ({
   }
 });
 
+test("mobile: los controles miden >= 16px y no hay autofocus al cargar (evita el zoom de iOS)", async ({
+  page,
+}) => {
+  const id = await seedGroup(page);
+  await page.setViewportSize({ width: 390, height: 812 });
+
+  const routes = [
+    "/nuevo",
+    `/g/${id}/nuevo/personas`,
+    `/g/${id}/gastos/nuevo`,
+    `/g/${id}/pagos/nuevo`,
+  ];
+
+  for (const route of routes) {
+    await page.goto(route);
+    await page.locator("main").first().waitFor({ state: "visible" });
+    await page.waitForTimeout(150);
+
+    const info = await page.evaluate(() => {
+      const controls = [
+        ...document.querySelectorAll<HTMLElement>("input, select, textarea"),
+      ].filter((el) => el.offsetParent !== null);
+      const tooSmall = controls
+        .filter((el) => parseFloat(getComputedStyle(el).fontSize) < 16)
+        .map((el) => ({
+          tag: el.tagName,
+          type: (el as HTMLInputElement).type,
+          fs: getComputedStyle(el).fontSize,
+        }));
+      const ae = document.activeElement;
+      return {
+        count: controls.length,
+        tooSmall,
+        autofocused:
+          ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)
+            ? ae.tagName
+            : null,
+      };
+    });
+
+    expect(info.tooSmall, `${route}: controles con font-size < 16px`).toEqual([]);
+    expect(
+      info.autofocused,
+      `${route}: un control recibió foco automático al cargar`,
+    ).toBeNull();
+  }
+});
+
 test("responsive: también en inglés (390 px)", async ({ page }) => {
   const id = await seedGroup(page);
   // cambiar idioma en Configuración

@@ -152,6 +152,20 @@ body {
   outline-offset: 2px;
 }
 
+/*
+ * iOS Safari hace zoom automático (y no lo revierte al navegar) cuando se
+ * enfoca un control con font-size < 16px. Los controles de FIVI ya usan
+ * `text-base` (16px) vía `controlClass`; esto es una red de seguridad para
+ * cualquier input suelto en el layout angosto (móvil).
+ */
+@media (max-width: 480px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
 @keyframes fivi-up {
   from {
     transform: translateY(14px);
