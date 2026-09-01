@@ -13,6 +13,37 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.12.0] - 2026-09-01
+
+Mejoras de UX en la carga de gastos y corrección de un problema de escala en
+móvil. Sin cambios de esquema ni de API. Sin migraciones.
+
+### Added
+
+- **Atajos de "Gastos frecuentes"** en el alta de gasto: chips con emoji +
+  concepto arriba del campo de descripción. Al elegir uno se precarga el
+  concepto y el foco pasa al importe; la carga manual sigue igual. La lista
+  prioriza los conceptos más usados del grupo (descripciones que se repiten
+  ≥ 2 veces, normalizadas sin acentos/caso) y se completa con una lista por
+  defecto (Supermercado, Nafta, Comida, Café, Bebida, Transporte) hasta 6.
+  El modelo no tiene categorías: sólo se sugiere el texto del concepto.
+- **Botón de cierre (✕) en las notificaciones** (toast), además del
+  auto-cierre existente.
+
+### Changed
+
+- El toast ya no se superpone al menú de navegación inferior: se posiciona por
+  encima (el menú publica su alto real) y sólo la tarjeta captura toques.
+
+### Fixed
+
+- **Zoom / salto de escala en móvil tras crear un grupo.** Los controles de
+  formulario pasan a 16px (`text-base`): por debajo de 16px iOS Safari hace
+  zoom automático al enfocar y no lo revierte al navegar. Además se quitó el
+  `autoFocus` que abría el teclado al cargar (`/nuevo` y el wizard de gasto) y
+  el alto del layout pasa a ser estable (`100svh`) para que el teclado no
+  provoque reflow. No se bloquea el zoom manual.
+
 ## [0.11.0] - 2026-09-01
 
 Mejora de la pantalla de inicio y una vía para unirse a un grupo desde ahí. Sin
