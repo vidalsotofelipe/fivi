@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { usePathname } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/data/db";
 import { SyncEngine } from "@/sync/SyncEngine";
@@ -90,6 +91,9 @@ const supabaseConfig = readSupabaseConfig();
 export function SyncProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
   const backend: SyncBackend = supabaseConfig ? "cloud" : "local";
+  // El panel `/admin` no usa el motor local-first ni la sesión anónima de la
+  // app: tiene su propia sesión (email + contraseña) y habla con /api/admin/*.
+  const isAdminRoute = (usePathname() ?? "").startsWith("/admin");
   const queueStats = useLiveQuery(() => getQueueStats(db), [], {
     pending: 0,
     exhausted: 0,
@@ -119,6 +123,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const [engineState, setEngineState] = useState<SyncState>(() => engine.getState());
 
   useEffect(() => {
+    if (isAdminRoute) return; // no arrancar el motor en el panel admin
+
     const unsubscribe = engine.subscribe(setEngineState);
     engine.start();
 
@@ -189,14 +195,15 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       unsubscribe();
       engine.stop();
     };
-  }, [engine]);
+  }, [engine, isAdminRoute]);
 
   useEffect(() => {
+    if (isAdminRoute) return;
     if (queueStats.pending > 0) {
       const t = setTimeout(() => void engine.syncNow(), 300);
       return () => clearTimeout(t);
     }
-  }, [engine, queueStats.pending]);
+  }, [engine, queueStats.pending, isAdminRoute]);
 
   const value = useMemo<SyncStatus>(
     () => ({

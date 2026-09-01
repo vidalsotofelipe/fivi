@@ -86,6 +86,10 @@ beforeAll(async () => {
     create schema if not exists auth;
     create table auth.users (
       id uuid primary key,
+      email text,
+      is_anonymous boolean not null default true,
+      last_sign_in_at timestamptz,
+      banned_until timestamptz,
       created_at timestamptz not null default now()
     );
     create or replace function auth.uid() returns uuid
@@ -109,6 +113,8 @@ beforeAll(async () => {
     "0007_rls_auth.sql",
     "0008_groups_select_creator.sql",
     "0009_group_archive.sql",
+    "0010_admin.sql",
+    "0011_admin_functions.sql",
   ]) {
     await pg.exec(migration(file));
   }
@@ -123,6 +129,23 @@ beforeAll(async () => {
     grant execute on all functions in schema public to authenticated;
     grant usage on sequence public.sync_revision_seq to authenticated;
     grant select on public.groups to anon;
+  `);
+
+  // En Supabase real, las funciones del panel (0011) sólo se conceden a
+  // `service_role` vía default privileges; acá el grant de arriba es un comodín,
+  // así que replicamos el revoke que hace la migración.
+  await pg.exec(`
+    do $$
+    declare f record;
+    begin
+      for f in
+        select p.oid::regprocedure::text as sig
+          from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+         where n.nspname = 'public' and p.proname ~ '^admin_'
+      loop
+        execute format('revoke execute on function %s from anon, authenticated', f.sig);
+      end loop;
+    end $$;
   `);
 
   await pg.query("insert into auth.users (id) values ($1), ($2), ($3)", [
@@ -520,5 +543,248 @@ describe("RLS: archivado y snapshot (0009)", () => {
       ),
     );
     expect(again.rows[0]!.archived_at).toEqual(first.rows[0]!.archived_at);
+  });
+});
+
+describe("panel admin (0010)", () => {
+  it("app_admins / admin_audit_log / admin_settings: authenticated y anon no obtienen datos", async () => {
+    await pg.exec("set role postgres");
+    await pg.query(
+      "insert into public.app_admins (user_id) values ($1) on conflict do nothing",
+      [U3],
+    );
+    await pg.query(
+      "insert into public.admin_audit_log (admin_user_id, action) values ($1, 'x')",
+      [U3],
+    );
+    await pg.exec("reset role");
+
+    for (const role of ["authenticated", "anon"]) {
+      for (const tbl of ["app_admins", "admin_audit_log", "admin_settings"]) {
+        // RLS sin policy => 0 filas; sin GRANT => permission denied. Ambos = sin datos.
+        const rows = await pg
+          .transaction(async (tx) => {
+            await tx.exec(`set local role ${role}`);
+            return tx.query(`select * from public.${tbl}`);
+          })
+          .then((r) => r.rows as unknown[])
+          .catch(() => [] as unknown[]);
+        expect(rows).toHaveLength(0);
+      }
+    }
+  });
+
+  it("el trigger impide borrar el último administrador", async () => {
+    await pg.exec("set role postgres");
+    // el trigger BEFORE DELETE no corre en TRUNCATE, así que lo usamos para
+    // partir de una tabla vacía y controlar el conteo.
+    await pg.exec("truncate public.app_admins");
+    await pg.query("insert into public.app_admins (user_id) values ($1), ($2)", [
+      U1,
+      U2,
+    ]);
+    // quitar uno mientras queda otro: OK
+    await pg.query("delete from public.app_admins where user_id = $1", [U2]);
+    expect(
+      (await pg.query("select 1 from public.app_admins")).rows,
+    ).toHaveLength(1);
+    // quitar el último: rechazado por el trigger
+    await expect(
+      pg.query("delete from public.app_admins where user_id = $1", [U1]),
+    ).rejects.toThrow(/último administrador/i);
+    await pg.exec("reset role");
+  });
+
+  it("admin_settings trae los defaults seguros", async () => {
+    await pg.exec("set role postgres");
+    const r = await pg.query<{ key: string }>(
+      "select key from public.admin_settings order by key",
+    );
+    await pg.exec("reset role");
+    expect(r.rows.map((x) => x.key)).toEqual([
+      "default_currency",
+      "feature_flags",
+    ]);
+  });
+});
+
+describe("funciones admin (0011)", () => {
+  /** Ejecuta una función SQL como `postgres` (equivalente a service_role). */
+  async function rpc<T = Record<string, unknown>>(
+    sql: string,
+    params: unknown[] = [],
+  ): Promise<T> {
+    await pg.exec("set role postgres");
+    try {
+      const r = await pg.query<{ out: T }>(`select ${sql} as out`, params);
+      return r.rows[0]!.out;
+    } finally {
+      await pg.exec("reset role");
+    }
+  }
+
+  beforeAll(async () => {
+    // Datos deterministas para las agregaciones (además de lo que dejaron los
+    // describe anteriores). Todo como `postgres`.
+    await pg.exec("set role postgres");
+    await pg.exec("truncate public.app_admins");
+    await pg.query("insert into public.app_admins (user_id) values ($1)", [U1]);
+    const gid = randomUUID();
+    const p1 = randomUUID();
+    const p2 = randomUUID();
+    await pg.query(
+      "insert into public.groups (id, name, currency_code, created_by) values ($1, '0011 grupo', 'USD', $2)",
+      [gid, U1],
+    );
+    await pg.query(
+      "insert into public.participants (id, group_id, name) values ($1,$2,'A'), ($3,$2,'B')",
+      [p1, gid, p2],
+    );
+    await pg.query(
+      `insert into public.expenses (id, group_id, description, amount_minor_units, paid_by, expense_date)
+       values ($1,$2,'Hotel',150000,$3,current_date), ($4,$2,'Nafta',30000,$3,current_date)`,
+      [randomUUID(), gid, p1, randomUUID()],
+    );
+    await pg.query(
+      `insert into public.payments (id, group_id, from_participant, to_participant, amount_minor_units, payment_date)
+       values ($1,$2,$3,$4,50000,current_date)`,
+      [randomUUID(), gid, p2, p1],
+    );
+    await pg.exec("reset role");
+  });
+
+  it("admin_dashboard agrega usuarios, grupos, movimientos y series de 12 meses", async () => {
+    const d = await rpc<{
+      users: { total: number };
+      groups: { total: number };
+      movements: { total: number; by_type: { type: string; count: number }[] };
+      volume_in_range: { currency: string; total_minor: number }[];
+      monthly: unknown[];
+    }>(
+      "public.admin_dashboard($1,$2,$3,$4)",
+      [
+        new Date(Date.now() - 30 * 864e5).toISOString(),
+        new Date(Date.now() + 864e5).toISOString(),
+        new Date(Date.now() - 60 * 864e5).toISOString(),
+        new Date(Date.now() - 30 * 864e5).toISOString(),
+      ],
+    );
+    expect(d.users.total).toBeGreaterThanOrEqual(3);
+    expect(d.groups.total).toBeGreaterThanOrEqual(1);
+    expect(d.movements.total).toBeGreaterThanOrEqual(3);
+    expect(d.monthly).toHaveLength(12);
+    const usd = d.volume_in_range.find((v) => v.currency === "USD");
+    expect(usd?.total_minor).toBeGreaterThanOrEqual(230000); // 150000+30000+50000
+  });
+
+  it("admin_list_groups pagina, cuenta y ordena", async () => {
+    const r = await rpc<{
+      total: number;
+      rows: { name: string; expense_count: number; payment_count: number }[];
+    }>("public.admin_list_groups($1,null,null,null,null,$2,$3,$4,0)", [
+      "0011",
+      "created_at",
+      "desc",
+      10,
+    ]);
+    expect(r.total).toBeGreaterThanOrEqual(1);
+    const g = r.rows.find((x) => x.name === "0011 grupo");
+    expect(g?.expense_count).toBe(2);
+    expect(g?.payment_count).toBe(1);
+  });
+
+  it("admin_list_movements unifica gastos y pagos y respeta el filtro por tipo", async () => {
+    const all = await rpc<{ total: number; rows: { type: string }[] }>(
+      "public.admin_list_movements(null,null,'USD',null,null,null,'created_at','desc',100,0)",
+    );
+    expect(all.total).toBeGreaterThanOrEqual(3);
+    const onlyPayments = await rpc<{ rows: { type: string }[] }>(
+      "public.admin_list_movements('payment',null,'USD',null,null,null,'created_at','desc',100,0)",
+    );
+    expect(onlyPayments.rows.every((r) => r.type === "payment")).toBe(true);
+    expect(onlyPayments.rows.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("admin_list_users filtra por rol admin", async () => {
+    const admins = await rpc<{ rows: { id: string; is_admin: boolean }[] }>(
+      "public.admin_list_users(null,null,'admin',null,null,'created_at','desc',50,0)",
+    );
+    expect(admins.rows.length).toBe(1);
+    expect(admins.rows[0]!.id).toBe(U1);
+    expect(admins.rows[0]!.is_admin).toBe(true);
+  });
+
+  it("admin_set_user_admin concede y protege el último administrador", async () => {
+    const grant = await rpc<{ is_admin: boolean; admin_count: number }>(
+      "public.admin_set_user_admin($1,true,$2)",
+      [U2, U1],
+    );
+    expect(grant).toMatchObject({ is_admin: true, admin_count: 2 });
+
+    const revoke = await rpc<{ is_admin: boolean; admin_count: number }>(
+      "public.admin_set_user_admin($1,false,$2)",
+      [U1, U2],
+    );
+    expect(revoke).toMatchObject({ is_admin: false, admin_count: 1 });
+
+    await pg.exec("set role postgres");
+    await expect(
+      pg.query("select public.admin_set_user_admin($1,false,$2)", [U2, U2]),
+    ).rejects.toThrow(/último administrador/i);
+    await pg.exec("reset role");
+  });
+
+  it("admin_set_user_ban da de baja/alta y nunca a un administrador", async () => {
+    const banned = await rpc<{ banned_until: string | null }>(
+      "public.admin_set_user_ban($1,true)",
+      [U3],
+    );
+    expect(banned.banned_until).not.toBeNull();
+    const active = await rpc<{ banned_until: string | null }>(
+      "public.admin_set_user_ban($1,false)",
+      [U3],
+    );
+    expect(active.banned_until).toBeNull();
+
+    await pg.exec("set role postgres");
+    await expect(
+      pg.query("select public.admin_set_user_ban($1,true)", [U2]), // U2 quedó admin
+    ).rejects.toThrow(/administrador/i);
+    await pg.exec("reset role");
+  });
+
+  it("admin_settings_set valida contra la clave y audita el valor", async () => {
+    const out = await rpc<{ key: string; value: string }>(
+      "public.admin_settings_set('default_currency', $1::jsonb, $2)",
+      ['"USD"', U1],
+    );
+    expect(out.key).toBe("default_currency");
+    const all = await rpc<Record<string, unknown>>("public.admin_settings_get()");
+    expect(all.default_currency).toBe("USD");
+  });
+
+  it("admin_audit_query filtra por acción", async () => {
+    await pg.exec("set role postgres");
+    await pg.query(
+      "insert into public.admin_audit_log (admin_user_id, action, entity) values ($1,'user.deactivate','user')",
+      [U1],
+    );
+    await pg.exec("reset role");
+    const r = await rpc<{ total: number; rows: { action: string }[] }>(
+      "public.admin_audit_query(null,'user.deactivate',null,null,null,50,0)",
+    );
+    expect(r.total).toBeGreaterThanOrEqual(1);
+    expect(r.rows.every((x) => x.action === "user.deactivate")).toBe(true);
+  });
+
+  it("authenticated y anon no pueden ejecutar las funciones del panel", async () => {
+    for (const role of ["authenticated", "anon"]) {
+      await expect(
+        pg.transaction(async (tx) => {
+          await tx.exec(`set local role ${role}`);
+          return tx.query("select public.admin_settings_get()");
+        }),
+      ).rejects.toThrow(/permission denied/i);
+    }
   });
 });
