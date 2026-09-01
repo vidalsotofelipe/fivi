@@ -88,7 +88,6 @@ const supabaseConfig = readSupabaseConfig();
  * que la auth funcione (la app sigue andando en local mientras tanto).
  */
 export function SyncProvider({ children }: { children: ReactNode }) {
-  const [engineState, setEngineState] = useState<SyncState>(INITIAL);
   const [userId, setUserId] = useState<string | null>(null);
   const backend: SyncBackend = supabaseConfig ? "cloud" : "local";
   const queueStats = useLiveQuery(() => getQueueStats(db), [], {
@@ -110,6 +109,14 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         cloudMode: Boolean(supabaseConfig),
       }),
   );
+
+  // Se siembra con el estado REAL del motor, no con `INITIAL`: en modo cloud el
+  // motor arranca con `remote_ready: false` (el stub inicial no habla con
+  // Supabase). Sembrar con `INITIAL` (que trae `remote_ready: true`) hacía que,
+  // al abrir directamente `/join/<token>`, el efecto de la página viera
+  // `remote_ready` en `true` antes de que el remoto real cargara y canjeara la
+  // invitación contra el stub → "Las invitaciones requieren Supabase configurado".
+  const [engineState, setEngineState] = useState<SyncState>(() => engine.getState());
 
   useEffect(() => {
     const unsubscribe = engine.subscribe(setEngineState);

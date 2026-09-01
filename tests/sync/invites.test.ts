@@ -84,6 +84,27 @@ describe("SyncEngine.redeemInvite", () => {
     });
     await expect(engine.redeemInvite("x")).rejects.toThrow(/Supabase/i);
   });
+
+  it("modo cloud: remote_ready arranca en false y el canje sólo anda tras setRemote", async () => {
+    // Regresión: abrir directamente `/join/<token>` mostraba "requieren Supabase
+    // configurado" porque la página actuaba con `remote_ready` en true (sembrado
+    // desde INITIAL) mientras el motor seguía en el stub. `getState()` debe
+    // reflejar el estado real: en cloud, `remote_ready` es false hasta setRemote.
+    const engine = new SyncEngine({
+      remote: baseRemote(), // stub: sin redeemInvite
+      database: db,
+      pollIntervalMs: 0,
+      cloudMode: true,
+    });
+    expect(engine.getState().remote_ready).toBe(false);
+    await expect(engine.redeemInvite("tok")).rejects.toThrow(/Supabase/i);
+
+    await engine.setRemote(
+      baseRemote({ redeemInvite: async () => ({ group_id: "g-real" }) }),
+    );
+    expect(engine.getState().remote_ready).toBe(true);
+    await expect(engine.redeemInvite("tok")).resolves.toBe("g-real");
+  });
 });
 
 describe("SyncEngine.createInvite", () => {
