@@ -13,6 +13,32 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.11.0] - 2026-09-01
+
+Mejora de la pantalla de inicio y una vía para unirse a un grupo desde ahí. Sin
+cambios de lógica de negocio, modelo de datos ni de API. Sin migraciones.
+
+### Added
+
+- **Unirse a un grupo desde el inicio.** Nuevo desplegable "¿Tenés una
+  invitación?" en `/` (y en la lista "Mis grupos") con un campo para pegar el
+  enlace de invitación o escribir el código a mano. Acepta el link completo
+  (`.../join/<token>`) o el código suelto; en modo local también reconoce
+  `.../g/<id>`. Reusa la pantalla `/join/<token>` existente para el canje —
+  conocer el ID del grupo por sí solo sigue sin dar acceso (RLS).
+
+### Changed
+
+- **Nueva pantalla de inicio** (estado sin grupos): titular grande, subtítulo y
+  la lista de pasos numerada (01/02/03, acento naranja) con divisores en lugar
+  de viñetas. El mismo encabezado se aplica a la vista "Mis grupos".
+
+### i18n
+
+- Claves nuevas bajo `onboarding` (es/en): `subtitle`, `haveInvite`,
+  `inviteLabel`, `invitePlaceholder`, `inviteHint`, `inviteSubmit`,
+  `inviteRequired`.
+
 ## [0.10.1] - 2026-09-01
 
 ### Changed
