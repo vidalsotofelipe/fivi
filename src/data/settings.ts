@@ -47,6 +47,26 @@ export function useSetting<T = unknown>(key: string): T | null | undefined {
 }
 
 // Preferencias globales del dispositivo ------------------------------------
+/**
+ * Cómo se llama el usuario de este dispositivo. Se usa para sumarse solo a los
+ * grupos que crea y para reconocerse ("quién sos") en los que ya existen, sin
+ * tener que elegirlo grupo por grupo.
+ */
+export const MY_NAME_KEY = "my_name";
+
+export function getMyName(database: FiviDatabase = db): Promise<string | undefined> {
+  return getSetting<string>(MY_NAME_KEY, database);
+}
+
+export function setMyName(name: string, database: FiviDatabase = db): Promise<void> {
+  return setSetting(MY_NAME_KEY, name.trim(), database);
+}
+
+/** Reactivo: `undefined` cargando · `null` si nunca se indicó. */
+export function useMyName(): string | null | undefined {
+  return useSetting<string>(MY_NAME_KEY);
+}
+
 /** Última moneda que el usuario eligió a mano al crear un grupo. */
 export const LAST_CURRENCY_KEY = "last_currency";
 

@@ -13,6 +13,34 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.15.0] - 2026-09-02
+
+Resumen de todos los grupos en el inicio e identidad única del usuario. Sin
+cambios de esquema. Sin migraciones.
+
+### Added
+
+- **Resumen de todos tus grupos** en la pantalla de inicio: cuánto te deben,
+  cuánto debés y cuántos grupos activos hay, con la cifra principal destacada.
+  **Los totales se agregan por moneda, nunca entre monedas**: un grupo tiene una
+  sola moneda y FIVI no convierte divisas, así que sumar 300 € con 60 £ daría un
+  número falso. Con una sola moneda (el caso normal) se ve como un total único;
+  con varias, una línea por moneda. Los grupos donde todavía no indicaste quién
+  sos no entran en el total y se avisa cuántos son.
+- **Tu nombre, una sola vez para todos los grupos.** Nueva preferencia `my_name`:
+  al indicarlo, FIVI te suma solo como participante en los grupos que creás (y te
+  marca como "vos"), y te reconoce en los que ya existen —invitaciones, otro
+  dispositivo— cuando hay un participante con ese nombre. La comparación ignora
+  acentos, mayúsculas y espacios de más, y nunca duplica un participante ni pisa
+  una elección previa. Sigue siendo local al dispositivo: los participantes son
+  nombres, no cuentas.
+
+### Changed
+
+- **Tarjetas de grupo rediseñadas**: avatar con iniciales (color estable por
+  grupo), nombre, subtítulo con personas · gastos · cambios sin sincronizar, y a
+  la derecha tu saldo con su etiqueta ("te deben" / "debés" / "estás al día").
+
 ## [0.14.3] - 2026-09-02
 
 Activación del panel de administración. **Requiere la migración

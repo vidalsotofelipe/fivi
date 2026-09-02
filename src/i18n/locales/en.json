@@ -85,7 +85,20 @@
     "inviteHint": "You can also type the code by hand if you got it another way.",
     "inviteSubmit": "Join group",
     "inviteRequired": "Paste the invite link or code",
-    "whoAreYouCta": "Tell us who you are in this group"
+    "whoAreYouCta": "Tell us who you are in this group",
+    "summaryTitle": "Your groups",
+    "activeGroups": "Active groups",
+    "expenseCount_one": "{{count}} expense",
+    "expenseCount_other": "{{count}} expenses",
+    "summaryMissingMe_one": "You have not said who you are in {{count}} group, so it is not counted.",
+    "summaryMissingMe_other": "You have not said who you are in {{count}} groups, so they are not counted.",
+    "myNameLabel": "What is your name?",
+    "myNamePlaceholder": "Your name",
+    "myNameHint": "We use it to add you to the groups you create and to recognize you in existing ones. It stays on this device.",
+    "myNameIs": "You are {{name}} in your groups",
+    "myNameSaved": "All set, {{name}}",
+    "myNameLinked_one": "We recognized you in {{count}} group",
+    "myNameLinked_other": "We recognized you in {{count}} groups"
   },
   "group": {
     "newTitle": "New group",

@@ -10,12 +10,16 @@ import { Loading } from "@/components/EmptyState";
 import { JoinInviteDisclosure } from "@/components/JoinInviteDisclosure";
 import { AppMark } from "@/components/Logo";
 import { Money } from "@/components/Money";
+import { GroupsSummaryHeader } from "@/components/GroupsSummaryHeader";
 import { useLocale } from "@/components/LocaleProvider";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import { db } from "@/data/db";
 import { ARCHIVE_AFTER_DAYS, autoArchiveStaleGroups } from "@/data/autoArchive";
 import { restoreGroup } from "@/data/repositories/groupRepo";
+import { autoLinkMe } from "@/data/identity";
+import { MyNameField } from "@/components/MyNameField";
+import { groupInitials, summarizeGroups } from "@/domain/groupsSummary";
 import { useArchivedGroups, useGroups } from "@/lib/db-hooks";
 import { formatDate, formatRelative } from "@/lib/format";
 import { useHydrated } from "@/lib/useHydrated";
@@ -46,53 +50,93 @@ function OnboardingStep({
   );
 }
 
+/** Colores del avatar, estables por grupo (derivados del id, no aleatorios). */
+const AVATAR_TONES = [
+  "bg-accent-weak text-accent-strong",
+  "bg-warm-weak text-warm-strong",
+  "bg-surface-raised text-text",
+] as const;
+
+function avatarTone(id: string): string {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return AVATAR_TONES[h % AVATAR_TONES.length]!;
+}
+
 function GroupRow({ item }: { item: GroupListItem }) {
   const { t } = useTranslation(["onboarding", "group", "common"]);
   const { lang } = useLocale();
   const cc = item.group.currency_code;
   const bal = item.my_balance_minor;
 
+  // Subtítulo: personas · gastos · pendientes de sincronizar (si los hay).
+  const meta = [
+    t("common:person", { count: item.participant_count }),
+    t("onboarding:expenseCount", { count: item.expense_count }),
+    item.pending_sync_count > 0
+      ? t("sync:unsynced", { count: item.pending_sync_count })
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
     <li>
       <Link
         href={`/g/${item.group.id}`}
-        className="flex items-center justify-between gap-3 border-2 border-border bg-surface px-4 py-3.5 hover:border-accent hover:bg-accent-weak"
+        className="flex items-center gap-3 border-2 border-border bg-surface px-3 py-3 hover:border-accent hover:bg-accent-weak"
       >
-        <span className="min-w-0">
+        <span
+          aria-hidden="true"
+          className={cn(
+            "flex h-11 w-11 shrink-0 items-center justify-center text-[13px] font-bold tracking-caps",
+            avatarTone(item.group.id),
+          )}
+        >
+          {groupInitials(item.group.name)}
+        </span>
+
+        <span className="min-w-0 flex-1">
           <span className="block truncate font-semibold text-text">
             {item.group.name}
           </span>
+          <span className="mt-0.5 block truncate text-xs text-muted">
+            {meta}
+          </span>
+          {item.last_activity_at ? (
+            <span className="mt-0.5 block text-xs text-faint">
+              {formatRelative(item.last_activity_at, lang)}
+            </span>
+          ) : null}
+        </span>
+
+        <span className="shrink-0 text-right">
           {bal == null ? (
-            <span className="mt-0.5 block text-xs font-semibold text-accent-strong">
+            <span className="block max-w-[7.5rem] text-xs font-semibold text-accent-strong">
               {t("onboarding:whoAreYouCta")}
             </span>
           ) : bal === 0 ? (
-            <span className="mt-0.5 block text-xs font-semibold text-positive">
-              {t("group:settledUp")}
-            </span>
+            <>
+              <span className="block font-semibold text-positive">
+                <Money minor={item.total_spent_minor} currency={cc} />
+              </span>
+              <span className="block label-caps">{t("group:settledUp")}</span>
+            </>
           ) : (
-            <span className="mt-0.5 block text-xs font-semibold">
-              <span className={bal < 0 ? "text-warm-strong" : "text-positive"}>
-                {bal < 0 ? t("group:youOwe") : t("group:youAreOwed")}{" "}
+            <>
+              <span
+                className={cn(
+                  "block font-semibold",
+                  bal > 0 ? "text-positive" : "text-warm-strong",
+                )}
+              >
                 <Money minor={Math.abs(bal)} currency={cc} />
               </span>
-            </span>
+              <span className="block label-caps">
+                {bal > 0 ? t("group:youAreOwed") : t("group:youOwe")}
+              </span>
+            </>
           )}
-          <span className="mt-0.5 block text-xs text-muted">
-            {item.last_activity_at
-              ? formatRelative(item.last_activity_at, lang)
-              : t("common:person", { count: item.participant_count })}
-            {item.has_pending_sync ? ` · ${t("group:pendingSync")}` : ""}
-          </span>
-        </span>
-        <span
-          className={cn(
-            "shrink-0 text-right",
-            bal != null && bal !== 0 ? "text-muted" : "font-semibold",
-          )}
-        >
-          <span className="block label-caps">{t("group:totalSpent")}</span>
-          <Money minor={item.total_spent_minor} currency={cc} />
         </span>
       </Link>
     </li>
@@ -108,10 +152,12 @@ export default function HomePage() {
   const archived = useArchivedGroups();
   const archiveCheckDone = useRef(false);
 
-  // Archivado automático por inactividad: una vez por sesión, al abrir la app.
+  // Archivado automático + reconocerse en los grupos donde ya hay un
+  // participante con el nombre del usuario. Una vez por sesión, al abrir la app.
   useEffect(() => {
     if (!hydrated || archiveCheckDone.current) return;
     archiveCheckDone.current = true;
+    void autoLinkMe(db);
     void autoArchiveStaleGroups(db).then((ids) => {
       if (ids.length > 0) {
         toast({
@@ -148,7 +194,9 @@ export default function HomePage() {
             <OnboardingStep index={3} title={t("step3Title")} body={t("step3Body")} />
           </ol>
 
-          <div className="mt-auto flex flex-col gap-2 pt-8">
+          <div className="mt-auto flex flex-col gap-3 pt-8">
+            {/* El nombre se pide una vez y sirve para todos los grupos. */}
+            <MyNameField />
             <LinkButton href="/nuevo" full>
               {t("createFirst")}
             </LinkButton>
@@ -159,8 +207,17 @@ export default function HomePage() {
     );
   }
 
+  const summary = summarizeGroups(
+    groups.map((g) => ({
+      currency_code: g.group.currency_code,
+      my_balance_minor: g.my_balance_minor,
+    })),
+  );
+
   return (
     <AppShell title={t("common:appName")}>
+      <GroupsSummaryHeader summary={summary} />
+
       <h2 className="label-caps">{t("myGroups")}</h2>
       {groups.length > 0 ? (
         <ul className="flex flex-col gap-2">
@@ -176,6 +233,7 @@ export default function HomePage() {
         {t("createGroup")}
       </LinkButton>
       <JoinInviteDisclosure />
+      <MyNameField />
 
       {archived.length > 0 ? (
         <details className="mt-4 border-t-2 border-border-strong pt-3">

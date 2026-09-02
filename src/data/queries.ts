@@ -205,29 +205,43 @@ export interface GroupListItem {
   participant_count: number;
   /** Balance del participante marcado como "yo" en este dispositivo; `null` si no se eligió. */
   my_balance_minor: number | null;
+  /** Gastos vivos del grupo. */
+  expense_count: number;
   /** ISO del último gasto o pago; `null` si no hay movimientos. */
   last_activity_at: string | null;
+  /** Operaciones de este grupo sin sincronizar (0 = al día). */
+  pending_sync_count: number;
   /** Hay operaciones de este grupo sin sincronizar. */
   has_pending_sync: boolean;
   /** Todos los balances en cero: nadie debe nada. */
   all_settled: boolean;
 }
 
-/** Ids de grupo con al menos una operación pendiente/sincronizando en la cola. */
-export async function groupIdsWithPendingSync(
+/** Cuántas operaciones pendientes/sincronizando tiene cada grupo en la cola. */
+export async function pendingSyncByGroup(
   database: FiviDatabase = defaultDb,
-): Promise<Set<string>> {
+): Promise<Map<string, number>> {
   const items = await database.sync_queue
     .where("sync_status")
     .anyOf("pending", "syncing")
     .toArray();
-  const ids = new Set<string>();
+  const counts = new Map<string, number>();
+  const bump = (id: string) => counts.set(id, (counts.get(id) ?? 0) + 1);
   for (const it of items) {
-    if (it.entity_type === "group") ids.add(it.entity_id);
-    const gid = (it.payload as { group_id?: unknown } | null)?.group_id;
-    if (typeof gid === "string") ids.add(gid);
+    if (it.entity_type === "group") bump(it.entity_id);
+    else {
+      const gid = (it.payload as { group_id?: unknown } | null)?.group_id;
+      if (typeof gid === "string") bump(gid);
+    }
   }
-  return ids;
+  return counts;
+}
+
+/** Ids de grupo con al menos una operación pendiente/sincronizando en la cola. */
+export async function groupIdsWithPendingSync(
+  database: FiviDatabase = defaultDb,
+): Promise<Set<string>> {
+  return new Set((await pendingSyncByGroup(database)).keys());
 }
 
 /** Grupos vivos con su total gastado + la situación del usuario (sección 28). */
@@ -235,9 +249,9 @@ export async function listGroupsWithTotals(
   database: FiviDatabase = defaultDb,
   options: ListGroupsOptions = {},
 ): Promise<GroupListItem[]> {
-  const [groups, pendingGroups] = await Promise.all([
+  const [groups, pendingByGroup] = await Promise.all([
     listGroups(database, options),
-    groupIdsWithPendingSync(database),
+    pendingSyncByGroup(database),
   ]);
 
   return Promise.all(
@@ -295,9 +309,11 @@ export async function listGroupsWithTotals(
           })),
         ),
         participant_count: participants.length,
+        expense_count: expenses.length,
         my_balance_minor: myBalance,
         last_activity_at: lastActivity,
-        has_pending_sync: pendingGroups.has(group.id),
+        pending_sync_count: pendingByGroup.get(group.id) ?? 0,
+        has_pending_sync: (pendingByGroup.get(group.id) ?? 0) > 0,
         all_settled: balances.every((b) => b.balance_minor === 0),
       };
     }),

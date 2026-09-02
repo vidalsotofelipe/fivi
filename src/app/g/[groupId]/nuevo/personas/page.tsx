@@ -2,7 +2,7 @@
 
 /** Pantalla 03 — participantes durante el alta del grupo (paso 2 de 3). */
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AppShell } from "@/components/AppShell";
 import { Button, IconButton } from "@/components/Button";
@@ -10,6 +10,8 @@ import { TextField } from "@/components/ui/TextField";
 import { StepIndicator, StickyActionBar } from "@/components/ui/primitives";
 import { useGroupContext } from "@/components/GroupProvider";
 import { db } from "@/data/db";
+import { ensureMeInGroup } from "@/data/identity";
+import { useMyName } from "@/data/settings";
 import {
   addParticipant,
   removeParticipant,
@@ -19,10 +21,20 @@ export default function SetupParticipantsPage() {
   const router = useRouter();
   const { t } = useTranslation(["group", "common", "errors", "a11y"]);
   const { group, participants } = useGroupContext();
+  const myName = useMyName();
 
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const seeded = useRef(false);
+
+  // Si el usuario ya dijo cómo se llama, se suma solo al grupo que acaba de
+  // crear y queda marcado como "yo": no hace falta elegirlo después.
+  useEffect(() => {
+    if (seeded.current || myName === undefined) return;
+    seeded.current = true;
+    if (myName) void ensureMeInGroup(group.id, { create: true }, db);
+  }, [myName, group.id]);
 
   async function add(e: React.FormEvent) {
     e.preventDefault();

@@ -85,7 +85,20 @@
     "inviteHint": "También podés escribir el código a mano si te lo pasaron de otra forma.",
     "inviteSubmit": "Unirme al grupo",
     "inviteRequired": "Pegá el enlace o el código de invitación",
-    "whoAreYouCta": "Indicá quién sos en este grupo"
+    "whoAreYouCta": "Indicá quién sos en este grupo",
+    "summaryTitle": "Tus grupos",
+    "activeGroups": "Grupos activos",
+    "expenseCount_one": "{{count}} gasto",
+    "expenseCount_other": "{{count}} gastos",
+    "summaryMissingMe_one": "Falta indicar quién sos en {{count}} grupo, no entra en el total.",
+    "summaryMissingMe_other": "Falta indicar quién sos en {{count}} grupos, no entran en el total.",
+    "myNameLabel": "¿Cómo te llamás?",
+    "myNamePlaceholder": "Tu nombre",
+    "myNameHint": "Lo usamos para sumarte solo a los grupos que creás y reconocerte en los que ya existen. Queda en este dispositivo.",
+    "myNameIs": "Sos {{name}} en tus grupos",
+    "myNameSaved": "Listo, {{name}}",
+    "myNameLinked_one": "Te reconocimos en {{count}} grupo",
+    "myNameLinked_other": "Te reconocimos en {{count}} grupos"
   },
   "group": {
     "newTitle": "Nuevo grupo",
