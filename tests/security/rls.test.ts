@@ -115,6 +115,7 @@ beforeAll(async () => {
     "0009_group_archive.sql",
     "0010_admin.sql",
     "0011_admin_functions.sql",
+    "0012_admin_auth_access.sql",
   ]) {
     await pg.exec(migration(file));
   }
@@ -783,6 +784,64 @@ describe("funciones admin (0011)", () => {
         pg.transaction(async (tx) => {
           await tx.exec(`set local role ${role}`);
           return tx.query("select public.admin_settings_get()");
+        }),
+      ).rejects.toThrow(/permission denied/i);
+    }
+  });
+});
+
+describe("acceso a auth.users desde las funciones admin (0012)", () => {
+  it("las 4 funciones que leen usuarios son SECURITY DEFINER con search_path fijo", async () => {
+    // Sin esto, `service_role` (que no tiene SELECT sobre auth.users) hacía
+    // fallar /api/admin/users y /api/admin/metrics en producción.
+    await pg.exec("set role postgres");
+    const r = await pg.query<{
+      proname: string;
+      prosecdef: boolean;
+      proconfig: string[] | null;
+    }>(`select proname, prosecdef, proconfig
+          from pg_proc
+         where pronamespace = 'public'::regnamespace
+           and proname in ('admin_dashboard','admin_list_users','admin_get_user','admin_set_user_ban')
+         order by proname`);
+    await pg.exec("reset role");
+
+    expect(r.rows.map((x) => x.proname)).toEqual([
+      "admin_dashboard",
+      "admin_get_user",
+      "admin_list_users",
+      "admin_set_user_ban",
+    ]);
+    for (const fn of r.rows) {
+      expect(fn.prosecdef, `${fn.proname} debe ser SECURITY DEFINER`).toBe(true);
+      expect(
+        (fn.proconfig ?? []).join(","),
+        `${fn.proname} debe fijar search_path`,
+      ).toMatch(/search_path=/);
+    }
+  });
+
+  it("las que sólo tocan `public` siguen siendo SECURITY INVOKER", async () => {
+    await pg.exec("set role postgres");
+    const r = await pg.query<{ proname: string; prosecdef: boolean }>(
+      `select proname, prosecdef from pg_proc
+        where pronamespace = 'public'::regnamespace
+          and proname in ('admin_list_groups','admin_list_movements','admin_audit_query','admin_settings_get')`,
+    );
+    await pg.exec("reset role");
+    for (const fn of r.rows) {
+      expect(fn.prosecdef, `${fn.proname} no necesita DEFINER`).toBe(false);
+    }
+  });
+
+  it("SECURITY DEFINER no abre la puerta: anon/authenticated siguen sin poder ejecutarlas", async () => {
+    for (const role of ["authenticated", "anon"]) {
+      await expect(
+        pg.transaction(async (tx) => {
+          await tx.exec(`set local role ${role}`);
+          return tx.query(
+            "select public.admin_list_users(null,null,null,null,null,'created_at','desc',10,0)",
+          );
         }),
       ).rejects.toThrow(/permission denied/i);
     }

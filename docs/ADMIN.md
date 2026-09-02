@@ -229,6 +229,21 @@ español; tablas con scroll horizontal contenido; navegación por teclado.
 - Etapa 2 documentada: zona horaria y más flags en Configuración, tabla
   `app_events` + beacon para errores, más exportaciones, diagnóstico ampliado.
 
+## Migración `0012_admin_auth_access.sql`
+
+`service_role` tiene `USAGE` sobre el esquema `auth` pero **no `SELECT` sobre
+`auth.users`**. Como las funciones de 0011 son `SECURITY INVOKER`, al llamarlas
+por PostgREST fallaban justo las que leen usuarios (`/api/admin/users` → 500,
+`/api/admin/metrics` → vacío), mientras que grupos/movimientos/auditoría
+funcionaban.
+
+0012 pasa a **`SECURITY DEFINER`** las cuatro funciones que tocan `auth.users`
+(`admin_dashboard`, `admin_list_users`, `admin_get_user`, `admin_set_user_ban`)
+y les fija `search_path = public, auth, pg_temp`. Sigue sin poder ejecutarlas
+nadie más que `service_role` (el `revoke` de 0011 no cambia) y no hay SQL
+dinámico, así que no se amplía la superficie de ataque. Sólo altera atributos:
+no toca cuerpos ni firmas. Rollback al pie del archivo.
+
 ## Acceso provisorio con llave compartida
 
 Mientras el panel está en pruebas se puede entrar **sin crear usuarios**, con una

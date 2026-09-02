@@ -13,6 +13,26 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.14.3] - 2026-09-02
+
+Activación del panel de administración. **Requiere la migración
+`0012_admin_auth_access.sql`** (aditiva, ya aplicada en producción).
+
+### Fixed
+
+- **El panel no podía ver usuarios ni métricas.** `service_role` tiene `USAGE`
+  sobre el esquema `auth` pero **no `SELECT` sobre `auth.users`**, y las
+  funciones de 0011 eran `SECURITY INVOKER`: al llamarlas por PostgREST fallaban
+  justo las que leen usuarios (`/api/admin/users` → 500, `/api/admin/metrics` →
+  vacío), mientras grupos, movimientos y auditoría sí funcionaban. La migración
+  `0012` pasa a `SECURITY DEFINER` las cuatro funciones que tocan `auth.users`
+  (`admin_dashboard`, `admin_list_users`, `admin_get_user`,
+  `admin_set_user_ban`) con `search_path` fijo. Sigue sin poder ejecutarlas
+  nadie más que `service_role`.
+- **El chequeo "Supabase Auth" de `/admin/estado` daba siempre error.**
+  `/auth/v1/health` exige el header `apikey`; sin él responde 401. Era un falso
+  negativo del propio diagnóstico.
+
 ## [0.14.2] - 2026-09-01
 
 Estado de sincronización coherente y reintento que funciona de verdad. Sin

@@ -25,7 +25,14 @@ export const GET = adminRoute(async () => {
   const db = await timed(() => rpc("admin_settings_get", {}));
   const auth = await timed(async () => {
     if (!supaUrl) throw new Error("SUPABASE_URL no configurada");
-    const r = await fetch(`${supaUrl}/auth/v1/health`, { cache: "no-store" });
+    // `/auth/v1/health` exige `apikey`; sin ella devuelve 401 y el chequeo daba
+    // un falso negativo. Se usa la clave pública (la misma que va al navegador).
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!anonKey) throw new Error("SUPABASE_ANON_KEY no configurada");
+    const r = await fetch(`${supaUrl}/auth/v1/health`, {
+      headers: { apikey: anonKey },
+      cache: "no-store",
+    });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
   });
 
