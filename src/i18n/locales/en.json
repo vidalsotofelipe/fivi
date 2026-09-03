@@ -141,6 +141,7 @@
     "notSet": "Not chosen",
     "notFoundTitle": "We couldn't open this group",
     "notFoundBody": "Check that the link is complete. If someone just shared it, try again in a few seconds.",
+    "notFoundOffline": "You're offline and this group isn't on this device yet. It'll open on its own once you're back online.",
     "backHome": "Back to home",
     "wiz1": "Group",
     "wiz2": "People",

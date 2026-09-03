@@ -13,6 +13,27 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.15.2] - 2026-09-02
+
+Corrección del modo sin conexión. Sin cambios de esquema ni migraciones (la de
+0.15.1, `0013_created_by.sql`, sigue siendo requisito).
+
+### Fixed
+
+- **Abrir un grupo sin conexión se quedaba cargando para siempre.** Un grupo que
+  todavía no estaba en el dispositivo (abierto por enlace, o con los datos
+  locales borrados) dejaba `/g/<id>` girando indefinidamente porque el estado
+  "hidratando" del primer pull no se soltaba nunca offline. Ahora:
+  - sin conexión, el motor deja de marcar esos grupos como "hidratando" —
+    `trackedGroupIds` los conserva y el próximo pull al reconectar los trae;
+  - la espera del primer pull tiene tope (8 s): si no llega, se muestra el aviso
+    en vez del spinner;
+  - el aviso distingue el caso offline: "Estás sin conexión y este grupo todavía
+    no está en este dispositivo. Se va a abrir solo cuando vuelvas a tener
+    internet."
+  - Un grupo que **sí** está en el dispositivo se abre siempre, con o sin
+    conexión (no cambió).
+
 ## [0.15.1] - 2026-09-02
 
 Correcciones detectadas en una prueba funcional general. **Requiere la migración

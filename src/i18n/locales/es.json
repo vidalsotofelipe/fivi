@@ -141,6 +141,7 @@
     "notSet": "Sin elegir",
     "notFoundTitle": "No pudimos abrir este grupo",
     "notFoundBody": "Revisá que el enlace esté completo. Si lo compartió alguien recién, probá de nuevo en unos segundos.",
+    "notFoundOffline": "Estás sin conexión y este grupo todavía no está en este dispositivo. Se va a abrir solo cuando vuelvas a tener internet.",
     "backHome": "Volver al inicio",
     "wiz1": "Grupo",
     "wiz2": "Personas",

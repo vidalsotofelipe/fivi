@@ -359,7 +359,18 @@ export class SyncEngine {
       return this.getState();
     }
     if (!detectOnline()) {
-      await this.emitQueueCounts({ online: false });
+      // Sin conexión no se puede traer nada del servidor: los grupos que
+      // estaban "hidratando" (pedidos por enlace, todavía sin datos locales)
+      // dejan de estarlo. Si no, `/g/<id>` de un grupo que no está en este
+      // dispositivo se queda cargando para siempre en vez de mostrar el aviso
+      // de "no pudimos abrir este grupo". Al volver la conexión, `trackedGroupIds`
+      // sigue teniéndolos y el próximo pull los trae.
+      const clearedHydrating = this.hydratingGroups.size > 0;
+      if (clearedHydrating) this.hydratingGroups.clear();
+      await this.emitQueueCounts({
+        online: false,
+        ...(clearedHydrating ? { hydrating_group_ids: [] } : {}),
+      });
       return this.getState();
     }
     // Backoff a nivel corrida: tras una falla completa, no reintentar antes de
