@@ -17,6 +17,8 @@ export interface CreatePaymentInput {
   to_participant: string;
   amount_minor_units: number;
   payment_date?: IsoDate;
+  /** id del participante que registró el pago (el "yo" del dispositivo). */
+  created_by?: string | null;
 }
 
 export async function createPayment(
@@ -41,6 +43,7 @@ export async function createPayment(
       to_participant: input.to_participant,
       amount_minor_units: input.amount_minor_units,
       payment_date: input.payment_date ?? nowIso().slice(0, 10),
+      created_by: input.created_by ?? null,
     },
     database,
   );

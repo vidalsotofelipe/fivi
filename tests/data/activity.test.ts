@@ -110,6 +110,55 @@ describe("getGroupActivity", () => {
     expect(updated.name).toBe("Nafta ruta 40");
   });
 
+  it("el autor del gasto es quien lo REGISTRÓ (created_by), no quien pagó", async () => {
+    const g = await groupRepo.createGroup(
+      { name: "Asado", currency_code: "ARS" },
+      db,
+    );
+    const ana = await participantRepo.addParticipant(g.id, "Ana", db);
+    const qa = await participantRepo.addParticipant(g.id, "Usuario QA", db);
+    await expenseRepo.createExpense(
+      {
+        group_id: g.id,
+        description: "Carne",
+        amount_minor_units: 120050,
+        paid_by: ana.id,
+        created_by: qa.id,
+        participant_ids: [ana.id, qa.id],
+      },
+      db,
+    );
+
+    const events = await getGroupActivity(g.id, db);
+    const created = events.find((e) => e.kind === "expense_created")!;
+    expect(created.actor_id).toBe(qa.id);
+    // el filtro por persona debe encontrar tanto al que registró como al pagador
+    expect(created.people).toEqual(expect.arrayContaining([qa.id, ana.id]));
+  });
+
+  it("los gastos sin created_by siguen mostrando a quien pagó (compatibilidad)", async () => {
+    const g = await groupRepo.createGroup(
+      { name: "G", currency_code: "ARS" },
+      db,
+    );
+    const ana = await participantRepo.addParticipant(g.id, "Ana", db);
+    const beto = await participantRepo.addParticipant(g.id, "Beto", db);
+    await expenseRepo.createExpense(
+      {
+        group_id: g.id,
+        description: "Cena",
+        amount_minor_units: 20000,
+        paid_by: ana.id,
+        participant_ids: [ana.id, beto.id],
+      },
+      db,
+    );
+    const events = await getGroupActivity(g.id, db);
+    const created = events.find((e) => e.kind === "expense_created")!;
+    expect(created.actor_id).toBe(ana.id);
+    expect(created.people).toEqual([ana.id]);
+  });
+
   it("un grupo sin movimientos ni personas no tiene eventos", async () => {
     const g = await groupRepo.createGroup(
       { name: "Vacío", currency_code: "ARS" },

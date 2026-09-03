@@ -22,3 +22,18 @@ export function newId(): string {
 export function nowIso(): string {
   return new Date().toISOString();
 }
+
+/**
+ * ¿`value` tiene forma de UUID (v4 o cualquier variante canónica)?
+ *
+ * Se usa para descartar identificadores de grupo mal formados ANTES de
+ * consultar la base o pedir el grupo al servidor: `/g/grupo-inexistente` no
+ * debe llegar nunca a Postgres (daría `invalid input syntax for type uuid` y
+ * un ciclo de reintentos), sino a la pantalla "No pudimos abrir este grupo".
+ */
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isUuid(value: unknown): value is string {
+  return typeof value === "string" && UUID_RE.test(value);
+}

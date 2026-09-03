@@ -15,7 +15,7 @@ import { useGroupContext } from "@/components/GroupProvider";
 import { useLocale } from "@/components/LocaleProvider";
 import { db } from "@/data/db";
 import { deleteExpense } from "@/data/repositories/expenseRepo";
-import { splitStrategyLabel } from "@/domain/split";
+import type { SplitStrategy } from "@/domain/types";
 import { formatDate } from "@/lib/format";
 import { useExpenseWithShares } from "@/lib/db-hooks";
 import { useHydrated } from "@/lib/useHydrated";
@@ -58,6 +58,16 @@ export default function ExpenseDetailPage() {
 
   const e = data.expense;
   const edited = e.updated_at.slice(0, 10) !== e.created_at.slice(0, 10);
+  const strategyLabel = t(
+    (
+      {
+        equal: "expense:strategyEqual",
+        amount: "expense:strategyAmount",
+        percent: "expense:strategyPercent",
+        shares: "expense:strategyShares",
+      } as Record<SplitStrategy["kind"], string>
+    )[e.split_strategy.kind],
+  );
 
   const menu = (
     <IconButton label={t("common:edit")} onClick={() => setMenuOpen(true)}>
@@ -84,7 +94,7 @@ export default function ExpenseDetailPage() {
 
       <section className="flex flex-col gap-2">
         <h2 className="label-caps">
-          {t("expense:splitLabel")} · {splitStrategyLabel(e.split_strategy)}
+          {t("expense:splitLabel")} · {strategyLabel}
         </h2>
         <ul className="divide-y divide-border rounded-md border border-border">
           {data.shares.map((s) => (

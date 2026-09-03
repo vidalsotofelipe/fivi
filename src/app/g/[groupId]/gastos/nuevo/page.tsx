@@ -11,7 +11,7 @@ import { useToast } from "@/components/ui/toast";
 import { useGroupContext } from "@/components/GroupProvider";
 import { db } from "@/data/db";
 import { useExpenseWithShares } from "@/lib/db-hooks";
-import { useLastPayer, rememberLastPayer } from "@/data/settings";
+import { useLastPayer, rememberLastPayer, useMe } from "@/data/settings";
 import { useHydrated } from "@/lib/useHydrated";
 import {
   createExpense,
@@ -25,6 +25,7 @@ export default function NewExpensePage() {
   const { group, participants } = useGroupContext();
   const hydrated = useHydrated();
   const lastPayer = useLastPayer(group.id);
+  const me = useMe(group.id);
   const toast = useToast();
 
   // "Duplicar": prefill desde un gasto existente (?dup=<id>)
@@ -46,7 +47,12 @@ export default function NewExpensePage() {
     );
   }
 
-  if (!hydrated || lastPayer === undefined || (dupId && dup === undefined)) {
+  if (
+    !hydrated ||
+    lastPayer === undefined ||
+    me === undefined ||
+    (dupId && dup === undefined)
+  ) {
     return (
       <AppShell title={t("expense:addTitle")} back={`/g/${group.id}`} showSync={false}>
         <span />
@@ -72,11 +78,14 @@ export default function NewExpensePage() {
         participants={participants}
         currency={group.currency_code}
         initial={initial}
-        defaultPayer={lastPayer ?? undefined}
+        // Por defecto paga quien está usando el dispositivo (su "yo" en el
+        // grupo); si ya cargó gastos antes, se respeta ese último pagador. Sólo
+        // si no hay ninguno de los dos cae en el primer participante.
+        defaultPayer={lastPayer ?? me ?? undefined}
         submitLabel={t("expense:saveExpense")}
         onSubmit={async (draft) => {
           const { expense } = await createExpense(
-            { group_id: group.id, ...draft },
+            { group_id: group.id, ...draft, created_by: me ?? null },
             db,
           );
           void rememberLastPayer(group.id, draft.paid_by);

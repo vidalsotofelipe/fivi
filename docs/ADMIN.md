@@ -99,9 +99,10 @@ Acciones auditadas en `admin_audit_log`: `dashboard.view`, `user.activate` /
 
 ### Limitaciones del modelo actual
 
-- `expenses` / `payments` **no** tienen `created_by`: un movimiento no se puede
-  atribuir a un usuario. El dashboard reporta volumen y conteos por grupo /
-  moneda / tipo, no por usuario.
+- `expenses` / `payments` tienen `created_by` (desde `0013_created_by.sql`) pero
+  apunta a un **participante** (un nombre dentro del grupo), no a un usuario de
+  `auth.users`: un movimiento no se puede atribuir a una cuenta. El dashboard
+  reporta volumen y conteos por grupo / moneda / tipo, no por usuario.
 - No hay categorías: "distribución por tipo" = gasto vs. pago.
 - No hay log de errores/eventos de la app: el panel de "estado" reporta
   diagnóstico de infra, no errores de negocio (propuesto para etapa 2: tabla
@@ -222,8 +223,9 @@ español; tablas con scroll horizontal contenido; navegación por teclado.
   volumen crece, conviene materializar la serie mensual.
 
 **Limitaciones** (ver también arriba)
-- Sin `created_by` en `expenses/payments` → no hay métricas por usuario de
-  movimientos ni "quién cargó el gasto".
+- `created_by` en `expenses/payments` es un participante (nombre), no una cuenta
+  → no hay métricas por usuario de `auth.users`. La app sí lo usa para la
+  actividad del grupo ("quién cargó el gasto").
 - Sin categorías → distribución = gasto vs. pago.
 - Sin log de errores de negocio → `/admin/estado` es diagnóstico de infra.
 - Etapa 2 documentada: zona horaria y más flags en Configuración, tabla

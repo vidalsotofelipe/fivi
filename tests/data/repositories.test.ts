@@ -136,6 +136,42 @@ describe("expenseRepo", () => {
     void c;
   });
 
+  it("guarda created_by distinto de paid_by (quién registró ≠ quién pagó)", async () => {
+    const g = await groupRepo.createGroup(
+      { name: "G", currency_code: "ARS" },
+      db,
+    );
+    const ana = await participantRepo.addParticipant(g.id, "Ana", db);
+    const qa = await participantRepo.addParticipant(g.id, "QA", db);
+    const { expense } = await expenseRepo.createExpense(
+      {
+        group_id: g.id,
+        description: "Cena",
+        amount_minor_units: 6000,
+        paid_by: ana.id,
+        created_by: qa.id,
+        participant_ids: [ana.id, qa.id],
+      },
+      db,
+    );
+    const row = await db.expenses.get(expense.id);
+    expect(row?.paid_by).toBe(ana.id);
+    expect(row?.created_by).toBe(qa.id);
+
+    // Sin created_by explícito queda null (compatibilidad con lo anterior).
+    const { expense: e2 } = await expenseRepo.createExpense(
+      {
+        group_id: g.id,
+        description: "Nafta",
+        amount_minor_units: 4000,
+        paid_by: ana.id,
+        participant_ids: [ana.id, qa.id],
+      },
+      db,
+    );
+    expect((await db.expenses.get(e2.id))?.created_by).toBeNull();
+  });
+
   it("soft delete marca deleted_at y lo saca del listado", async () => {
     const g = await groupRepo.createGroup(
       { name: "G", currency_code: "ARS" },

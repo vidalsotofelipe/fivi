@@ -2,7 +2,7 @@
 
 /** Pantalla 13 — registrar pago entre participantes (manual o "Saldar"). */
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AppShell } from "@/components/AppShell";
 import { Button, LinkButton } from "@/components/Button";
@@ -16,6 +16,7 @@ import { SegmentedControl, StickyActionBar } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
 import { useGroupContext } from "@/components/GroupProvider";
 import { db } from "@/data/db";
+import { useMe } from "@/data/settings";
 import { createPayment, deletePayment } from "@/data/repositories/paymentRepo";
 import { formatMoney, minorToRawInput } from "@/domain/money";
 import { BCP47 } from "@/i18n/config";
@@ -40,6 +41,7 @@ function NewPaymentForm() {
   const { lang } = useLocale();
   const { group, participants } = useGroupContext();
   const summary = useGroupSummary(group.id);
+  const me = useMe(group.id);
   const toast = useToast();
   const cc = group.currency_code;
 
@@ -49,11 +51,33 @@ function NewPaymentForm() {
   const maxMinor =
     Number.isFinite(maxRaw) && maxRaw > 0 ? Math.round(maxRaw) : null;
 
-  const [from, setFrom] = useState(
-    params.get("from") ?? participants[0]?.id ?? "",
-  );
-  const [to, setTo] = useState(params.get("to") ?? participants[1]?.id ?? "");
+  const fromParam = params.get("from") ?? "";
+  const toParam = params.get("to") ?? "";
+  // ¿Se llegó desde "Saldar"? Ahí pagador/receptor/monto vienen dados y no se
+  // tocan. Si no, NO se preseleccionan personas al azar (evita "Ana → Bruno"):
+  // se propone al usuario del dispositivo y a quien le debe, si eso se sabe.
+  const cameFromSettle = fromParam !== "" || toParam !== "" || maxMinor != null;
+
+  const [from, setFrom] = useState(fromParam);
+  const [to, setTo] = useState(toParam);
+  const [touched, setTouched] = useState(false);
+  const defaultsApplied = useRef(cameFromSettle);
   const [mode, setMode] = useState<"full" | "partial">("full");
+
+  // Defaults sensatos para el pago manual: pago yo, y le pago a quien le debo.
+  // Se aplica una sola vez, cuando ya se conocen `me` y los balances, y sólo si
+  // el usuario todavía no eligió nada.
+  useEffect(() => {
+    if (defaultsApplied.current || touched) return;
+    if (me === undefined || summary === undefined) return;
+    defaultsApplied.current = true;
+    if (!me) return; // sin "yo" en el grupo no se asume ningún pago
+    const owedTo = summary.transfers
+      .filter((tr) => tr.from_id === me)
+      .sort((a, b) => b.amount_minor - a.amount_minor)[0];
+    setFrom(me);
+    if (owedTo) setTo(owedTo.to_id);
+  }, [me, summary, touched]);
   const [amountRaw, setAmountRaw] = useState(
     Number.isFinite(preset) && preset > 0 ? minorToRawInput(preset, cc) : "",
   );
@@ -78,7 +102,18 @@ function NewPaymentForm() {
   }, [effectiveAmount, maxMinor, cc, lang, t]);
 
   const preview = useMemo(() => {
-    if (!summary || effectiveAmount == null || from === to) return null;
+    // Un monto inválido (0, o mayor que la deuda) no debe mostrar un "saldo
+    // resultante": daría balances imposibles. Se oculta hasta que sea válido.
+    if (
+      !summary ||
+      effectiveAmount == null ||
+      effectiveAmount <= 0 ||
+      amountError != null ||
+      from === "" ||
+      to === "" ||
+      from === to
+    )
+      return null;
     const bal = (id: string) =>
       summary.balances.find((b) => b.participant_id === id)?.balance_minor ?? 0;
     return {
@@ -87,7 +122,7 @@ function NewPaymentForm() {
       toBefore: bal(to),
       toAfter: bal(to) - effectiveAmount,
     };
-  }, [summary, effectiveAmount, from, to]);
+  }, [summary, effectiveAmount, amountError, from, to]);
 
   if (participants.length < 2) {
     return (
@@ -127,6 +162,7 @@ function NewPaymentForm() {
           to_participant: to,
           amount_minor_units: effectiveAmount,
           payment_date: date,
+          created_by: me ?? null,
         },
         db,
       );
@@ -176,8 +212,14 @@ function NewPaymentForm() {
           label={t("payment:payerLabel")}
           hint={t("payment:payerHint")}
           value={from}
-          onChange={(e) => setFrom(e.target.value)}
+          onChange={(e) => {
+            setTouched(true);
+            setFrom(e.target.value);
+          }}
         >
+          <option value="" disabled>
+            {t("payment:choosePerson")}
+          </option>
           {participants.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name}
@@ -188,10 +230,16 @@ function NewPaymentForm() {
         <SelectField
           label={t("payment:receiverLabel")}
           hint={t("payment:receiverHint")}
-          error={from === to ? t("errors:samePerson") : null}
+          error={from !== "" && from === to ? t("errors:samePerson") : null}
           value={to}
-          onChange={(e) => setTo(e.target.value)}
+          onChange={(e) => {
+            setTouched(true);
+            setTo(e.target.value);
+          }}
         >
+          <option value="" disabled>
+            {t("payment:choosePerson")}
+          </option>
           {participants.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name}

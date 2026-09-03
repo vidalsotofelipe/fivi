@@ -29,6 +29,8 @@ export interface CreateExpenseInput {
   /** Total del gasto en unidades mínimas de la moneda del grupo. */
   amount_minor_units: number;
   paid_by: string;
+  /** id del participante que registró el gasto (distinto de `paid_by`). */
+  created_by?: string | null;
   /** Participantes entre los que se divide. */
   participant_ids: string[];
   expense_date?: IsoDate;
@@ -73,6 +75,7 @@ export async function createExpense(
           description,
           amount_minor_units: input.amount_minor_units,
           paid_by: input.paid_by,
+          created_by: input.created_by ?? null,
           expense_date: input.expense_date ?? todayIso(),
           split_strategy: strategy,
         },

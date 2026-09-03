@@ -73,13 +73,17 @@ export async function getGroupActivity(
   const events: ActivityEvent[] = [];
 
   for (const e of expenses) {
+    // Autor del movimiento = quien lo REGISTRÓ (`created_by`). Los gastos
+    // anteriores no lo tienen: para ellos se usa `paid_by`, como antes.
+    const actor_id = e.created_by ?? e.paid_by;
+    const people = actor_id === e.paid_by ? [e.paid_by] : [actor_id, e.paid_by];
     events.push({
       id: `${e.id}:created`,
       kind: "expense_created",
       at: e.created_at,
-      people: [e.paid_by],
+      people,
       name: e.description,
-      actor_id: e.paid_by,
+      actor_id,
       expense_id: e.id,
       amount_minor: e.amount_minor_units,
     });
@@ -88,9 +92,9 @@ export async function getGroupActivity(
         id: `${e.id}:deleted`,
         kind: "expense_deleted",
         at: e.deleted_at,
-        people: [e.paid_by],
+        people,
         name: e.description,
-        actor_id: e.paid_by,
+        actor_id,
       });
     } else if (e.version > 1) {
       // `version` sube en cada edición local (ver repositories/base.ts). No hay
@@ -99,9 +103,9 @@ export async function getGroupActivity(
         id: `${e.id}:updated`,
         kind: "expense_updated",
         at: e.updated_at,
-        people: [e.paid_by],
+        people,
         name: e.description,
-        actor_id: e.paid_by,
+        actor_id,
         expense_id: e.id,
       });
     }

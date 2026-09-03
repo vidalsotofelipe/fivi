@@ -211,7 +211,7 @@ export default function GroupConfigPage() {
                 </button>
                 <IconButton
                   label={t("a11y:removePerson", { name: p.name })}
-                  className="h-9 w-9 text-danger"
+                  className="text-sm text-danger"
                   onClick={() => removeParticipant(p.id, db)}
                 >
                   <span aria-hidden="true">✕</span>

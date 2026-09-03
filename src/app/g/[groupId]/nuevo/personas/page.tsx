@@ -83,7 +83,7 @@ export default function SetupParticipantsPage() {
             <span className="min-w-0 truncate text-text">{p.name}</span>
             <IconButton
               label={t("a11y:removePerson", { name: p.name })}
-              className="h-9 w-9 text-danger"
+              className="text-sm text-danger"
               onClick={() => removeParticipant(p.id, db)}
             >
               <span aria-hidden="true">✕</span>

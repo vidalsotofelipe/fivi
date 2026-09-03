@@ -266,7 +266,7 @@ export function ExpenseWizard({
           <div className="flex flex-col gap-2">
             <TextField
               label={t("expense:descriptionLabel")}
-              placeholder="Cena, supermercado, Uber…"
+              placeholder={t("expense:descriptionPlaceholder")}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
@@ -358,6 +358,7 @@ export function ExpenseWizard({
                         type="button"
                         role="checkbox"
                         aria-checked={on}
+                        aria-label={t("expense:includePerson", { name: p.name })}
                         onClick={() => toggle(p.id)}
                         className={cn(
                           "flex h-6 w-6 shrink-0 items-center justify-center rounded border text-xs",
@@ -366,7 +367,7 @@ export function ExpenseWizard({
                             : "border-border",
                         )}
                       >
-                        {on ? "✓" : ""}
+                        <span aria-hidden="true">{on ? "✓" : ""}</span>
                       </button>
                       <span className="min-w-0 flex-1 truncate text-[15px] text-text">
                         {p.name}
@@ -375,6 +376,14 @@ export function ExpenseWizard({
                         <span className="flex items-center gap-1">
                           <input
                             inputMode="decimal"
+                            aria-label={t(
+                              customKind === "percent"
+                                ? "expense:percentForPerson"
+                                : customKind === "shares"
+                                  ? "expense:sharesForPerson"
+                                  : "expense:amountForPerson",
+                              { name: p.name },
+                            )}
                             value={rows[p.id] ?? ""}
                             onChange={(e) =>
                               setRows((r) => ({ ...r, [p.id]: e.target.value }))
@@ -398,15 +407,26 @@ export function ExpenseWizard({
           </div>
 
           {mode === "equal" && preview.ok && preview.shares[0] != null ? (
-            <p className="text-sm text-muted">
-              {t("expense:perPerson", {
-                amount: formatMoney(
-                  preview.shares[0].share_minor_units,
-                  currency,
-                  lang,
-                ),
-              })}
-            </p>
+            (() => {
+              const shares = preview.shares;
+              // División no exacta: no todos pagan lo mismo (el centavo sobrante
+              // se reparte). Se avisa en vez de afirmar un monto único.
+              const uneven = shares.some(
+                (s) => s.share_minor_units !== shares[0]!.share_minor_units,
+              );
+              const amount = formatMoney(
+                shares[0]!.share_minor_units,
+                currency,
+                lang,
+              );
+              return (
+                <p className="text-sm text-muted">
+                  {uneven
+                    ? t("expense:perPersonApprox", { amount })
+                    : t("expense:perPerson", { amount })}
+                </p>
+              );
+            })()
           ) : null}
 
           {mode === "custom" && customKind === "amount" ? (

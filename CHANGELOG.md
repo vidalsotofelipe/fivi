@@ -13,6 +13,74 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.15.1] - 2026-09-02
+
+Correcciones detectadas en una prueba funcional general. **Requiere la migración
+`0013_created_by.sql`** (aditiva y backward-compatible: agrega una columna
+anulable `created_by` a `expenses` y `payments`). Sin ella el push de gastos y
+pagos nuevos falla al no existir la columna en el servidor, así que hay que
+aplicarla **antes** de desplegar.
+
+### Added
+
+- **Autoría real de los movimientos.** Nueva columna `created_by`: el gasto/pago
+  guarda quién lo **registró** (el "vos" del dispositivo), aparte de `paid_by`
+  (quién **pagó**). La actividad ahora muestra como autor a quien creó el
+  movimiento; si Usuario QA carga un gasto que pagó Ana, dice "Usuario QA agregó
+  el gasto", no "Ana". Los movimientos anteriores no tienen `created_by` y
+  siguen mostrando a quien pagó, como antes.
+
+### Changed
+
+- **Preselección sensata de personas.**
+  - Al **agregar un gasto**, "Pagó" arranca en vos (tu "yo" en el grupo); si ya
+    cargaste gastos antes, se respeta ese último pagador. Recién si no hay
+    ninguno de los dos, cae en el primer participante.
+  - Al **registrar un pago** manual (sin venir de "Saldar"), ya no se
+    preseleccionan personas al azar (adiós al "Ana → Bruno" arbitrario): se
+    propone que pagás vos y que le pagás a quien le debés según los saldos. Si
+    no hay una deuda tuya aplicable, no se asume ningún par. Los accesos
+    **"Saldar"** siguen completando pagador, receptor y monto igual que antes.
+- **Idioma inicial determinista.** i18next arranca siempre en español (el idioma
+  del SSR) y `LocaleProvider` aplica la preferencia/idioma del navegador en un
+  efecto post-montaje. El primer render del cliente coincide con el HTML del
+  servidor: se termina el error de hidratación React #418 y el parpadeo de
+  idioma en la primera visita en inglés.
+- **Textos centralizados en las traducciones.** "Split · Partes iguales" (la
+  estrategia de división estaba fija en español) y "Sos owner" ahora salen del
+  sistema i18n y respetan el idioma activo.
+- **Vacíos de la lista de gastos por filtro.** Con "Míos" o "Este mes" activos y
+  sin resultados ya no dice "no encontramos gastos con esa búsqueda" si el
+  buscador está vacío: muestra un mensaje propio del filtro. El botón limpia
+  **sólo el texto** cuando sólo hay búsqueda ("Limpiar búsqueda"); si hay un
+  filtro activo, pasa a "Restablecer filtros" y limpia todo.
+- **Reparto con redondeo.** En divisiones no exactas la línea "por persona" se
+  muestra como aproximada ("≈ … por persona · el centavo restante se ajusta
+  automáticamente") en vez de afirmar un monto único.
+
+### Fixed
+
+- **Rutas de grupo mal formadas.** `/g/grupo-inexistente` (id que no es un UUID)
+  mostraba un error interno de PostgreSQL (`invalid input syntax for type uuid`)
+  y quedaba reintentando. Ahora se valida el UUID antes de consultar la base o
+  pedir el grupo al servidor y se muestra directamente "No pudimos abrir este
+  grupo", sin consultas ni ciclos de reintento.
+- **Vista previa de saldos en pagos inválidos.** Un pago parcial que supera la
+  deuda ya no muestra el "saldo resultante" con balances imposibles: la vista
+  previa se oculta hasta que el monto sea válido.
+- **Notificaciones sobre el menú inferior.** El toast usa un fallback de alto de
+  menú (4rem) hasta conocer el real, así nunca aparece tapando la barra de
+  navegación ni intercepta sus botones; respeta `env(safe-area-inset-bottom)` y
+  conserva "Deshacer", "Ver gasto" y "Cerrar".
+
+### Accessibility
+
+- Los checkboxes de participantes anuncian a quién incluyen ("Incluir a Ana").
+- Los campos de reparto personalizado tienen nombre accesible ("Monto de Ana",
+  "Porcentaje de Bruno", "Partes de Usuario QA").
+- Los botones de eliminar persona vuelven a 44×44 px de área táctil (estaban en
+  36×36).
+
 ## [0.15.0] - 2026-09-02
 
 Resumen de todos los grupos en el inicio e identidad única del usuario. Sin

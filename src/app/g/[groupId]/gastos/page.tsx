@@ -118,16 +118,32 @@ export default function ExpenseListPage() {
         />
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-8 text-center">
-          <p className="text-sm text-muted">{t("expense:noResults")}</p>
-          <Button
-            variant="ghost"
-            onClick={() => {
-              setQuery("");
-              setFilter("all");
-            }}
-          >
-            {t("common:clearSearch")}
-          </Button>
+          <p className="text-sm text-muted">
+            {query.trim()
+              ? t("expense:noResults")
+              : filter === "mine"
+                ? t("expense:noResultsMine")
+                : filter === "month"
+                  ? t("expense:noResultsMonth")
+                  : t("expense:noResults")}
+          </p>
+          {query.trim() && filter === "all" ? (
+            // Sólo hay texto de búsqueda: el botón limpia SÓLO el texto.
+            <Button variant="ghost" onClick={() => setQuery("")}>
+              {t("common:clearSearch")}
+            </Button>
+          ) : filter !== "all" ? (
+            // Hay un filtro activo: el botón restablece texto + filtro.
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setQuery("");
+                setFilter("all");
+              }}
+            >
+              {t("common:resetFilters")}
+            </Button>
+          ) : null}
         </div>
       ) : (
         <ul className="flex flex-col gap-2 pb-2">

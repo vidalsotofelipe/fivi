@@ -72,6 +72,14 @@ export interface Expense extends SyncableRecord {
   amount_minor_units: number;
   /** id del participante que pagó. */
   paid_by: string;
+  /**
+   * id del participante que REGISTRÓ el gasto (el "yo" del dispositivo al
+   * momento de crearlo). Es distinto de `paid_by`: quien carga un gasto no
+   * siempre es quien lo pagó. Opcional y anulable para compatibilidad con los
+   * movimientos anteriores (que no lo tienen); cuando falta, la actividad cae
+   * en `paid_by` como antes.
+   */
+  created_by?: string | null;
   expense_date: IsoDate;
   split_strategy: SplitStrategy;
 }
@@ -94,6 +102,11 @@ export interface Payment extends SyncableRecord {
   to_participant: string;
   amount_minor_units: number;
   payment_date: IsoDate;
+  /**
+   * id del participante que REGISTRÓ el pago (el "yo" del dispositivo). Opcional
+   * y anulable para compatibilidad con los pagos anteriores.
+   */
+  created_by?: string | null;
 }
 
 /** Balance calculado de un participante (no se persiste; siempre derivado). */

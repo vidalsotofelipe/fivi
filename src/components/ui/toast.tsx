@@ -68,16 +68,19 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         ? createPortal(
             <div
               className="pointer-events-none fixed inset-x-0 bottom-0 z-[60] flex items-end justify-center px-4"
-              // Se levanta por encima del menú inferior (que publica su alto en
-              // `--fivi-bottomnav`); sin menú, respeta al menos 12px + safe-area.
-              // `items-end` evita el stretch vertical del flex (que dejaba la
-              // tarjeta desbordando el padding y tapando el menú).
+              // Se levanta SIEMPRE por encima del menú inferior. El menú publica
+              // su alto real (borde + safe-area incluidos) en `--fivi-bottomnav`;
+              // hasta que ese valor exista se usa un fallback de 4rem (alto
+              // típico del menú) para que el toast nunca aparezca tapándolo ni
+              // intercepte sus botones. Sin menú, respeta 16px + safe-area.
+              // `pointer-events-none` en el contenedor + `pointer-events-auto`
+              // sólo en la tarjeta: el área sobre el menú nunca bloquea el tap.
               style={{
                 // El +16px de holgura absorbe el desplazamiento de entrada de
                 // `toast-in` (translateY 16px→0): ni durante la animación el
                 // toast toca el menú.
                 paddingBottom:
-                  "calc(var(--fivi-bottomnav, 0px) + max(16px, env(safe-area-inset-bottom)))",
+                  "calc(var(--fivi-bottomnav, 4rem) + max(16px, env(safe-area-inset-bottom)))",
               }}
               role="status"
               aria-live="polite"
