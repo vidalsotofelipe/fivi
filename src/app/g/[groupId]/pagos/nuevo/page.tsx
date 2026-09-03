@@ -171,7 +171,7 @@ function NewPaymentForm() {
         message: t("payment:savedToast"),
         undoLabel: t("common:undo"),
         onUndo: () => void deletePayment(payment.id, db),
-        durationMs: 10_000,
+        durationMs: 5_000,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));

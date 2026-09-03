@@ -41,7 +41,7 @@ export default function GroupReadyPage() {
 
   return (
     <AppShell title={t("common:appName")} showSync={false}>
-      <div className="flex flex-1 flex-col items-center gap-4 pt-6 text-center">
+      <div className="flex flex-col items-center gap-4 pt-6 text-center">
         <span
           aria-hidden="true"
           className="flex h-16 w-16 items-center justify-center bg-accent-weak text-3xl text-accent"
@@ -61,12 +61,15 @@ export default function GroupReadyPage() {
           </p>
         </Card>
 
-        <div className="mt-auto flex w-full flex-col gap-2 pt-6">
+        {/* CTAs en el flujo, justo debajo de la tarjeta: siempre visibles
+            (antes iban con `mt-auto` al borde inferior y quedaban fuera de
+            vista / bajo la barra del navegador en algunos teléfonos). */}
+        <div className="mt-2 flex w-full flex-col gap-2">
           <LinkButton href={`/g/${group.id}/gastos/nuevo`} full>
             {t("group:addFirstExpense")}
           </LinkButton>
           <Button
-            variant="ghost"
+            variant="secondary"
             full
             onClick={() => router.replace(`/g/${group.id}`)}
           >

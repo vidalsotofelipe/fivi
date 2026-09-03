@@ -20,7 +20,7 @@ export interface ToastOptions {
   /** Etiqueta de una acción secundaria de deshacer. */
   undoLabel?: string;
   onUndo?: () => void;
-  /** ms antes de auto-cerrar. Default 4000; usar 10000 para "deshacer". */
+  /** ms antes de auto-cerrar. Default 4000; ~5000 cuando trae "Deshacer". */
   durationMs?: number;
 }
 

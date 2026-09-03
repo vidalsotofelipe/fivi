@@ -151,6 +151,8 @@
     "noMovements": "Sin movimientos todavía",
     "whoAreYou": "¿Quién sos en este grupo?",
     "whoAreYouHint": "Lo usamos para mostrarte tu balance. Podés cambiarlo después.",
+    "notInListTitle": "¿No estás en la lista?",
+    "addMeToGroup": "Sumarme al grupo",
     "notSet": "Sin elegir",
     "notFoundTitle": "No pudimos abrir este grupo",
     "notFoundBody": "Revisá que el enlace esté completo. Si lo compartió alguien recién, probá de nuevo en unos segundos.",

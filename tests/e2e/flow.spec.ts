@@ -113,6 +113,34 @@ test("flujo completo: grupo → personas → gasto → balance → pago → edit
   await expect(page.getByText("Todavía no hay gastos")).toBeVisible();
 });
 
+test("'grupo listo' muestra las dos acciones; llegar con ?join=1 pide quién sos", async ({
+  page,
+}) => {
+  const id = await createGroup(page, "Onboarding E2E");
+  await addPeopleDuringSetup(page, ["Ana", "Bruno"]);
+
+  // Pantalla "Tu grupo está listo": los dos CTA quedan visibles (antes se iban
+  // al borde inferior con `mt-auto` y en algunos teléfonos no se veían).
+  await expect(
+    page.getByRole("link", { name: "Agregar primer gasto" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Ir al resumen" }),
+  ).toBeVisible();
+
+  // Simular la llegada por invitación: el resumen abre "¿Quién sos?" y limpia
+  // el parámetro. Se puede elegir un participante o sumarse.
+  await page.goto(`/g/${id}?join=1`);
+  const sheet = page.getByRole("dialog");
+  await expect(sheet.getByText("¿Quién sos en este grupo?")).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Sumarme al grupo" })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/g/${id}$`)); // sin ?join=1
+
+  await sheet.getByRole("button", { name: "Ana", exact: true }).click();
+  await expect(sheet).toBeHidden();
+  await expect(page.getByText("Tu balance")).toBeVisible();
+});
+
 test("escritura local sin conexión (IndexedDB, sin red)", async ({
   page,
   context,

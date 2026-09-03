@@ -97,7 +97,7 @@ export default function NewExpensePage() {
               router.push(`/g/${group.id}/gastos/${expense.id}`),
             undoLabel: t("common:undo"),
             onUndo: () => void deleteExpense(expense.id, db),
-            durationMs: 10_000,
+            durationMs: 5_000,
           });
         }}
       />

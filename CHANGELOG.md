@@ -13,6 +13,33 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.16.1] - 2026-09-03
+
+Ajustes de UX a partir de feedback. Sin cambios de esquema.
+
+### Fixed
+
+- **"Tu grupo está listo" sin botones.** Los CTA ("Agregar primer gasto" / "Ir
+  al resumen") iban con `mt-auto` al borde inferior y en algunos teléfonos
+  quedaban fuera de vista o bajo la barra del navegador. Ahora van en el flujo,
+  justo debajo de la tarjeta del grupo, siempre visibles.
+- **El toast tapaba botones.** `StickyActionBar` publica su alto real en
+  `--fivi-bottomnav` (la variable que el toast ya usaba para no tapar el menú
+  inferior), así el toast también se levanta por encima de las barras de acción
+  fijas (alta de gasto, registrar pago, crear grupo). El toast de "gasto/pago
+  guardado" pasa de **10 s a 5 s** (la ventana de "Deshacer" sigue siendo
+  suficiente).
+
+### Changed
+
+- **Al entrar por invitación** ya no se cae directo en los gastos: el resumen
+  del grupo abre primero **"¿Quién sos en este grupo?"**, donde se puede elegir
+  un participante existente o **sumarse como integrante** (con el nombre, que
+  también queda como preferencia para los próximos grupos).
+- **Logo en la barra superior**: en las pantallas sin botón de volver (inicio,
+  onboarding, "grupo listo", invitación) aparece la marca de fivi a la
+  izquierda del título.
+
 ## [0.16.0] - 2026-09-03
 
 **Moneda principal / balance global** y **paleta v2** (claro + oscuro). Incluye

@@ -4,7 +4,7 @@
  * Primitivos de UI chicos y sin estado del rediseño mobile-first.
  * Colores por tokens (`bg`, `surface`, `border`, `accent`, …).
  */
-import type { ComponentProps, ReactNode } from "react";
+import { useEffect, useRef, type ComponentProps, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 /** Spinner accesible (marca `role="status"` sólo si `label`). */
@@ -89,8 +89,32 @@ export function StickyActionBar({
   children: ReactNode;
   className?: string;
 }) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Publica su alto real en `--fivi-bottomnav` (la misma variable que usa el
+  // toast para no taparlo). BottomNav y StickyActionBar nunca coexisten en una
+  // pantalla, así que comparten la variable sin conflicto.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const apply = () =>
+      root.style.setProperty(
+        "--fivi-bottomnav",
+        `${Math.ceil(el.getBoundingClientRect().height)}px`,
+      );
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      root.style.removeProperty("--fivi-bottomnav");
+    };
+  }, []);
+
   return (
     <div
+      ref={ref}
       className={cn(
         "sticky bottom-0 z-20 -mx-4 mt-4 border-t-2 border-border-strong bg-bg/95 px-4 pt-3 backdrop-blur",
         "pb-[calc(12px+env(safe-area-inset-bottom))]",

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { AppMark } from "./Logo";
 import { SyncBadge } from "./SyncBadge";
 
 /**
@@ -47,7 +48,14 @@ export function AppBar({
           </Link>
         )
       ) : (
-        <span className="w-2 shrink-0" />
+        // Sin botón de volver (inicio / onboarding / "grupo listo"): la marca.
+        <Link
+          href="/"
+          aria-label={t("appName")}
+          className="ml-1 flex h-11 w-9 shrink-0 items-center justify-center"
+        >
+          <AppMark className="h-7 w-7" />
+        </Link>
       )}
 
       <h1 className="min-w-0 flex-1 truncate px-1 text-base font-bold text-text">

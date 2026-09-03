@@ -2,7 +2,8 @@
 
 /** Pantalla 05 — resumen del grupo. */
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import { AppShell } from "@/components/AppShell";
 import { BottomNav } from "@/components/BottomNav";
@@ -61,12 +62,28 @@ export default function GroupSummaryPage() {
     "expense",
   ]);
   const { lang } = useLocale();
+  const router = useRouter();
   const toast = useToast();
   const { group, participants } = useGroupContext();
   const hydrated = useHydrated();
   const summary = useGroupSummary(group.id);
   const me = useMe(group.id);
   const [pickMe, setPickMe] = useState(false);
+  const joinHandled = useRef(false);
+
+  // Recién llegado por invitación (`?join=1`): antes de nada, elegir quién sos
+  // (o sumarte). Se abre el selector una vez y se limpia el parámetro para que
+  // recargar no lo vuelva a abrir.
+  useEffect(() => {
+    if (joinHandled.current || me === undefined) return;
+    const isJoin =
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("join") === "1";
+    if (!isJoin) return;
+    joinHandled.current = true;
+    if (me == null) setPickMe(true);
+    router.replace(`/g/${group.id}`);
+  }, [me, group.id, router]);
 
   const cc = group.currency_code;
   const bottomNav = <BottomNav groupId={group.id} />;

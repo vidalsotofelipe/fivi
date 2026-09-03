@@ -50,7 +50,9 @@ export default function JoinPage() {
 
     started.current = true;
     redeemInvite(token)
-      .then((groupId) => router.replace(`/g/${groupId}`))
+      // `?join=1`: el resumen del grupo ofrece elegir quién sos / sumarte antes
+      // de meterte de lleno en los gastos.
+      .then((groupId) => router.replace(`/g/${groupId}?join=1`))
       .catch((err) => {
         setPhase("error");
         setMessage(err instanceof Error ? err.message : String(err));
