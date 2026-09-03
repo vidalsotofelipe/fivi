@@ -1,7 +1,12 @@
-# Panel de administración (`/admin`)
+# Panel de administración (`/administracion`)
 
-> Estado: **MVP completo** en la rama `feature/admin-panel`. No mergeado ni
-> desplegado. Requiere las migraciones `0010_admin.sql` y
+> **Ruta canónica: `/administracion`.** La ruta vieja (`/admin`, `/admin/*`)
+> redirige a `/administracion` conservando la query (`?k=…`), vía `redirects()`
+> en `next.config.mjs`. Los endpoints siguen en `/api/admin/*` (backend; cada
+> uno protegido por `requireAdmin`). La entrada nunca aparece en la navegación
+> de la app de usuarios.
+
+> Estado: **desplegado**. Requiere las migraciones `0010_admin.sql` y
 > `0011_admin_functions.sql` aplicadas y la variable `SUPABASE_SERVICE_ROLE_KEY`.
 >
 > Incluye: autorización real (rol admin global + verificación por endpoint),
@@ -91,7 +96,7 @@ Paginación y filtros son server-side; el cálculo vive en las funciones de 0011
 | GET | `/api/admin/movimientos/export?<mismos filtros>` | CSV de los movimientos filtrados (tope 5000 filas) |
 | GET | `/api/admin/audit?admin&action&entity&from&to&page&limit` | consulta del log de auditoría |
 | GET | `/api/admin/status` | versión/commit/entorno + ping a DB y Supabase Auth (sin secretos) |
-| GET · PATCH | `/api/admin/settings` `{ key, value }` | leer/actualizar config validada (`default_currency`, `feature_flags`) |
+| GET · PATCH | `/api/admin/settings` `{ key, value }` | leer/actualizar config validada (`default_currency` — ISO 4217 real; `timezone` — IANA; `feature_flags` — nombres `^[a-z][a-z0-9_.]{1,39}$`) |
 
 Acciones auditadas en `admin_audit_log`: `dashboard.view`, `user.activate` /
 `user.deactivate`, `admin.grant` / `admin.revoke`, `movimientos.export`,
@@ -130,7 +135,7 @@ Acciones auditadas en `admin_audit_log`: `dashboard.view`, `user.activate` /
    values ('PEGÁ-ACÁ-EL-UID-DEL-USUARIO');
    ```
 
-3. Entrar a `/admin/login` con ese email y contraseña.
+3. Entrar a `/administracion/login` con ese email y contraseña.
 
 > A partir del segundo admin, se puede conceder/quitar desde el propio panel
 > (sección Usuarios), con confirmación y sin poder quitar el último.
@@ -141,15 +146,15 @@ Acciones auditadas en `admin_audit_log`: `dashboard.view`, `user.activate` /
 | --- | --- | --- |
 | `SUPABASE_SERVICE_ROLE_KEY` | server-only (Vercel env, `.env.local`) | cliente service-role del backend admin. Settings → API → *service_role secret*. |
 
-Sin esta variable, `/api/admin/*` responde `503` y `/admin` muestra "panel no
+Sin esta variable, `/api/admin/*` responde `503` y `/administracion` muestra "panel no
 disponible".
 
 ## Estructura del panel (frontend)
 
-- `src/app/admin/layout.tsx` — layout propio (client). Monta `<AdminSession>`
+- `src/app/administracion/layout.tsx` — layout propio (client). Monta `<AdminSession>`
   (cliente Supabase con `storageKey: "fivi-admin-auth"`, aislado de la sesión
-  anónima de la app). `/admin/login` queda fuera del guard y del shell.
-- `AdminGuard` — defensa de UX: sin sesión → redirige a `/admin/login`; con
+  anónima de la app). `/administracion/login` queda fuera del guard y del shell.
+- `AdminGuard` — defensa de UX: sin sesión → redirige a `/administracion/login`; con
   sesión pero backend responde 401 → redirige; 403 → "acceso denegado"; 503 →
   "panel no disponible". La seguridad real está en cada endpoint.
 - `AdminShell` — sidebar (Dashboard, Usuarios, Grupos, Movimientos, Auditoría,
@@ -158,13 +163,13 @@ disponible".
 - `src/lib/adminFetch.ts` + `useApi` — transporte con Bearer token y estados
   de carga/error; primitivas en `src/components/admin/ui.tsx` (skeletons,
   estados vacíos/errores, tabla con scroll contenido, paginación, `ConfirmDialog`).
-- `SyncProvider` **no** arranca el motor local-first en rutas `/admin`.
+- `SyncProvider` **no** arranca el motor local-first en rutas `/administracion`.
 
 ## Ejecutar el proyecto
 
 ```bash
 npm install
-npm run dev            # http://localhost:3000  ·  panel en /admin
+npm run dev            # http://localhost:3000  ·  panel en /administracion
 npm run test           # unit + RLS (incluye 0010 y 0011)
 npm run test:e2e       # Playwright (incluye tests/e2e/admin.spec.ts)
 npm run lint
@@ -180,7 +185,7 @@ npm run build
 | `tests/admin/routes.test.ts` | endpoints con cliente service-role mockeado: 401/403, validación de params, filtros/paginación → función SQL correcta, 409 en "último admin", CSV export, settings |
 | `tests/security/rls.test.ts` → `panel admin (0010)` | `app_admins` / `admin_audit_log` / `admin_settings` no legibles por `anon`/`authenticated`; trigger del último admin; defaults |
 | `tests/security/rls.test.ts` → `funciones admin (0011)` | `admin_dashboard` agrega bien; listados paginan/filtran/ordenan; `admin_set_user_admin` protege el último; `admin_set_user_ban` nunca a un admin; `anon`/`authenticated` no ejecutan las funciones |
-| `tests/e2e/admin.spec.ts` | (build sin Supabase) endpoints → 401 sin token; `/admin` y `/admin/login` no exponen nada |
+| `tests/e2e/admin.spec.ts` | (build sin Supabase) endpoints → 401 sin token; `/administracion` y `/administracion/login` no exponen nada |
 
 Estado: **210 tests** verdes · `typecheck` · `lint` · `build`.
 El camino "usuario autenticado que **no** es admin → denegado" se prueba a nivel
@@ -190,14 +195,14 @@ unitario (rutas + `requireAdmin`); el e2e corre sin Supabase.
 
 | Ruta | Contenido |
 | --- | --- |
-| `/admin/login` | Email + contraseña (cliente Supabase propio). |
-| `/admin` | Dashboard: KPIs con comparativo vs. período previo, gráfico de barras (12 meses), volumen por moneda, distribución gasto/pago, últimos usuarios y actividad, accesos rápidos. Selector 7/30/90 días. |
-| `/admin/usuarios` · `/[id]` | Tabla paginada (búsqueda email/id, filtros estado y rol, orden). Detalle con grupos y acciones (activar/desactivar, conceder/quitar admin) con confirmación. |
-| `/admin/grupos` · `/[id]` | Tabla paginada (búsqueda, moneda, archivado, orden). Detalle: metadatos, totales, participantes, miembros. |
-| `/admin/movimientos` | Gastos + pagos unificados (filtros type/moneda/fechas/búsqueda, orden) + exportar CSV de los filtrados. Sólo lectura. |
-| `/admin/auditoria` | Log paginado con filtros por admin, acción, entidad y rango; metadata expandible. |
-| `/admin/estado` | Versión, commit, entorno, host de Supabase y chequeos (DB + Auth) con latencia. |
-| `/admin/configuracion` | Moneda por defecto (ISO 4217) y feature flags; guardar con confirmación, auditado. |
+| `/administracion/login` | Email + contraseña (cliente Supabase propio). |
+| `/administracion` | Dashboard: KPIs con comparativo vs. período previo, gráfico de barras (12 meses), volumen por moneda, distribución gasto/pago, últimos usuarios y actividad, accesos rápidos. Selector 7/30/90 días. |
+| `/administracion/usuarios` · `/[id]` | Tabla paginada (búsqueda email/id, filtros estado y rol, orden). Detalle con grupos y acciones (activar/desactivar, conceder/quitar admin) con confirmación. |
+| `/administracion/grupos` · `/[id]` | Tabla paginada (búsqueda, moneda, archivado, orden). Detalle: metadatos, totales, participantes, miembros. |
+| `/administracion/movimientos` | Gastos + pagos unificados (filtros type/moneda/fechas/búsqueda, orden) + exportar CSV de los filtrados. Sólo lectura. |
+| `/administracion/auditoria` | Log paginado con filtros por admin, acción, entidad y rango; metadata expandible. |
+| `/administracion/estado` | Versión, commit, entorno, host de Supabase y chequeos (DB + Auth) con latencia. |
+| `/administracion/configuracion` | Moneda por defecto (selector de monedas soportadas), zona horaria (afecta cómo se muestran TODAS las fechas del panel; los datos siguen en UTC) y feature flags con validación de nombre; "Guardar" sólo se habilita con un cambio válido; cada cambio se confirma y se audita. |
 
 Todas: estados de carga (skeletons), error (con "Reintentar") y vacío;
 español; tablas con scroll horizontal contenido; navegación por teclado.
@@ -227,9 +232,12 @@ español; tablas con scroll horizontal contenido; navegación por teclado.
   → no hay métricas por usuario de `auth.users`. La app sí lo usa para la
   actividad del grupo ("quién cargó el gasto").
 - Sin categorías → distribución = gasto vs. pago.
-- Sin log de errores de negocio → `/admin/estado` es diagnóstico de infra.
-- Etapa 2 documentada: zona horaria y más flags en Configuración, tabla
-  `app_events` + beacon para errores, más exportaciones, diagnóstico ampliado.
+- Sin log de errores de negocio → `/administracion/estado` es diagnóstico de infra.
+- La zona horaria de visualización es configurable (Configuración → Zona
+  horaria; default `America/Argentina/Buenos_Aires`). Se aplica en Dashboard,
+  Usuarios, Grupos, Movimientos, Auditoría y Estado.
+- Etapa 2 pendiente: tabla `app_events` + beacon para errores de negocio, más
+  exportaciones, diagnóstico ampliado.
 
 ## Migración `0012_admin_auth_access.sql`
 
@@ -260,9 +268,9 @@ llave compartida:
 2. Cargarla como variable **server-only** `ADMIN_ACCESS_KEY` (Vercel →
    Settings → Environment Variables → Production, o `vercel env add`).
 
-3. Entrar una vez a `/admin/login?k=<LLAVE>`. La llave se guarda en el
+3. Entrar una vez a `/administracion/login?k=<LLAVE>`. La llave se guarda en el
    `localStorage` de ese navegador (`fivi:admin-key`) y la URL se limpia; a
-   partir de ahí `/admin` entra directo. También se puede pegar a mano en el
+   partir de ahí `/administracion` entra directo. También se puede pegar a mano en el
    campo "Llave de acceso".
 
 `requireAdmin` la compara en tiempo constante contra `ADMIN_ACCESS_KEY` y, si
@@ -277,4 +285,4 @@ coincide, devuelve la identidad sintética `access-key`. En la auditoría queda
 
 Quitar `ADMIN_ACCESS_KEY` del entorno. El camino de Supabase Auth
 (`requireAdmin` modo 2 + `app_admins`) sigue intacto en el código; sólo hay que
-devolver el formulario de email + contraseña a `/admin/login`.
+devolver el formulario de email + contraseña a `/administracion/login`.

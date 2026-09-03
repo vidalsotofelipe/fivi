@@ -215,6 +215,76 @@ describe("settings PATCH", () => {
     expect(insert).toHaveBeenCalled();
   });
 
+  it("400 con un código de 3 letras que NO es una moneda real (ABC)", async () => {
+    asAdmin();
+    const { PATCH } = await import("@/app/api/admin/settings/route");
+    const res = await PATCH(
+      authed("/api/admin/settings", {
+        method: "PATCH",
+        body: JSON.stringify({ key: "default_currency", value: "ABC" }),
+      }),
+      NO_CTX,
+    );
+    expect(res.status).toBe(400);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("200 con cada una de ARS/USD/EUR/GTQ", async () => {
+    const { PATCH } = await import("@/app/api/admin/settings/route");
+    for (const value of ["ARS", "USD", "EUR", "GTQ"]) {
+      asAdmin();
+      rpc.mockResolvedValue({ data: { key: "default_currency", value }, error: null });
+      const res = await PATCH(
+        authed("/api/admin/settings", {
+          method: "PATCH",
+          body: JSON.stringify({ key: "default_currency", value }),
+        }),
+        NO_CTX,
+      );
+      expect(res.status, value).toBe(200);
+    }
+  });
+
+  it("timezone: 200 con IANA válida, 400 con basura", async () => {
+    const { PATCH } = await import("@/app/api/admin/settings/route");
+    asAdmin();
+    rpc.mockResolvedValue({ data: {}, error: null });
+    const okRes = await PATCH(
+      authed("/api/admin/settings", {
+        method: "PATCH",
+        body: JSON.stringify({ key: "timezone", value: "America/Argentina/Buenos_Aires" }),
+      }),
+      NO_CTX,
+    );
+    expect(okRes.status).toBe(200);
+
+    asAdmin();
+    rpc.mockClear();
+    const badRes = await PATCH(
+      authed("/api/admin/settings", {
+        method: "PATCH",
+        body: JSON.stringify({ key: "timezone", value: "No/Existe" }),
+      }),
+      NO_CTX,
+    );
+    expect(badRes.status).toBe(400);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("feature_flags: 400 si un nombre de flag no cumple el formato", async () => {
+    asAdmin();
+    const { PATCH } = await import("@/app/api/admin/settings/route");
+    const res = await PATCH(
+      authed("/api/admin/settings", {
+        method: "PATCH",
+        body: JSON.stringify({ key: "feature_flags", value: { "Mal Nombre!": true } }),
+      }),
+      NO_CTX,
+    );
+    expect(res.status).toBe(400);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
   it("400 con clave desconocida", async () => {
     asAdmin();
     const { PATCH } = await import("@/app/api/admin/settings/route");
@@ -232,6 +302,31 @@ describe("movimientos", () => {
     const { GET } = await import("@/app/api/admin/movimientos/route");
     const res = await GET(authed("/api/admin/movimientos?type=refund"), NO_CTX);
     expect(res.status).toBe(400);
+  });
+
+  it("400 si el rango de fechas está invertido (from > to), sin consultar", async () => {
+    asAdmin();
+    const { GET } = await import("@/app/api/admin/movimientos/route");
+    const res = await GET(
+      authed("/api/admin/movimientos?from=2026-09-10&to=2026-09-01"),
+      NO_CTX,
+    );
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({
+      error: "La fecha desde no puede ser posterior a la fecha hasta",
+    });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("200 con un rango válido (from <= to)", async () => {
+    asAdmin();
+    const { GET } = await import("@/app/api/admin/movimientos/route");
+    const res = await GET(
+      authed("/api/admin/movimientos?from=2026-09-01&to=2026-09-10"),
+      NO_CTX,
+    );
+    expect(res.status).toBe(200);
+    expect(rpc.mock.calls[0]![0]).toBe("admin_list_movements");
   });
 
   it("export devuelve CSV con content-disposition y escapa comas/comillas", async () => {
@@ -287,6 +382,17 @@ describe("groups / audit / status / settings GET", () => {
     await GET(authed("/api/admin/audit?action=settings.update&entity=setting"), NO_CTX);
     expect(rpc.mock.calls[0]![0]).toBe("admin_audit_query");
     expect(rpc.mock.calls[0]![1]).toMatchObject({ p_action: "settings.update", p_entity: "setting" });
+  });
+
+  it("audit: 400 con el rango de fechas invertido, sin consultar", async () => {
+    asAdmin();
+    const { GET } = await import("@/app/api/admin/audit/route");
+    const res = await GET(
+      authed("/api/admin/audit?from=2026-09-10&to=2026-09-01"),
+      NO_CTX,
+    );
+    expect(res.status).toBe(400);
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it("status devuelve app + checks", async () => {

@@ -8,7 +8,10 @@ import { Button, Skeleton } from "./ui";
 
 function FullScreen({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-bg p-6 text-center text-text">
+    <div
+      lang="es-AR"
+      className="flex min-h-screen items-center justify-center bg-bg p-6 text-center text-text"
+    >
       <div className="max-w-md">{children}</div>
     </div>
   );
@@ -16,7 +19,7 @@ function FullScreen({ children }: { children: ReactNode }) {
 
 /**
  * Puerta del panel. Es defensa de UX: la seguridad real vive en cada endpoint
- * (`requireAdmin`). Redirige a `/admin/login` si no hay sesión o si el backend
+ * (`requireAdmin`). Redirige a `/administracion/login` si no hay sesión o si el backend
  * la rechaza; muestra "acceso denegado" si el usuario autenticado no es admin.
  */
 export function AdminGuard({ children }: { children: ReactNode }) {
@@ -29,11 +32,11 @@ export function AdminGuard({ children }: { children: ReactNode }) {
   const me = useApi<{ adminId: string; email: string | null }>(token ? "/api/admin/me" : null);
 
   useEffect(() => {
-    if (!loading && usable && !token) router.replace("/admin/login");
+    if (!loading && usable && !token) router.replace("/administracion/login");
   }, [loading, usable, token, router]);
 
   useEffect(() => {
-    if (token && me.status === 401) router.replace("/admin/login");
+    if (token && me.status === 401) router.replace("/administracion/login");
   }, [token, me.status, router]);
 
   if (!usable) {

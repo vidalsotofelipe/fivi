@@ -7,6 +7,9 @@
  */
 import { cn } from "@/lib/cn";
 import type { ReactNode } from "react";
+import { dateRangeError } from "@/lib/adminDates";
+
+export { dateRangeError };
 
 export function PageHeader({
   title,
@@ -90,7 +93,13 @@ export function Skeleton({ className }: { className?: string }) {
 
 export function SkeletonRows({ rows = 5, cols = 4 }: { rows?: number; cols?: number }) {
   return (
-    <div className="space-y-2" aria-busy="true" aria-label="Cargando">
+    <div
+      className="space-y-2"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+    >
+      <span className="sr-only">Cargando datos…</span>
       {Array.from({ length: rows }).map((_, r) => (
         <div key={r} className="flex gap-2">
           {Array.from({ length: cols }).map((_, c) => (
@@ -98,6 +107,42 @@ export function SkeletonRows({ rows = 5, cols = 4 }: { rows?: number; cols?: num
           ))}
         </div>
       ))}
+    </div>
+  );
+}
+
+/**
+ * Skeleton del detalle (Grupo / Usuario): reproduce la estructura real —cabecera,
+ * grilla de datos, dos tarjetas de conteo, una lista— en vez de dos bloques
+ * vacíos, y anuncia la carga a lectores de pantalla.
+ */
+export function DetailSkeleton({ label = "Cargando…" }: { label?: string }) {
+  return (
+    <div role="status" aria-live="polite" aria-busy="true" className="space-y-6">
+      <span className="sr-only">{label}</span>
+      <div className="border border-border bg-surface p-4">
+        <Skeleton className="h-6 w-48" />
+        <div className="mt-4 grid gap-x-6 gap-y-3 sm:grid-cols-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i}>
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="mt-1 h-4 w-40" />
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Skeleton className="h-24" />
+        <Skeleton className="h-24" />
+      </div>
+      <div className="border border-border bg-surface p-4">
+        <Skeleton className="h-3 w-28" />
+        <div className="mt-3 space-y-2">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-5 w-full" />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -210,11 +255,22 @@ export function TableWrap({ children }: { children: ReactNode }) {
   );
 }
 
-export function Th({ children, className }: { children: ReactNode; className?: string }) {
+export function Th({
+  children,
+  className,
+  scope = "col",
+}: {
+  children: ReactNode;
+  className?: string;
+  /** `col` para encabezados de columna (default), `row` para celdas-encabezado de fila. */
+  scope?: "col" | "row";
+}) {
   return (
     <th
+      scope={scope}
       className={cn(
         "whitespace-nowrap border-b-2 border-border-strong bg-surface-raised px-3 py-2 text-left align-bottom label-caps",
+        scope === "row" && "border-b border-border bg-transparent align-top font-normal normal-case tracking-normal",
         className,
       )}
     >
@@ -225,6 +281,54 @@ export function Th({ children, className }: { children: ReactNode; className?: s
 
 export function Td({ children, className }: { children: ReactNode; className?: string }) {
   return <td className={cn("border-b border-border px-3 py-2 align-top", className)}>{children}</td>;
+}
+
+/**
+ * Rango de fechas para las tablas del panel. La página usa `dateRangeError`
+ * (de `@/lib/adminDates`) para NO ejecutar la consulta hasta corregir el rango.
+ */
+export function DateRangeFields({
+  from,
+  to,
+  onFrom,
+  onTo,
+}: {
+  from: string | null | undefined;
+  to: string | null | undefined;
+  onFrom: (v: string) => void;
+  onTo: (v: string) => void;
+}) {
+  const invalid = dateRangeError(from, to) != null;
+  const field =
+    "mt-1 block border border-border-strong bg-bg px-2 py-2 text-sm aria-[invalid=true]:border-danger";
+  return (
+    <>
+      <label className="block">
+        <span className="label-caps">Desde</span>
+        <input
+          type="date"
+          lang="es-AR"
+          value={from ?? ""}
+          max={to || undefined}
+          aria-invalid={invalid || undefined}
+          onChange={(e) => onFrom(e.target.value)}
+          className={field}
+        />
+      </label>
+      <label className="block">
+        <span className="label-caps">Hasta</span>
+        <input
+          type="date"
+          lang="es-AR"
+          value={to ?? ""}
+          min={from || undefined}
+          aria-invalid={invalid || undefined}
+          onChange={(e) => onTo(e.target.value)}
+          className={field}
+        />
+      </label>
+    </>
+  );
 }
 
 export function Pagination({

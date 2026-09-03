@@ -4,6 +4,8 @@ import { useApi } from "@/components/admin/useApi";
 import { useListParams } from "@/components/admin/useListParams";
 import {
   Badge,
+  DateRangeFields,
+  dateRangeError,
   EmptyState,
   ErrorState,
   Pagination,
@@ -44,7 +46,10 @@ const ACTIONS = [
 
 export default function AdminAuditoriaPage() {
   const lp = useListParams({ sort: "created_at", limit: 50 });
-  const { data, error, loading, reload } = useApi<AuditResp>(`/api/admin/audit?${lp.query}`);
+  const rangeErr = dateRangeError(lp.filters.from, lp.filters.to);
+  const { data, error, loading, reload } = useApi<AuditResp>(
+    rangeErr ? null : `/api/admin/audit?${lp.query}`,
+  );
 
   return (
     <div>
@@ -84,24 +89,12 @@ export default function AdminAuditoriaPage() {
             className="mt-1 block w-36 border border-border-strong bg-bg px-3 py-2 text-sm"
           />
         </label>
-        <label className="block">
-          <span className="label-caps">Desde</span>
-          <input
-            type="date"
-            value={lp.filters.from ?? ""}
-            onChange={(e) => lp.setFilter("from", e.target.value)}
-            className="mt-1 block border border-border-strong bg-bg px-2 py-2 text-sm"
-          />
-        </label>
-        <label className="block">
-          <span className="label-caps">Hasta</span>
-          <input
-            type="date"
-            value={lp.filters.to ?? ""}
-            onChange={(e) => lp.setFilter("to", e.target.value)}
-            className="mt-1 block border border-border-strong bg-bg px-2 py-2 text-sm"
-          />
-        </label>
+        <DateRangeFields
+          from={lp.filters.from}
+          to={lp.filters.to}
+          onFrom={(v) => lp.setFilter("from", v)}
+          onTo={(v) => lp.setFilter("to", v)}
+        />
         <button
           type="button"
           onClick={lp.reset}
@@ -111,7 +104,18 @@ export default function AdminAuditoriaPage() {
         </button>
       </div>
 
-      {loading ? (
+      {rangeErr ? (
+        <p className="mb-3 border border-danger bg-surface p-2 text-sm text-danger" role="alert">
+          {rangeErr}
+        </p>
+      ) : null}
+
+      {rangeErr ? (
+        <EmptyState
+          title="Rango de fechas inválido"
+          description="Corregí el rango para ver la auditoría."
+        />
+      ) : loading ? (
         <SkeletonRows rows={10} cols={5} />
       ) : error ? (
         <ErrorState message={error} onRetry={reload} />

@@ -8,6 +8,8 @@ import { useListParams } from "@/components/admin/useListParams";
 import {
   Badge,
   Button,
+  DateRangeFields,
+  dateRangeError,
   EmptyState,
   ErrorState,
   Pagination,
@@ -45,7 +47,11 @@ const SORTS: { col: string; label: string }[] = [
 
 export default function AdminMovimientosPage() {
   const lp = useListParams({ sort: "created_at" });
-  const { data, error, loading, reload } = useApi<MovResp>(`/api/admin/movimientos?${lp.query}`);
+  const rangeErr = dateRangeError(lp.filters.from, lp.filters.to);
+  // Con el rango inválido no se consulta (path = null): se corrige antes.
+  const { data, error, loading, reload } = useApi<MovResp>(
+    rangeErr ? null : `/api/admin/movimientos?${lp.query}`,
+  );
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
@@ -78,7 +84,11 @@ export default function AdminMovimientosPage() {
         title="Movimientos"
         description="Gastos y pagos de todos los grupos (sólo lectura)."
         actions={
-          <Button variant="ghost" onClick={exportCsv} disabled={exporting || !data || data.total === 0}>
+          <Button
+            variant="ghost"
+            onClick={exportCsv}
+            disabled={exporting || !!rangeErr || !data || data.total === 0}
+          >
             {exporting ? "Exportando…" : "Exportar CSV"}
           </Button>
         }
@@ -115,24 +125,12 @@ export default function AdminMovimientosPage() {
             className="mt-1 block w-20 border border-border-strong bg-bg px-3 py-2 text-sm"
           />
         </label>
-        <label className="block">
-          <span className="label-caps">Desde</span>
-          <input
-            type="date"
-            value={lp.filters.from ?? ""}
-            onChange={(e) => lp.setFilter("from", e.target.value)}
-            className="mt-1 block border border-border-strong bg-bg px-2 py-2 text-sm"
-          />
-        </label>
-        <label className="block">
-          <span className="label-caps">Hasta</span>
-          <input
-            type="date"
-            value={lp.filters.to ?? ""}
-            onChange={(e) => lp.setFilter("to", e.target.value)}
-            className="mt-1 block border border-border-strong bg-bg px-2 py-2 text-sm"
-          />
-        </label>
+        <DateRangeFields
+          from={lp.filters.from}
+          to={lp.filters.to}
+          onFrom={(v) => lp.setFilter("from", v)}
+          onTo={(v) => lp.setFilter("to", v)}
+        />
         <button
           type="button"
           onClick={lp.reset}
@@ -142,13 +140,23 @@ export default function AdminMovimientosPage() {
         </button>
       </div>
 
+      {rangeErr ? (
+        <p className="mb-3 border border-danger bg-surface p-2 text-sm text-danger" role="alert">
+          {rangeErr}
+        </p>
+      ) : null}
       {exportError ? (
         <p className="mb-3 border border-danger bg-surface p-2 text-sm text-danger" role="alert">
           {exportError}
         </p>
       ) : null}
 
-      {loading ? (
+      {rangeErr ? (
+        <EmptyState
+          title="Rango de fechas inválido"
+          description="Corregí el rango para ver los movimientos."
+        />
+      ) : loading ? (
         <SkeletonRows rows={10} cols={5} />
       ) : error ? (
         <ErrorState message={error} onRetry={reload} />
@@ -186,7 +194,7 @@ export default function AdminMovimientosPage() {
                     {money(m.amount_minor, m.currency)}
                   </Td>
                   <Td>
-                    <Link href={`/admin/grupos/${m.group_id}`} className="text-accent-strong">
+                    <Link href={`/administracion/grupos/${m.group_id}`} className="text-accent-strong">
                       {m.group_name}
                     </Link>
                   </Td>

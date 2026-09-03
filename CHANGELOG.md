@@ -13,6 +13,63 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.15.3] - 2026-09-03
+
+Corrección integral del panel de administración a partir de una revisión QA en
+producción. Sin cambios de esquema ni migraciones nuevas (`0013_created_by.sql`
+sigue siendo requisito). La configuración de zona horaria se guarda con la
+infraestructura de `admin_settings` ya existente.
+
+### Changed
+
+- **Ruta canónica del panel: `/administracion`.** `/admin` (y `/admin/*`)
+  redirige a `/administracion` conservando la query (`?k=…`). Los endpoints
+  siguen en `/api/admin/*`, cada uno protegido por `requireAdmin`. La entrada
+  nunca figura en la navegación de la app.
+- **Zona horaria consistente.** Todas las fechas del panel (Dashboard, Usuarios,
+  Grupos, Movimientos, Auditoría, Estado) se muestran en
+  `America/Argentina/Buenos_Aires` por defecto —no en la zona del navegador de
+  quien mira, que hacía ver `03:15Z` como "8:15 p. m." (UTC-7)—. Configurable en
+  Configuración → Zona horaria (identificador IANA). Los datos se siguen
+  guardando en UTC.
+- **Idioma y formatos unificados.** El entorno se muestra como "Producción" /
+  "Vista previa" / "Desarrollo" (no `production`); el rol de grupo como
+  "Creador" / "Miembro" (no `owner`). Los contenedores del panel declaran
+  `lang="es-AR"` para que los selectores de fecha nativos usen `dd/mm/aaaa`.
+- **Dashboard: tarjeta de altas.** "Nuevos 7 días" con aclaración "17 en 30
+  días" pasa a "Altas de usuarios (7 días)" + "N en los últimos 30 días".
+- **Detalle de Grupo / Usuario: carga con estructura.** Skeleton que reproduce
+  la disposición real (cabecera, grilla, tarjetas, lista) con
+  `role="status"` + `aria-live` y texto "Cargando grupo…" / "Cargando usuario…".
+  Si la consulta falla, estado de error con "Reintentar" (ya existía).
+
+### Fixed
+
+- **Rango de fechas inválido.** En Movimientos y Auditoría, con "Desde" posterior
+  a "Hasta" el filtro se ignoraba y volvían todos los resultados. Ahora se
+  muestra "La fecha desde no puede ser posterior a la fecha hasta" y **no se
+  ejecuta la consulta** hasta corregirlo (validado también en el backend: 400).
+- **Columnas de Usuarios desalineadas.** Los `th` decían "Alta · Último acceso ·
+  Email" y las celdas iban email, alta, último acceso. Encabezados y celdas
+  ahora recorren una única definición de columnas en el orden pedido: **Email ·
+  Alta · Último acceso · Estado · Grupos · ID**. `th` con `scope`, primera celda
+  de cada fila como `th scope="row"`.
+- **Moneda por defecto sin validar.** El campo aceptaba cualquier combinación de
+  3 letras (`ABC`). Ahora es un selector de monedas soportadas y el backend
+  valida contra ISO 4217 (incluye ARS, USD, EUR, GTQ); no se guardan códigos
+  inexistentes.
+- **Configuración: "Guardar flags" siempre habilitado.** Se deshabilita salvo
+  que haya un cambio real en los flags. El campo para agregar un flag tiene
+  etiqueta accesible ("Nombre del nuevo feature flag"), explica el formato
+  permitido y valida el nombre (colisiones y caracteres) antes de agregar.
+
+### Accessibility
+
+- Skeletons y estados de carga anuncian `role="status"` / `aria-live`.
+- `th`/`td` de las tablas asociados con `scope`.
+- Login del panel: foco visible y navegable por teclado; sin desborde horizontal
+  a 320 / 375 / 768 / 1024 / 1440 px (test e2e).
+
 ## [0.15.2] - 2026-09-02
 
 Corrección del modo sin conexión. Sin cambios de esquema ni migraciones (la de

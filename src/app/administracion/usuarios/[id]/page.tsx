@@ -10,12 +10,12 @@ import {
   Badge,
   Button,
   Card,
+  DetailSkeleton,
   EmptyState,
   ErrorState,
   PageHeader,
-  Skeleton,
 } from "@/components/admin/ui";
-import { dateTime } from "@/lib/adminFormat";
+import { dateTime, roleLabel } from "@/lib/adminFormat";
 
 interface UserDetail {
   user: {
@@ -83,21 +83,18 @@ export default function AdminUserDetailPage() {
         title="Usuario"
         description={id}
         actions={
-          <Link href="/admin/usuarios" className="text-sm text-accent-strong">
+          <Link href="/administracion/usuarios" className="text-sm text-accent-strong">
             ← Volver
           </Link>
         }
       />
 
       {loading ? (
-        <div className="space-y-3">
-          <Skeleton className="h-32" />
-          <Skeleton className="h-40" />
-        </div>
+        <DetailSkeleton label="Cargando usuario…" />
       ) : error ? (
         <ErrorState message={error} onRetry={reload} />
       ) : !data ? (
-        <EmptyState title="No encontrado" />
+        <EmptyState title="No encontrado" description="El usuario no existe." />
       ) : (
         <div className="space-y-6">
           <Card>
@@ -161,11 +158,11 @@ export default function AdminUserDetailPage() {
               <ul className="divide-y divide-border text-sm">
                 {data.groups.map((g) => (
                   <li key={g.id} className="flex items-center justify-between gap-2 py-2">
-                    <Link href={`/admin/grupos/${g.id}`} className="font-semibold text-accent-strong">
+                    <Link href={`/administracion/grupos/${g.id}`} className="font-semibold text-accent-strong">
                       {g.name}
                     </Link>
                     <span className="text-xs text-muted">
-                      {g.role} · {g.currency_code}
+                      {roleLabel(g.role)} · {g.currency_code}
                       {g.archived_at ? " · archivado" : ""}
                     </span>
                   </li>

@@ -44,6 +44,19 @@ const nextConfig = {
     NEXT_PUBLIC_APP_COMMIT: shortCommit(),
     NEXT_PUBLIC_APP_ENV: environment,
   },
+  // Ruta canónica del panel: `/administracion`. `/admin` (nombre viejo) redirige
+  // conservando la query (`?k=…` para la llave de acceso). Los endpoints siguen
+  // en `/api/admin/*` (backend, protegidos por `requireAdmin` en cada uno).
+  async redirects() {
+    return [
+      { source: "/admin", destination: "/administracion", permanent: true },
+      {
+        source: "/admin/:path*",
+        destination: "/administracion/:path*",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

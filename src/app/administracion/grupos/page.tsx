@@ -120,7 +120,7 @@ export default function AdminGruposPage() {
                 <tr key={g.id} className="hover:bg-surface-raised">
                   <Td className="whitespace-nowrap text-muted">{dateTime(g.created_at)}</Td>
                   <Td>
-                    <Link href={`/admin/grupos/${g.id}`} className="font-semibold text-accent-strong">
+                    <Link href={`/administracion/grupos/${g.id}`} className="font-semibold text-accent-strong">
                       {g.name}
                     </Link>
                     {g.archived_at ? <Badge tone="warm">archivado</Badge> : null}

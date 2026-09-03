@@ -30,23 +30,26 @@ function AdminLoginForm() {
     const fromUrl = params.get("k");
     if (fromUrl && fromUrl.trim() !== "") {
       signInWithKey(fromUrl);
-      router.replace("/admin");
+      router.replace("/administracion");
     }
   }, [params, signInWithKey, router]);
 
   useEffect(() => {
-    if (token) router.replace("/admin");
+    if (token) router.replace("/administracion");
   }, [token, router]);
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (key.trim() === "") return;
     signInWithKey(key);
-    router.replace("/admin");
+    router.replace("/administracion");
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-bg p-4 text-text">
+    <div
+      lang="es-AR"
+      className="flex min-h-screen items-center justify-center bg-bg p-4 text-text"
+    >
       <div className="w-full max-w-sm border-2 border-border-strong bg-surface p-6">
         <h1 className="font-display text-xl font-bold tracking-tightest">
           FIVI <span className="text-muted">· Admin</span>

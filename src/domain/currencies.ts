@@ -72,3 +72,31 @@ export function minorUnitFactor(code: CurrencyCode): number {
 export function listCurrencies(): CurrencyInfo[] {
   return Object.values(CURRENCIES).sort((a, b) => a.code.localeCompare(b.code));
 }
+
+/**
+ * ¿`code` es una moneda usable? Acepta el catálogo explícito (ARS, USD, EUR,
+ * GTQ, …) y cualquier código de la lista ISO 4217 que conoce el runtime
+ * (`Intl.supportedValuesOf`). Rechaza inventos como "ABC".
+ *
+ * Nota: `Intl.NumberFormat` NO sirve para validar —acepta cualquier cadena de
+ * 3 letras y la formatea igual—, por eso se usa la lista de `supportedValuesOf`.
+ */
+let iso4217: Set<string> | null = null;
+function isoCodes(): Set<string> {
+  if (iso4217) return iso4217;
+  try {
+    const sv = (
+      Intl as unknown as { supportedValuesOf?: (k: string) => string[] }
+    ).supportedValuesOf;
+    iso4217 = new Set(sv ? sv("currency") : []);
+  } catch {
+    iso4217 = new Set();
+  }
+  return iso4217;
+}
+
+export function isSupportedCurrency(code: string | null | undefined): boolean {
+  if (!code || !/^[A-Z]{3}$/.test(code)) return false;
+  if (Object.prototype.hasOwnProperty.call(CURRENCIES, code)) return true;
+  return isoCodes().has(code);
+}

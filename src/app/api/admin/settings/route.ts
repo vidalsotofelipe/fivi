@@ -1,5 +1,8 @@
 import { adminRoute, badRequest, ok } from "@/lib/adminHandler";
 import { rpc } from "@/lib/adminQuery";
+import { isValidTimeZone } from "@/lib/adminFormat";
+import { FLAG_NAME_RE } from "@/lib/adminSettingsSchema";
+import { isSupportedCurrency } from "@/domain/currencies";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,14 +14,35 @@ export const dynamic = "force-dynamic";
 type Validator = (v: unknown) => { ok: true; value: unknown } | { ok: false; error: string };
 
 const KEYS: Record<string, Validator> = {
-  default_currency: (v) =>
-    typeof v === "string" && /^[A-Z]{3}$/.test(v)
+  default_currency: (v) => {
+    if (typeof v !== "string" || !/^[A-Z]{3}$/.test(v)) {
+      return { ok: false, error: "La moneda debe ser un código de 3 letras mayúsculas." };
+    }
+    if (!isSupportedCurrency(v)) {
+      return {
+        ok: false,
+        error: `Moneda no reconocida. Usá un código ISO 4217 válido (ARS, USD, EUR, GTQ, …).`,
+      };
+    }
+    return { ok: true, value: v };
+  },
+  timezone: (v) =>
+    typeof v === "string" && isValidTimeZone(v)
       ? { ok: true, value: v }
-      : { ok: false, error: "default_currency debe ser un código ISO 4217 (3 letras mayúsculas)" },
+      : {
+          ok: false,
+          error:
+            "Zona horaria inválida. Usá un identificador IANA (p. ej. America/Argentina/Buenos_Aires).",
+        },
   feature_flags: (v) => {
     if (v == null || typeof v !== "object" || Array.isArray(v))
       return { ok: false, error: "feature_flags debe ser un objeto" };
     for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+      if (!FLAG_NAME_RE.test(k))
+        return {
+          ok: false,
+          error: `Nombre de flag inválido: "${k}". Usá minúsculas, números, "_" o ".", empezando por letra (2–40).`,
+        };
       if (typeof val !== "boolean") return { ok: false, error: `feature_flags.${k} debe ser boolean` };
     }
     return { ok: true, value: v };

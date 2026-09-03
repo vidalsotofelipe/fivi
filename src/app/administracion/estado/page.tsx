@@ -2,7 +2,7 @@
 
 import { useApi } from "@/components/admin/useApi";
 import { Badge, Button, Card, ErrorState, PageHeader, Skeleton } from "@/components/admin/ui";
-import { dateTime } from "@/lib/adminFormat";
+import { dateTime, envLabel, getAdminTimeZone } from "@/lib/adminFormat";
 
 interface Check {
   ok: boolean;
@@ -65,11 +65,15 @@ export default function AdminEstadoPage() {
               </div>
               <div className="flex justify-between">
                 <dt className="label-caps">Entorno</dt>
-                <dd>{data.app.environment}</dd>
+                <dd>{envLabel(data.app.environment)}</dd>
               </div>
               <div className="flex justify-between">
                 <dt className="label-caps">Supabase</dt>
                 <dd className="text-sm text-muted">{data.supabase_host ?? "—"}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="label-caps">Zona horaria</dt>
+                <dd className="text-sm text-muted">{getAdminTimeZone()}</dd>
               </div>
             </dl>
           </Card>

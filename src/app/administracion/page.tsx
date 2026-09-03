@@ -96,7 +96,11 @@ export default function AdminDashboardPage() {
               hint="vs. período previo"
               delta={data.users.new_in_range - data.users.new_prev}
             />
-            <Kpi label="Nuevos 7 días" value={data.users.new_7d} hint={`${data.users.new_30d} en 30 días`} />
+            <Kpi
+              label="Altas de usuarios (7 días)"
+              value={data.users.new_7d}
+              hint={`${data.users.new_30d} en los últimos 30 días`}
+            />
             <Kpi
               label="Grupos activos"
               value={data.groups.total}
@@ -197,11 +201,11 @@ export default function AdminDashboardPage() {
           <Card title="Accesos rápidos">
             <div className="flex flex-wrap gap-2 text-sm">
               {([
-                ["/admin/usuarios", "Usuarios"],
-                ["/admin/grupos", "Grupos"],
-                ["/admin/movimientos", "Movimientos"],
-                ["/admin/auditoria", "Auditoría"],
-                ["/admin/estado", "Estado"],
+                ["/administracion/usuarios", "Usuarios"],
+                ["/administracion/grupos", "Grupos"],
+                ["/administracion/movimientos", "Movimientos"],
+                ["/administracion/auditoria", "Auditoría"],
+                ["/administracion/estado", "Estado"],
               ] as const).map(([href, label]) => (
                 <Link
                   key={href}

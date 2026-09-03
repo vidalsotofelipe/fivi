@@ -94,9 +94,10 @@ const supabaseConfig = readSupabaseConfig();
 export function SyncProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
   const backend: SyncBackend = supabaseConfig ? "cloud" : "local";
-  // El panel `/admin` no usa el motor local-first ni la sesión anónima de la
-  // app: tiene su propia sesión (email + contraseña) y habla con /api/admin/*.
-  const isAdminRoute = (usePathname() ?? "").startsWith("/admin");
+  // El panel de administración (`/administracion`, y `/admin` que redirige a ella)
+  // no usa el motor local-first ni la sesión anónima de la app: tiene su propia
+  // sesión y habla con /api/admin/*.
+  const isAdminRoute = /^\/admin(istracion)?(\/|$)/.test(usePathname() ?? "");
   const queueStats = useLiveQuery(() => getQueueStats(db), [], {
     pending: 0,
     exhausted: 0,

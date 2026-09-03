@@ -3,8 +3,15 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useApi } from "@/components/admin/useApi";
-import { Badge, Card, EmptyState, ErrorState, PageHeader, Skeleton } from "@/components/admin/ui";
-import { dateTime, money, shortId } from "@/lib/adminFormat";
+import {
+  Badge,
+  Card,
+  DetailSkeleton,
+  EmptyState,
+  ErrorState,
+  PageHeader,
+} from "@/components/admin/ui";
+import { dateTime, money, roleLabel, shortId } from "@/lib/adminFormat";
 
 interface GroupDetail {
   group: {
@@ -34,21 +41,18 @@ export default function AdminGroupDetailPage() {
         title="Grupo"
         description={id}
         actions={
-          <Link href="/admin/grupos" className="text-sm text-accent-strong">
+          <Link href="/administracion/grupos" className="text-sm text-accent-strong">
             ← Volver
           </Link>
         }
       />
 
       {loading ? (
-        <div className="space-y-3">
-          <Skeleton className="h-32" />
-          <Skeleton className="h-40" />
-        </div>
+        <DetailSkeleton label="Cargando grupo…" />
       ) : error ? (
         <ErrorState message={error} onRetry={reload} />
       ) : !data ? (
-        <EmptyState title="No encontrado" />
+        <EmptyState title="No encontrado" description="El grupo no existe o fue eliminado." />
       ) : (
         <div className="space-y-6">
           <Card>
@@ -77,7 +81,7 @@ export default function AdminGroupDetailPage() {
                 <dd>
                   {data.group.created_by ? (
                     <Link
-                      href={`/admin/usuarios/${data.group.created_by}`}
+                      href={`/administracion/usuarios/${data.group.created_by}`}
                       className="font-mono text-xs text-accent-strong"
                     >
                       {shortId(data.group.created_by)}
@@ -124,12 +128,14 @@ export default function AdminGroupDetailPage() {
                 {data.members.map((m) => (
                   <li key={m.user_id} className="flex justify-between py-2">
                     <Link
-                      href={`/admin/usuarios/${m.user_id}`}
+                      href={`/administracion/usuarios/${m.user_id}`}
                       className="font-mono text-xs text-accent-strong"
                     >
                       {shortId(m.user_id)}
                     </Link>
-                    <Badge tone={m.role === "owner" ? "accent" : "neutral"}>{m.role}</Badge>
+                    <Badge tone={m.role === "owner" ? "accent" : "neutral"}>
+                      {roleLabel(m.role)}
+                    </Badge>
                   </li>
                 ))}
               </ul>

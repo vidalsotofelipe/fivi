@@ -1,5 +1,13 @@
 import { adminRoute, badRequest, ok } from "@/lib/adminHandler";
-import { isUuid, pageArgs, rpc, sortArgs, sp, str } from "@/lib/adminQuery";
+import {
+  dateRangeInvalid,
+  isUuid,
+  pageArgs,
+  rpc,
+  sortArgs,
+  sp,
+  str,
+} from "@/lib/adminQuery";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,13 +28,19 @@ export const GET = adminRoute(async (req) => {
   const group = str(p, "group");
   if (group && !isUuid(group)) return badRequest("group inválido");
 
+  const from = str(p, "from");
+  const to = str(p, "to");
+  if (dateRangeInvalid(from, to)) {
+    return badRequest("La fecha desde no puede ser posterior a la fecha hasta");
+  }
+
   const data = await rpc("admin_list_movements", {
     p_type: type,
     p_group: group,
     p_currency: str(p, "currency"),
     p_search: str(p, "search"),
-    p_from: str(p, "from"),
-    p_to: str(p, "to"),
+    p_from: from,
+    p_to: to,
     p_sort: sort,
     p_dir: dir,
     p_limit: limit,

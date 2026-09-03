@@ -110,3 +110,7 @@ export async function rpc<T = unknown>(
 export function isUuid(v: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 }
+
+// Defensa de servidor para el rango de fechas: la UI ya lo bloquea, pero un
+// pedido directo con el rango invertido no debe devolver "todo".
+export { dateRangeInvalid } from "./adminDates";

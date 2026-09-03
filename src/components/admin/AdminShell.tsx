@@ -2,24 +2,26 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import { appInfo } from "@/lib/appInfo";
+import { envLabel, setAdminTimeZone } from "@/lib/adminFormat";
 import { useTheme, type ThemePref } from "@/components/ThemeProvider";
+import { useApi } from "./useApi";
 import { useAdminSession } from "./AdminSession";
 
 const NAV: { href: string; label: string }[] = [
-  { href: "/admin", label: "Dashboard" },
-  { href: "/admin/usuarios", label: "Usuarios" },
-  { href: "/admin/grupos", label: "Grupos" },
-  { href: "/admin/movimientos", label: "Movimientos" },
-  { href: "/admin/auditoria", label: "Auditoría" },
-  { href: "/admin/estado", label: "Estado" },
-  { href: "/admin/configuracion", label: "Configuración" },
+  { href: "/administracion", label: "Dashboard" },
+  { href: "/administracion/usuarios", label: "Usuarios" },
+  { href: "/administracion/grupos", label: "Grupos" },
+  { href: "/administracion/movimientos", label: "Movimientos" },
+  { href: "/administracion/auditoria", label: "Auditoría" },
+  { href: "/administracion/estado", label: "Estado" },
+  { href: "/administracion/configuracion", label: "Configuración" },
 ];
 
 function isActive(pathname: string, href: string): boolean {
-  return href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
+  return href === "/administracion" ? pathname === "/administracion" : pathname.startsWith(href);
 }
 
 function NavList({ onNavigate }: { onNavigate?: () => void }) {
@@ -80,8 +82,15 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const { email, byAccessKey, signOut } = useAdminSession();
   const [drawer, setDrawer] = useState(false);
 
+  // La zona horaria de visualización se toma de Configuración (`timezone`) y se
+  // aplica a TODO el panel. Se lee una vez (el shell se monta una sola vez).
+  const settings = useApi<{ settings: { timezone?: string } }>("/api/admin/settings");
+  useEffect(() => {
+    setAdminTimeZone(settings.data?.settings.timezone);
+  }, [settings.data]);
+
   return (
-    <div className="min-h-screen bg-bg text-text">
+    <div lang="es-AR" className="min-h-screen bg-bg text-text">
       {/* Topbar */}
       <header className="sticky top-0 z-30 flex items-center gap-3 border-b-2 border-border-strong bg-surface px-4 py-2">
         <button
@@ -100,7 +109,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
           className="border border-border px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-caps text-muted"
           title="Entorno de ejecución"
         >
-          {appInfo.environment}
+          {envLabel(appInfo.environment)}
         </span>
         <div className="ml-auto flex items-center gap-3">
           <ThemeToggle />

@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
+import { USER_COLUMNS_META, type UserColumnKey } from "./columns";
 import { useApi } from "@/components/admin/useApi";
 import { useListParams } from "@/components/admin/useListParams";
 import {
@@ -34,15 +36,39 @@ interface UsersResp {
   rows: UserRow[];
 }
 
-const SORTS: { col: string; label: string }[] = [
-  { col: "created_at", label: "Alta" },
-  { col: "last_sign_in_at", label: "Último acceso" },
-  { col: "email", label: "Email" },
-];
-
 function isBanned(u: UserRow): boolean {
   return u.banned_until != null && new Date(u.banned_until).getTime() > Date.now();
 }
+
+/**
+ * Renderizado de cada celda por clave. La ESTRUCTURA (orden, etiquetas) vive en
+ * `./columns` (sin JSX, testeable); acá sólo el contenido. Encabezados y celdas
+ * recorren `USER_COLUMNS_META` en el mismo orden, así no pueden desalinearse.
+ */
+const CELLS: Record<UserColumnKey, (u: UserRow) => ReactNode> = {
+  email: (u) => (
+    <Link
+      href={`/administracion/usuarios/${u.id}`}
+      className="font-semibold text-accent-strong"
+    >
+      {u.email ?? (u.is_anonymous ? "(anónimo)" : "(sin email)")}
+    </Link>
+  ),
+  created_at: (u) => dateTime(u.created_at),
+  last_sign_in_at: (u) => dateTime(u.last_sign_in_at),
+  status: (u) => (
+    <div className="flex flex-wrap gap-1">
+      {u.is_admin ? <Badge tone="accent">admin</Badge> : null}
+      {isBanned(u) ? (
+        <Badge tone="danger">desactivado</Badge>
+      ) : (
+        <Badge tone="positive">activo</Badge>
+      )}
+    </div>
+  ),
+  groups: (u) => `${u.groups_owned} propios · ${u.groups_member} miembro`,
+  id: (u) => shortId(u.id),
+};
 
 export default function AdminUsuariosPage() {
   const lp = useListParams({ sort: "created_at" });
@@ -96,7 +122,7 @@ export default function AdminUsuariosPage() {
       </div>
 
       {loading ? (
-        <SkeletonRows rows={8} cols={6} />
+        <SkeletonRows rows={8} cols={USER_COLUMNS_META.length} />
       ) : error ? (
         <ErrorState message={error} onRetry={reload} />
       ) : !data || data.rows.length === 0 ? (
@@ -106,43 +132,38 @@ export default function AdminUsuariosPage() {
           <TableWrap>
             <thead>
               <tr>
-                {SORTS.map((s) => (
-                  <Th key={s.col}>
-                    <button
-                      type="button"
-                      onClick={() => lp.setSort(s.col)}
-                      className="label-caps hover:text-text"
-                    >
-                      {s.label}
-                      {lp.sort === s.col ? (lp.dir === "asc" ? " ▲" : " ▼") : ""}
-                    </button>
+                {USER_COLUMNS_META.map((c) => (
+                  <Th key={c.key}>
+                    {c.sort ? (
+                      <button
+                        type="button"
+                        onClick={() => lp.setSort(c.sort!)}
+                        className="label-caps hover:text-text"
+                      >
+                        {c.label}
+                        {lp.sort === c.sort ? (lp.dir === "asc" ? " ▲" : " ▼") : ""}
+                      </button>
+                    ) : (
+                      c.label
+                    )}
                   </Th>
                 ))}
-                <Th>Estado</Th>
-                <Th>Grupos</Th>
-                <Th>ID</Th>
               </tr>
             </thead>
             <tbody>
               {data.rows.map((u) => (
                 <tr key={u.id} className="hover:bg-surface-raised">
-                  <Td>
-                    <Link href={`/admin/usuarios/${u.id}`} className="font-semibold text-accent-strong">
-                      {u.email ?? (u.is_anonymous ? "(anónimo)" : "(sin email)")}
-                    </Link>
-                  </Td>
-                  <Td className="whitespace-nowrap text-muted">{dateTime(u.created_at)}</Td>
-                  <Td className="whitespace-nowrap text-muted">{dateTime(u.last_sign_in_at)}</Td>
-                  <Td>
-                    <div className="flex flex-wrap gap-1">
-                      {u.is_admin ? <Badge tone="accent">admin</Badge> : null}
-                      {isBanned(u) ? <Badge tone="danger">desactivado</Badge> : <Badge tone="positive">activo</Badge>}
-                    </div>
-                  </Td>
-                  <Td className="whitespace-nowrap text-muted">
-                    {u.groups_owned} propios · {u.groups_member} miembro
-                  </Td>
-                  <Td className="font-mono text-xs text-faint">{shortId(u.id)}</Td>
+                  {USER_COLUMNS_META.map((c, i) =>
+                    i === 0 ? (
+                      <Th key={c.key} scope="row" className={c.className}>
+                        {CELLS[c.key](u)}
+                      </Th>
+                    ) : (
+                      <Td key={c.key} className={c.className}>
+                        {CELLS[c.key](u)}
+                      </Td>
+                    ),
+                  )}
                 </tr>
               ))}
             </tbody>
