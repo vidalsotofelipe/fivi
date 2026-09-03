@@ -13,6 +13,17 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.15.4] - 2026-09-03
+
+### Fixed
+
+- **Guardar configuración con la llave de acceso daba error 500.**
+  `admin_settings_set` y `admin_set_user_admin` reciben `p_by uuid`, pero con la
+  llave compartida la identidad es el texto sintético `"access-key"` → Postgres
+  fallaba al castear a uuid. Ahora los endpoints pasan `null` en ese caso
+  (`AdminCtx.adminUserId`), consistente con la auditoría. Afectaba a Configuración
+  (moneda, zona horaria, feature flags) y a conceder/quitar admin.
+
 ## [0.15.3] - 2026-09-03
 
 Corrección integral del panel de administración a partir de una revisión QA en

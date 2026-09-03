@@ -245,6 +245,24 @@ describe("settings PATCH", () => {
     }
   });
 
+  it("con la llave compartida, p_by va como null (no 'access-key', que no es uuid)", async () => {
+    process.env.ADMIN_ACCESS_KEY = "llave-compartida-suficientemente-larga";
+    rpc.mockResolvedValue({ data: {}, error: null });
+    const { PATCH } = await import("@/app/api/admin/settings/route");
+    const res = await PATCH(
+      req("/api/admin/settings", {
+        method: "PATCH",
+        headers: { authorization: "Bearer llave-compartida-suficientemente-larga" },
+        body: JSON.stringify({ key: "timezone", value: "UTC" }),
+      }),
+      NO_CTX,
+    );
+    expect(res.status).toBe(200);
+    expect(rpc.mock.calls[0]![0]).toBe("admin_settings_set");
+    expect(rpc.mock.calls[0]![1]).toMatchObject({ p_by: null });
+    delete process.env.ADMIN_ACCESS_KEY;
+  });
+
   it("timezone: 200 con IANA válida, 400 con basura", async () => {
     const { PATCH } = await import("@/app/api/admin/settings/route");
     asAdmin();

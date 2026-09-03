@@ -70,7 +70,7 @@ export const PATCH = adminRoute(async (req, ctx) => {
   const data = await rpc("admin_settings_set", {
     p_key: key,
     p_value: check.value,
-    p_by: ctx.adminId,
+    p_by: ctx.adminUserId, // uuid o null (llave compartida)
   });
   await ctx.audit({
     action: "settings.update",

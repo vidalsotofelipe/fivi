@@ -30,13 +30,13 @@ export const POST = adminRoute(async (req, ctx, params) => {
     const data = await rpc<{ is_admin: boolean; admin_count: number }>("admin_set_user_admin", {
       p_uid: id,
       p_make: make,
-      p_by: ctx.adminId,
+      p_by: ctx.adminUserId, // uuid o null (llave compartida)
     });
     await ctx.audit({
       action: make ? "admin.grant" : "admin.revoke",
       entity: "user",
       entityId: id,
-      metadata: { self: id === ctx.adminId, admin_count: data.admin_count },
+      metadata: { self: id === ctx.adminUserId, admin_count: data.admin_count },
     });
     return ok(data);
   } catch (e) {

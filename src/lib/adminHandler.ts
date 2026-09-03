@@ -22,6 +22,12 @@ export interface AuditEvent {
 }
 
 export interface AdminCtx extends AdminIdentity {
+  /**
+   * `adminId` como UUID para pasar a las funciones SQL (`p_by uuid`), o `null`
+   * cuando se entró con la llave compartida (no hay un usuario detrás). Usar
+   * este y NO `adminId` para argumentos `uuid` de Postgres.
+   */
+  adminUserId: string | null;
   /** Registra una acción administrativa. Nunca lanza (la auditoría no corta la operación). */
   audit: (e: AuditEvent) => Promise<void>;
 }
@@ -70,6 +76,8 @@ export function adminRoute(fn: Handler) {
 
     const ctx: AdminCtx = {
       ...ident,
+      adminUserId:
+        ident.adminId === ACCESS_KEY_ADMIN_ID ? null : ident.adminId,
       audit: (e) => writeAudit(ident.adminId, e),
     };
 
