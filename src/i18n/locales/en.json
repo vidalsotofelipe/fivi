@@ -99,7 +99,20 @@
     "myNameIs": "You are {{name}} in your groups",
     "myNameSaved": "All set, {{name}}",
     "myNameLinked_one": "We recognized you in {{count}} group",
-    "myNameLinked_other": "We recognized you in {{count}} groups"
+    "myNameLinked_other": "We recognized you in {{count}} groups",
+    "preferredCurrencyLabel": "Main currency",
+    "preferredCurrencyHint": "We use it to show your consolidated situation across all groups. It does NOT change any group's or expense's currency: the original amounts stay as they are.",
+    "preferredCurrencyIs": "Your main currency: {{code}}",
+    "preferredCurrencySaved": "Main currency: {{code}}",
+    "globalBalanceLabel": "Estimated total balance",
+    "globalBalancePositive": "Approximate equivalent in your main currency · in your favor",
+    "globalBalanceNegative": "Approximate equivalent in your main currency · you owe",
+    "globalBalanceMissing_one": "{{list}} has no available rate and isn't included in the total.",
+    "globalBalanceMissing_other": "{{list}} have no available rate and aren't included in the total.",
+    "byCurrency": "By currency",
+    "fxInfo": "Where this conversion comes from",
+    "fxStale": "Estimated with the rate from {{date}}",
+    "fxDetail": "Rate updated {{date}} · Source: {{provider}}"
   },
   "group": {
     "newTitle": "New group",

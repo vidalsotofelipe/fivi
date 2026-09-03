@@ -14,19 +14,28 @@ export function Money({
   minor,
   currency,
   signed,
+  code,
+  approx,
   className,
 }: {
   minor: number;
   currency: CurrencyCode;
   signed?: boolean;
+  /** Muestra el código ISO en vez del símbolo (para pantallas multi-moneda). */
+  code?: boolean;
+  /** Antepone "≈" (valor convertido, aproximado). */
+  approx?: boolean;
   className?: string;
 }) {
   const { lang } = useLocale();
+  const opts = code ? ({ display: "code" } as const) : undefined;
+  const pre = approx ? "≈ " : "";
 
   if (!signed) {
     return (
       <span className={cn("font-display tabular-nums", className)}>
-        {formatMoney(minor, currency, lang)}
+        {pre}
+        {formatMoney(minor, currency, lang, opts)}
       </span>
     );
   }
@@ -42,8 +51,9 @@ export function Money({
   const sign = minor > 0 ? "+" : minor < 0 ? "−" : "";
   return (
     <span className={cn("font-display tabular-nums", tone, className)}>
+      {pre}
       {sign}
-      {formatMoney(Math.abs(minor), currency, lang)}
+      {formatMoney(Math.abs(minor), currency, lang, opts)}
     </span>
   );
 }

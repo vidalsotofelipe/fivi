@@ -83,7 +83,7 @@ test("tema Sistema / Claro / Oscuro: cambio instantáneo y persistente", async (
   await expect(html).toHaveAttribute("data-theme", "dark");
   await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute(
     "content",
-    "#17161a",
+    "#191816",
   );
 
   // Persiste tras recargar (script en <head>, antes del paint).

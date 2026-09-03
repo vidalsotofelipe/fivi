@@ -1,25 +1,49 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Money } from "@/components/Money";
+import { useLocale } from "@/components/LocaleProvider";
 import { cn } from "@/lib/cn";
-import type { GroupsSummary } from "@/domain/groupsSummary";
+import { formatDate } from "@/lib/format";
+import type { GlobalBalance, GroupsSummary } from "@/domain/groupsSummary";
 
 /**
- * Resumen de todos los grupos en la pantalla de inicio: cuánto te deben, cuánto
- * debés y cuántos grupos activos hay.
+ * Resumen de todos los grupos en el inicio.
  *
- * **Los totales son por moneda.** Un grupo tiene una sola moneda y FIVI no
- * convierte divisas, así que sumar 300 € con 60 £ daría un número falso. Con
- * una sola moneda (el caso normal) se ve como un total único; con varias, una
- * línea por moneda.
+ * Dos capas, siempre:
+ *  1. **Balance global estimado** en la moneda principal del usuario (si la
+ *     configuró y hay más de una moneda). Se calcula convirtiendo el saldo NETO
+ *     de cada moneda por separado y sumando — NUNCA se suman monedas distintas
+ *     sin convertir. La conversión es sólo para visualización.
+ *  2. **Por moneda**: los importes originales (con código ISO, porque "$" es
+ *     ambiguo). Esta es la fuente de verdad.
+ *
+ * Sin moneda principal, o con una sola moneda, se muestra sólo la capa 2 (el
+ * comportamiento anterior).
  */
-export function GroupsSummaryHeader({ summary }: { summary: GroupsSummary }) {
+export function GroupsSummaryHeader({
+  summary,
+  global,
+}: {
+  summary: GroupsSummary;
+  /** Balance consolidado; `null` si no hay moneda principal configurada. */
+  global: GlobalBalance | null;
+}) {
   const { t } = useTranslation(["onboarding", "group", "common"]);
+  const { lang } = useLocale();
+  const [showFx, setShowFx] = useState(false);
 
   if (summary.active_groups === 0) return null;
 
-  const [primary, ...rest] = summary.totals;
+  const totals = summary.totals;
+  const multi = totals.length > 1;
+  // Sólo tiene sentido el balance global si hay varias monedas y se pudo
+  // convertir al menos una cruzada.
+  const showGlobal =
+    global != null &&
+    multi &&
+    (global.converted.length > 0 || global.missing.length > 0);
 
   return (
     <section
@@ -35,100 +59,143 @@ export function GroupsSummaryHeader({ summary }: { summary: GroupsSummary }) {
         ) : null}
       </div>
 
-      {/* Cifra principal: lo que te deben en la moneda con más movimiento. */}
-      <div className="px-4 pb-4 pt-2">
-        {primary ? (
-          <>
-            <p className="label-caps">
-              {primary.owed_to_me_minor > 0
-                ? t("group:youAreOwed")
-                : t("group:youOwe")}
-            </p>
-            <p
-              className={cn(
-                "font-display mt-1 text-[38px] leading-none tracking-tightest",
-                primary.owed_to_me_minor > 0 ? "text-positive" : "text-warm-strong",
-              )}
-            >
-              <Money
-                minor={
-                  primary.owed_to_me_minor > 0
-                    ? primary.owed_to_me_minor
-                    : primary.i_owe_minor
-                }
-                currency={primary.currency}
-              />
-            </p>
-          </>
-        ) : (
-          <p className="font-display text-2xl leading-none tracking-tightest text-positive">
-            {t("group:settledUp")}
+      {/* 1 · Balance global estimado en la moneda principal. */}
+      {showGlobal ? (
+        <div className="px-4 pb-3 pt-2">
+          <p className="label-caps">{t("onboarding:globalBalanceLabel")}</p>
+          <p
+            className={cn(
+              "font-display mt-1 text-[38px] leading-none tracking-tightest",
+              global!.balance_minor > 0
+                ? "text-positive"
+                : global!.balance_minor < 0
+                  ? "text-warm-strong"
+                  : "text-text",
+            )}
+          >
+            <Money
+              minor={Math.abs(global!.balance_minor)}
+              currency={global!.currency}
+              code
+              approx
+            />
           </p>
-        )}
-      </div>
+          <p className="mt-1 text-xs text-muted">
+            {global!.balance_minor >= 0
+              ? t("onboarding:globalBalancePositive")
+              : t("onboarding:globalBalanceNegative")}
+          </p>
+          {global!.missing.length > 0 ? (
+            <p className="mt-1 text-xs text-warm-strong">
+              {t("onboarding:globalBalanceMissing", {
+                list: global!.missing.join(", "),
+                count: global!.missing.length,
+              })}
+            </p>
+          ) : null}
+          {global!.converted.some((c) => c !== global!.currency) ? (
+            <button
+              type="button"
+              onClick={() => setShowFx((v) => !v)}
+              aria-expanded={showFx}
+              className="mt-1 text-xs text-muted underline underline-offset-2"
+            >
+              {global!.stale
+                ? t("onboarding:fxStale", {
+                    date: global!.quoted_at
+                      ? formatDate(global!.quoted_at.slice(0, 10), lang)
+                      : "—",
+                  })
+                : t("onboarding:fxInfo")}
+            </button>
+          ) : null}
+          {showFx ? (
+            <p className="mt-1 text-xs text-faint">
+              {t("onboarding:fxDetail", {
+                date: global!.quoted_at
+                  ? formatDate(global!.quoted_at.slice(0, 10), lang)
+                  : "—",
+                provider: global!.provider ?? "—",
+              })}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
-      {/* Detalle: la contraparte de la moneda principal + grupos activos. */}
+      {/* Fallback sin moneda principal / una sola moneda: cifra principal simple. */}
+      {!showGlobal ? (
+        <div className="px-4 pb-4 pt-2">
+          {totals[0] ? (
+            <>
+              <p className="label-caps">
+                {totals[0].net_minor >= 0
+                  ? t("group:youAreOwed")
+                  : t("group:youOwe")}
+              </p>
+              <p
+                className={cn(
+                  "font-display mt-1 text-[38px] leading-none tracking-tightest",
+                  totals[0].net_minor >= 0 ? "text-positive" : "text-warm-strong",
+                )}
+              >
+                <Money
+                  minor={Math.abs(totals[0].net_minor)}
+                  currency={totals[0].currency}
+                  code={multi}
+                />
+              </p>
+            </>
+          ) : (
+            <p className="font-display text-2xl leading-none tracking-tightest text-positive">
+              {t("group:settledUp")}
+            </p>
+          )}
+        </div>
+      ) : null}
+
+      {/* 2 · Por moneda: importes ORIGINALES, con código ISO. */}
+      {totals.length > 0 ? (
+        <>
+          <p className="border-t-2 border-border px-4 pb-1 pt-2 label-caps">
+            {t("onboarding:byCurrency")}
+          </p>
+          <ul className="divide-y divide-border">
+            {totals.map((tot) => (
+              <li
+                key={tot.currency}
+                className="flex items-baseline justify-between gap-2 px-4 py-2 text-sm"
+              >
+                <span className="label-caps">{tot.currency}</span>
+                <span className="flex flex-wrap justify-end gap-x-3 gap-y-0.5">
+                  {tot.owed_to_me_minor > 0 ? (
+                    <span className="text-positive">
+                      {t("group:youAreOwed")}:{" "}
+                      <Money minor={tot.owed_to_me_minor} currency={tot.currency} code />
+                    </span>
+                  ) : null}
+                  {tot.i_owe_minor > 0 ? (
+                    <span className="text-warm-strong">
+                      {t("group:youOwe")}:{" "}
+                      <Money minor={tot.i_owe_minor} currency={tot.currency} code />
+                    </span>
+                  ) : null}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+
       <dl className="flex divide-x-2 divide-border border-t-2 border-border">
         <div className="min-w-0 flex-1 px-4 py-3">
-          <dt className="label-caps">
-            {primary && primary.owed_to_me_minor > 0
-              ? t("group:youOwe")
-              : t("group:youAreOwed")}
-          </dt>
-          <dd className="mt-0.5 font-semibold text-warm-strong">
-            {primary ? (
-              <Money
-                minor={
-                  primary.owed_to_me_minor > 0
-                    ? primary.i_owe_minor
-                    : primary.owed_to_me_minor
-                }
-                currency={primary.currency}
-              />
-            ) : (
-              "—"
-            )}
-          </dd>
-        </div>
-        <div className="min-w-0 flex-1 px-4 py-3">
           <dt className="label-caps">{t("onboarding:activeGroups")}</dt>
-          <dd className="mt-0.5 font-semibold text-text">
-            {summary.active_groups}
-          </dd>
+          <dd className="mt-0.5 font-semibold text-text">{summary.active_groups}</dd>
         </div>
       </dl>
 
-      {/* Otras monedas: nunca se mezclan con la principal. */}
-      {rest.length > 0 ? (
-        <ul className="divide-y divide-border border-t-2 border-border">
-          {rest.map((tot) => (
-            <li
-              key={tot.currency}
-              className="flex items-baseline justify-between gap-2 px-4 py-2 text-sm"
-            >
-              <span className="label-caps">{tot.currency}</span>
-              <span className="flex gap-3">
-                {tot.owed_to_me_minor > 0 ? (
-                  <span className="text-positive">
-                    +<Money minor={tot.owed_to_me_minor} currency={tot.currency} />
-                  </span>
-                ) : null}
-                {tot.i_owe_minor > 0 ? (
-                  <span className="text-warm-strong">
-                    −<Money minor={tot.i_owe_minor} currency={tot.currency} />
-                  </span>
-                ) : null}
-              </span>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-
       {summary.groups_without_me > 0 ? (
         <p className="border-t-2 border-border px-4 py-2 text-xs text-muted">
-          {t("onboarding:summaryMissingMe", {
-            count: summary.groups_without_me,
-          })}
+          {t("onboarding:summaryMissingMe", { count: summary.groups_without_me })}
         </p>
       ) : null}
     </section>

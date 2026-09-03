@@ -87,17 +87,23 @@ export function toMinorUnits(input: string, code: CurrencyCode): number {
 /**
  * Formatea unidades mínimas como string monetario localizado.
  * Ejemplos: ARS 123456 -> "$ 1.234,56" · USD 45000 -> "US$ 450.00"
+ *
+ * `display: "code"` fuerza el código ISO en vez del símbolo
+ * ("ARS 1.234,56"), para las pantallas donde conviven varias monedas y "$"
+ * sería ambiguo (dashboard, tarjetas de grupo con conversión).
  */
 export function formatMoney(
   minor: number,
   code: CurrencyCode,
   locale?: string,
+  { display = "symbol" }: { display?: "symbol" | "code" } = {},
 ): string {
   const info = getCurrencyInfo(code);
   const digits = info.decimal_digits;
   return new Intl.NumberFormat(locale ?? info.locale, {
     style: "currency",
     currency: code,
+    currencyDisplay: display === "code" ? "code" : "symbol",
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   }).format(fromMinorUnits(minor, code));

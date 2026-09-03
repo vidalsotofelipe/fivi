@@ -19,7 +19,15 @@ import { ARCHIVE_AFTER_DAYS, autoArchiveStaleGroups } from "@/data/autoArchive";
 import { restoreGroup } from "@/data/repositories/groupRepo";
 import { autoLinkMe } from "@/data/identity";
 import { MyNameField } from "@/components/MyNameField";
-import { groupInitials, summarizeGroups } from "@/domain/groupsSummary";
+import { PreferredCurrencyField } from "@/components/PreferredCurrencyField";
+import { useExchangeTable } from "@/components/useExchangeTable";
+import { usePreferredCurrency } from "@/data/settings";
+import {
+  globalBalance,
+  groupInitials,
+  summarizeGroups,
+} from "@/domain/groupsSummary";
+import { convertWithTable, type RateTable } from "@/domain/convert";
 import { useArchivedGroups, useGroups } from "@/lib/db-hooks";
 import { formatDate, formatRelative } from "@/lib/format";
 import { useHydrated } from "@/lib/useHydrated";
@@ -63,11 +71,26 @@ function avatarTone(id: string): string {
   return AVATAR_TONES[h % AVATAR_TONES.length]!;
 }
 
-function GroupRow({ item }: { item: GroupListItem }) {
+function GroupRow({
+  item,
+  preferred,
+  fx,
+}: {
+  item: GroupListItem;
+  preferred: string | null;
+  fx: RateTable | null;
+}) {
   const { t } = useTranslation(["onboarding", "group", "common"]);
   const { lang } = useLocale();
   const cc = item.group.currency_code;
   const bal = item.my_balance_minor;
+
+  // Conversión secundaria a la moneda principal (nunca reemplaza el importe
+  // original: se muestra debajo, más chica).
+  const converted =
+    preferred && preferred !== cc && bal != null && bal !== 0 && fx
+      ? convertWithTable(Math.abs(bal), cc, preferred, fx)
+      : null;
 
   // Subtítulo: personas · gastos · pendientes de sincronizar (si los hay).
   const meta = [
@@ -135,6 +158,16 @@ function GroupRow({ item }: { item: GroupListItem }) {
               <span className="block label-caps">
                 {bal > 0 ? t("group:youAreOwed") : t("group:youOwe")}
               </span>
+              {converted != null ? (
+                <span className="mt-0.5 block text-[11px] text-faint">
+                  <Money
+                    minor={converted}
+                    currency={preferred!}
+                    code
+                    approx
+                  />
+                </span>
+              ) : null}
             </>
           )}
         </span>
@@ -150,6 +183,13 @@ export default function HomePage() {
   const hydrated = useHydrated();
   const groups = useGroups();
   const archived = useArchivedGroups();
+  const preferredRaw = usePreferredCurrency();
+  const preferred = typeof preferredRaw === "string" ? preferredRaw : null;
+  const needsFx =
+    !!preferred &&
+    Array.isArray(groups) &&
+    groups.some((g) => g.group.currency_code !== preferred);
+  const fx = useExchangeTable(needsFx);
   const archiveCheckDone = useRef(false);
 
   // Archivado automático + reconocerse en los grupos donde ya hay un
@@ -213,16 +253,24 @@ export default function HomePage() {
       my_balance_minor: g.my_balance_minor,
     })),
   );
+  const global = preferred
+    ? globalBalance(summary.totals, preferred, fx.table, { stale: fx.stale })
+    : null;
 
   return (
     <AppShell title={t("common:appName")}>
-      <GroupsSummaryHeader summary={summary} />
+      <GroupsSummaryHeader summary={summary} global={global} />
 
       <h2 className="label-caps">{t("myGroups")}</h2>
       {groups.length > 0 ? (
         <ul className="flex flex-col gap-2">
           {groups.map((item) => (
-            <GroupRow key={item.group.id} item={item} />
+            <GroupRow
+              key={item.group.id}
+              item={item}
+              preferred={preferred}
+              fx={fx.table}
+            />
           ))}
         </ul>
       ) : (
@@ -234,6 +282,7 @@ export default function HomePage() {
       </LinkButton>
       <JoinInviteDisclosure />
       <MyNameField />
+      <PreferredCurrencyField />
 
       {archived.length > 0 ? (
         <details className="mt-4 border-t-2 border-border-strong pt-3">

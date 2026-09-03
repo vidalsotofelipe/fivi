@@ -16,8 +16,8 @@ const STORAGE_KEY = "fivi:theme";
 
 /** Colores del `<meta name="theme-color">` por tema (deben coincidir con --bg). */
 const META_COLOR: Record<ResolvedTheme, string> = {
-  light: "#ffffff",
-  dark: "#17161a",
+  light: "#f4f2e8",
+  dark: "#191816",
 };
 
 export function isThemePref(v: unknown): v is ThemePref {
@@ -112,4 +112,4 @@ export function useTheme(): ThemeContextValue {
 }
 
 /** Script (sin JSX) que corre en `<head>` antes del paint para evitar el flash. */
-export const themeInitScript = `(function(){try{var p=localStorage.getItem('${STORAGE_KEY}');if(p==='light'||p==='dark'){document.documentElement.setAttribute('data-theme',p);}var d=(p==='dark')||((p===null||p==='system')&&matchMedia('(prefers-color-scheme: dark)').matches);var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',d?'#17161a':'#ffffff');}catch(e){}})();`;
+export const themeInitScript = `(function(){try{var p=localStorage.getItem('${STORAGE_KEY}');if(p==='light'||p==='dark'){document.documentElement.setAttribute('data-theme',p);}var d=(p==='dark')||((p===null||p==='system')&&matchMedia('(prefers-color-scheme: dark)').matches);var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',d?'#191816':'#f4f2e8');}catch(e){}})();`;

@@ -13,6 +13,49 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.16.0] - 2026-09-03
+
+**Moneda principal / balance global** y **paleta v2** (claro + oscuro). Incluye
+las correcciones de admin de 0.15.3 y 0.15.4. **Requiere la migración
+`0014_exchange_rates.sql`** (aditiva: tabla de cache de cotizaciones; sin ella
+el balance global sigue funcionando, sólo pierde el cache tibio compartido).
+
+### Added
+
+- **Moneda principal del usuario.** En el inicio se puede elegir una moneda para
+  ver la situación **consolidada** de todos los grupos. **No cambia la moneda de
+  ningún grupo ni gasto**: los importes originales siguen siendo la fuente de
+  verdad. Se sugiere una según la región (misma lógica que al crear un grupo) y
+  el usuario siempre puede cambiarla. Preferencia por dispositivo.
+- **Balance global estimado** en el inicio: convierte el saldo **neto de cada
+  moneda por separado** a la moneda principal y los suma —nunca suma monedas
+  distintas sin convertir—, con las monedas sin cotización listadas aparte.
+  Debajo, siempre, el detalle **por moneda** con los importes originales.
+- **Conversión de divisas** vía `ExchangeRateService` (`src/lib/exchangeRates.ts`)
+  + endpoint `/api/rates`. Fuente: **open.er-api.com** (ExchangeRate-API abierto:
+  sin API key, ~160 monedas incluidas ARS/GTQ/CLP/UYU/BRL/MXN, actualización
+  diaria, cita la fecha). Se evaluó ECB/Frankfurter pero no cubre ARS/GTQ/CLP.
+  La fuente está abstraída: cambiarla es tocar un archivo. Cache en tres niveles
+  (memoria del proceso · tabla `exchange_rates` en Supabase · IndexedDB en el
+  cliente, TTL 6 h). Si el proveedor falla se usa la última cotización válida,
+  marcada como estimada con su fecha; **nunca se ocultan los importes
+  originales** ni se bloquea nada.
+- **Código ISO en pantallas multi-moneda.** Donde conviven varias monedas
+  (dashboard, tarjetas con conversión) se muestra `ARS 25.000` / `USD 80` en vez
+  de `$ 25.000` (ambiguo). Dentro de un grupo, con una sola moneda, se conserva
+  el símbolo.
+- Las tarjetas de grupo muestran el importe **en la moneda del grupo** como
+  principal y, si la moneda principal es otra, `≈ ARS …` como dato secundario
+  debajo (nunca se invierte la jerarquía).
+
+### Changed
+
+- **Paleta de color v2**, claro y oscuro: "verde botella y crema" (claro),
+  "grafito y sepia" (oscuro). Acento verde botella / azul-gris frío, cálido
+  terracota/sepia, y **el punto de "Sincronizado" ahora es verde** (color
+  propio para "OK", ya no el acento). `<meta theme-color>` y el manifest
+  actualizados a los nuevos fondos.
+
 ## [0.15.4] - 2026-09-03
 
 ### Fixed

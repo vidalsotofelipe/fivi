@@ -31,31 +31,37 @@
  * Tema: `:root` = claro. `[data-theme="dark"]` fuerza oscuro; sin atributo se
  * sigue `prefers-color-scheme`. Lo maneja `ThemeProvider` (Sistema/Claro/Oscuro).
  */
+/*
+ * Paleta v2 — "verde botella y crema" (claro) / "grafito y sepia" (oscuro).
+ * Acento verde botella (claro) / azul-gris frío (oscuro). Naranja terracota
+ * como color cálido ("debés"). Verde para "sincronizado OK", rojo para "sync
+ * con error" (antes el punto OK usaba el acento; ver SyncBadge).
+ */
 :root {
   color-scheme: light;
 
-  --bg: 255 255 255;
-  --surface: 255 255 255;
-  --surface-raised: 247 246 248; /* #F7F6F8 */
-  --border: 218 216 224; /* #DAD8E0 — divisores sutiles */
-  --border-strong: 23 22 26; /* #17161A — divisores fuertes / subrayados clave */
-  --text: 23 22 26; /* #17161A */
-  --muted: 89 87 98; /* #595762 — texto secundario */
-  --faint: 128 125 137; /* #807D89 — micro-labels */
+  --bg: 244 242 232; /* #F4F2E8 */
+  --surface: 251 250 243; /* #FBFAF3 */
+  --surface-raised: 234 231 216; /* #EAE7D8 */
+  --border: 210 206 188; /* #D2CEBC — divisores sutiles */
+  --border-strong: 31 64 52; /* #1F4034 — verde botella, divisores fuertes */
+  --text: 27 43 36; /* #1B2B24 */
+  --muted: 79 90 80; /* #4F5A50 — texto secundario */
+  --faint: 126 136 120; /* #7E8878 — micro-labels */
 
-  --accent: 31 95 214; /* #1F5FD6 — azul primario */
-  --accent-strong: 22 72 166; /* #1648A6 — links, números grandes, pressed */
-  --accent-fg: 255 255 255;
-  --accent-weak: 242 246 255; /* #F2F6FF — hover / fondo tenue */
+  --accent: 31 64 52; /* #1F4034 — verde botella */
+  --accent-strong: 20 41 31; /* #14291F — links, números grandes, pressed */
+  --accent-fg: 251 250 243; /* #FBFAF3 */
+  --accent-weak: 231 237 230; /* #E7EDE6 — hover / fondo tenue */
 
-  --warm: 226 102 47; /* #E2662F — naranja */
-  --warm-strong: 185 71 24; /* #B94718 — "debés", hover de link */
-  --warm-fg: 255 255 255;
-  --warm-weak: 255 245 240; /* #FFF5F0 */
+  --warm: 168 84 47; /* #A8542F — terracota */
+  --warm-strong: 130 64 31; /* #82401F — "debés", hover de link */
+  --warm-fg: 251 250 243;
+  --warm-weak: 247 234 226; /* #F7EAE2 */
 
-  --positive: 20 122 90; /* #147A5A — "al día" */
-  --danger: 176 0 32; /* #B00020 */
-  --danger-fg: 255 255 255;
+  --positive: 44 107 74; /* #2C6B4A — "al día" / sync OK */
+  --danger: 179 38 30; /* #B3261E — sync con error */
+  --danger-fg: 251 250 243;
 
   --radius: 0px;
 }
@@ -63,56 +69,56 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --bg: 23 22 26; /* #17161A */
-  --surface: 30 29 34; /* #1E1D22 */
-  --surface-raised: 38 36 43; /* #26242B */
-  --border: 51 49 58; /* #33313A */
-  --border-strong: 245 244 242; /* #F5F4F2 — el divisor fuerte se invierte */
-  --text: 245 244 242; /* #F5F4F2 */
-  --muted: 184 181 191; /* #B8B5BF */
-  --faint: 139 136 146; /* #8B8892 */
+  --bg: 25 24 22; /* #191816 */
+  --surface: 33 31 29; /* #211F1D */
+  --surface-raised: 41 38 35; /* #292623 */
+  --border: 53 49 45; /* #35312D */
+  --border-strong: 239 235 229; /* #EFEBE5 — el divisor fuerte se invierte */
+  --text: 239 235 229; /* #EFEBE5 */
+  --muted: 176 170 162; /* #B0AAA2 */
+  --faint: 131 125 118; /* #837D76 */
 
-  --accent: 91 141 239; /* #5B8DEF */
-  --accent-strong: 143 178 255; /* #8FB2FF */
-  --accent-fg: 11 18 32; /* #0B1220 */
-  --accent-weak: 27 39 64; /* #1B2740 */
+  --accent: 159 176 192; /* #9FB0C0 — azul-gris frío */
+  --accent-strong: 194 208 220; /* #C2D0DC */
+  --accent-fg: 25 24 22; /* #191816 */
+  --accent-weak: 34 39 44; /* #22272C */
 
-  --warm: 240 132 78; /* #F0844E */
-  --warm-strong: 255 158 107; /* #FF9E6B */
-  --warm-fg: 23 22 26;
-  --warm-weak: 58 36 27; /* #3A241B */
+  --warm: 199 154 107; /* #C79A6B — sepia */
+  --warm-strong: 223 182 141; /* #DFB68D */
+  --warm-fg: 25 24 22;
+  --warm-weak: 44 35 26; /* #2C231A */
 
-  --positive: 63 191 147; /* #3FBF93 */
-  --danger: 255 107 107; /* #FF6B6B */
-  --danger-fg: 23 22 26;
+  --positive: 111 191 154; /* #6FBF9A — sync OK */
+  --danger: 228 115 107; /* #E4736B — sync con error */
+  --danger-fg: 25 24 22;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
 
-    --bg: 23 22 26;
-    --surface: 30 29 34;
-    --surface-raised: 38 36 43;
-    --border: 51 49 58;
-    --border-strong: 245 244 242;
-    --text: 245 244 242;
-    --muted: 184 181 191;
-    --faint: 139 136 146;
+    --bg: 25 24 22;
+    --surface: 33 31 29;
+    --surface-raised: 41 38 35;
+    --border: 53 49 45;
+    --border-strong: 239 235 229;
+    --text: 239 235 229;
+    --muted: 176 170 162;
+    --faint: 131 125 118;
 
-    --accent: 91 141 239;
-    --accent-strong: 143 178 255;
-    --accent-fg: 11 18 32;
-    --accent-weak: 27 39 64;
+    --accent: 159 176 192;
+    --accent-strong: 194 208 220;
+    --accent-fg: 25 24 22;
+    --accent-weak: 34 39 44;
 
-    --warm: 240 132 78;
-    --warm-strong: 255 158 107;
-    --warm-fg: 23 22 26;
-    --warm-weak: 58 36 27;
+    --warm: 199 154 107;
+    --warm-strong: 223 182 141;
+    --warm-fg: 25 24 22;
+    --warm-weak: 44 35 26;
 
-    --positive: 63 191 147;
-    --danger: 255 107 107;
-    --danger-fg: 23 22 26;
+    --positive: 111 191 154;
+    --danger: 228 115 107;
+    --danger-fg: 25 24 22;
   }
 }
 

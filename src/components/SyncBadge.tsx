@@ -3,7 +3,9 @@
 import { useSyncStatus, type SyncTone } from "./useSyncStatus";
 
 const dotClass: Record<SyncTone, string> = {
-  ok: "bg-accent",
+  // "Sincronizado" en verde (positive), no en el acento: el acento pasó a ser
+  // verde botella / azul-gris con la paleta v2 y "OK" merece su propio color.
+  ok: "bg-positive",
   info: "bg-accent animate-pulse",
   warn: "bg-warm",
   danger: "bg-danger",

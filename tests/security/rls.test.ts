@@ -117,6 +117,7 @@ beforeAll(async () => {
     "0011_admin_functions.sql",
     "0012_admin_auth_access.sql",
     "0013_created_by.sql",
+    "0014_exchange_rates.sql",
   ]) {
     await pg.exec(migration(file));
   }

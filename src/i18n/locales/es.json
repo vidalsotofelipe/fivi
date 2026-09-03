@@ -99,7 +99,20 @@
     "myNameIs": "Sos {{name}} en tus grupos",
     "myNameSaved": "Listo, {{name}}",
     "myNameLinked_one": "Te reconocimos en {{count}} grupo",
-    "myNameLinked_other": "Te reconocimos en {{count}} grupos"
+    "myNameLinked_other": "Te reconocimos en {{count}} grupos",
+    "preferredCurrencyLabel": "Moneda principal",
+    "preferredCurrencyHint": "La usamos para mostrarte tu situación consolidada de todos los grupos. NO cambia la moneda de ningún grupo ni gasto: los importes originales quedan igual.",
+    "preferredCurrencyIs": "Tu moneda principal: {{code}}",
+    "preferredCurrencySaved": "Moneda principal: {{code}}",
+    "globalBalanceLabel": "Balance total estimado",
+    "globalBalancePositive": "Equivalente aproximado en tu moneda principal · a tu favor",
+    "globalBalanceNegative": "Equivalente aproximado en tu moneda principal · debés",
+    "globalBalanceMissing_one": "{{list}} no tiene cotización disponible y no entra en el total.",
+    "globalBalanceMissing_other": "{{list}} no tienen cotización disponible y no entran en el total.",
+    "byCurrency": "Por moneda",
+    "fxInfo": "De dónde sale la conversión",
+    "fxStale": "Conversión estimada con la cotización del {{date}}",
+    "fxDetail": "Cotización actualizada el {{date}} · Fuente: {{provider}}"
   },
   "group": {
     "newTitle": "Nuevo grupo",

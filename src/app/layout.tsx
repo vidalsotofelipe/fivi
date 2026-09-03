@@ -33,8 +33,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   // Un único <meta name="theme-color"> que ThemeProvider/el script mutan según
-  // el tema efectivo (Sistema / Claro / Oscuro).
-  themeColor: "#ffffff",
+  // el tema efectivo (Sistema / Claro / Oscuro). Este valor = --bg claro (v2).
+  themeColor: "#f4f2e8",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",

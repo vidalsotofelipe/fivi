@@ -67,6 +67,35 @@ export function useMyName(): string | null | undefined {
   return useSetting<string>(MY_NAME_KEY);
 }
 
+/**
+ * Moneda principal del usuario: la que usa para ver su situación **consolidada**
+ * (balance global estimado en el inicio). NO cambia la moneda de ningún grupo ni
+ * de ningún gasto: los importes originales siguen siendo la fuente de verdad.
+ * Preferencia por dispositivo (no se sincroniza). `null` = no elegida → el
+ * inicio muestra sólo los totales por moneda, como antes.
+ */
+export const PREFERRED_CURRENCY_KEY = "preferred_currency";
+
+export function getPreferredCurrency(
+  database: FiviDatabase = db,
+): Promise<string | undefined> {
+  return getSetting<string>(PREFERRED_CURRENCY_KEY, database);
+}
+
+export function setPreferredCurrency(
+  code: string | null,
+  database: FiviDatabase = db,
+): Promise<void> {
+  return code === null
+    ? removeSetting(PREFERRED_CURRENCY_KEY, database)
+    : setSetting(PREFERRED_CURRENCY_KEY, code, database);
+}
+
+/** Reactivo: `undefined` cargando · `null` si nunca se eligió. */
+export function usePreferredCurrency(): string | null | undefined {
+  return useSetting<string>(PREFERRED_CURRENCY_KEY);
+}
+
 /** Última moneda que el usuario eligió a mano al crear un grupo. */
 export const LAST_CURRENCY_KEY = "last_currency";
 

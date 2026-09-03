@@ -95,11 +95,15 @@ export function formatNumber(value: number, lang: Lang = "es"): string {
 /**
  * Formatea un importe (unidades mínimas) en la moneda del grupo, con el locale
  * de la interfaz. Cambiar el idioma NO cambia `code`.
+ *
+ * `display: "code"` muestra el código ISO en vez del símbolo, para las
+ * pantallas donde conviven varias monedas ("$" es ambiguo entre ARS/USD/CLP/…).
  */
 export function formatMoney(
   minor: number,
   code: CurrencyCode,
   lang: Lang = "es",
+  opts?: { display?: "symbol" | "code" },
 ): string {
-  return domainFormatMoney(minor, code, bcp47(lang));
+  return domainFormatMoney(minor, code, bcp47(lang), opts);
 }
