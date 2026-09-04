@@ -165,22 +165,53 @@ async function applyOverrides(
 let memo: { table: RateTable; expires: number } | null = null;
 
 // --- Cache tibio en Supabase ---------------------------------------------------
+
+/**
+ * La columna `sources` la agrega la migración 0017. El deploy del código y la
+ * migración no son atómicos: si el código llega primero, pedir la columna
+ * devuelve error y el cache tibio quedaría inutilizable (cada cold start
+ * volvería a pegarle al proveedor). Con `withSources = false` se lee y se
+ * escribe el resto igual, y todas las monedas se atribuyen al proveedor base
+ * —que es exactamente el comportamiento anterior a 0017—.
+ */
+let withSources = true;
+
+/** `42703 undefined_column` — la migración 0017 todavía no corrió. */
+function isMissingSourcesColumn(err: { code?: string; message?: string }): boolean {
+  return err.code === "42703" || /sources/i.test(err.message ?? "");
+}
+
 async function readWarmCache(): Promise<RateTable | null> {
   try {
+    const columns = withSources
+      ? "base, rates, provider, sources, quoted_at, fetched_at"
+      : "base, rates, provider, quoted_at, fetched_at";
     const { data, error } = await getAdminClient()
       .from("exchange_rates")
-      .select("base, rates, provider, sources, quoted_at, fetched_at")
+      .select(columns)
       .eq("base", FX_BASE)
       .maybeSingle();
-    if (error || !data) return null;
+
+    if (error) {
+      if (withSources && isMissingSourcesColumn(error)) {
+        withSources = false;
+        return readWarmCache();
+      }
+      return null;
+    }
+    if (!data) return null;
+
+    // El `select` es dinámico (con o sin `sources`), así que el cliente tipado
+    // no puede inferir la forma de la fila: se valida a mano abajo.
+    const row = data as unknown as Record<string, unknown>;
     return {
-      base: data.base as string,
-      rates: data.rates as Record<string, number>,
-      provider: data.provider as string,
-      official: isOfficialProvider(data.provider as string),
-      sources: (data.sources as Record<string, RateSource> | null) ?? {},
-      quoted_at: data.quoted_at as string,
-      fetched_at: data.fetched_at as string,
+      base: row.base as string,
+      rates: row.rates as Record<string, number>,
+      provider: row.provider as string,
+      official: isOfficialProvider(row.provider as string),
+      sources: (row.sources as Record<string, RateSource> | null) ?? {},
+      quoted_at: row.quoted_at as string,
+      fetched_at: row.fetched_at as string,
     };
   } catch {
     return null;
@@ -188,21 +219,27 @@ async function readWarmCache(): Promise<RateTable | null> {
 }
 
 async function writeWarmCache(table: RateTable): Promise<void> {
+  const base = {
+    base: table.base,
+    rates: table.rates,
+    provider: table.provider,
+    quoted_at: table.quoted_at,
+    fetched_at: table.fetched_at,
+    updated_at: new Date().toISOString(),
+  };
   try {
-    await getAdminClient()
+    const row = withSources ? { ...base, sources: table.sources ?? {} } : base;
+    const { error } = await getAdminClient()
       .from("exchange_rates")
-      .upsert(
-        {
-          base: table.base,
-          rates: table.rates,
-          provider: table.provider,
-          sources: table.sources ?? {},
-          quoted_at: table.quoted_at,
-          fetched_at: table.fetched_at,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "base" },
-      );
+      .upsert(row, { onConflict: "base" });
+    // Igual que en la lectura: si 0017 todavía no corrió, se guarda sin
+    // `sources` en vez de perder el cache tibio.
+    if (error && withSources && isMissingSourcesColumn(error)) {
+      withSources = false;
+      await getAdminClient()
+        .from("exchange_rates")
+        .upsert(base, { onConflict: "base" });
+    }
   } catch {
     /* el cache tibio es best-effort */
   }
