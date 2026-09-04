@@ -22,7 +22,8 @@
     "yesterday": "Ayer",
     "person_one": "{{count}} persona",
     "person_other": "{{count}} personas",
-    "currencyLabel": "{{code}} — {{name}}"
+    "currencyLabel": "{{code}} — {{name}}",
+    "generalSettings": "Ajustes"
   },
   "nav": {
     "summary": "Resumen",
@@ -418,7 +419,8 @@
     "shareCopyPrompt": "Copiá el enlace para compartir el grupo:",
     "sectionSupport": "Apoyar el proyecto",
     "supportBody": "El desarrollo de fivi se sostiene con aportes voluntarios de la comunidad que la usa: si querés colaborar, invitame un cafecito — no hace falta para usar la app.",
-    "supportButtonAlt": "Invitame un cafecito en cafecito.app"
+    "supportButtonAlt": "Invitame un cafecito en cafecito.app",
+    "generalTitle": "Ajustes generales"
   },
   "a11y": {
     "goBack": "Volver",

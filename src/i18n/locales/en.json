@@ -22,7 +22,8 @@
     "yesterday": "Yesterday",
     "person_one": "{{count}} person",
     "person_other": "{{count}} people",
-    "currencyLabel": "{{code}} — {{name}}"
+    "currencyLabel": "{{code}} — {{name}}",
+    "generalSettings": "Settings"
   },
   "nav": {
     "summary": "Summary",
@@ -418,7 +419,8 @@
     "shareCopyPrompt": "Copy the link to share the group:",
     "sectionSupport": "Support the project",
     "supportBody": "fivi's development runs on voluntary support from the community that uses it: if you'd like to chip in, you can send a Cafecito — it's not required to use the app.",
-    "supportButtonAlt": "Support fivi on cafecito.app"
+    "supportButtonAlt": "Support fivi on cafecito.app",
+    "generalTitle": "General settings"
   },
   "a11y": {
     "goBack": "Back",

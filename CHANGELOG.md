@@ -13,6 +13,17 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.16.7] - 2026-09-04
+
+### Added
+
+- **Menú general de la app desde el inicio.** Ícono ⚙ arriba a la derecha en la
+  pantalla de todos los grupos, con o sin grupos creados, que lleva a
+  `/ajustes`. Antes Idioma y Apariencia —preferencias del dispositivo, no de un
+  grupo— sólo se podían cambiar entrando a un grupo y abriendo su
+  Configuración. "¿Cómo te llamás?" y "Moneda principal" siguen en el inicio,
+  donde ya eran accesibles sin entrar a un grupo.
+
 ## [0.16.6] - 2026-09-04
 
 ### Added
