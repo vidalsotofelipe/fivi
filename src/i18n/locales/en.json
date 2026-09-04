@@ -126,6 +126,7 @@
     "currencyLocked": "The currency can't be changed because this group already has activity.",
     "currencyDetectedHint": "We picked {{code}} based on your location. You can change it.",
     "currencyDefaultHint": "We couldn't detect your currency. We picked USD, but you can change it.",
+    "currencyUnsupportedHint": "We don't support your country's currency yet. We picked USD, but you can change it.",
     "currencyLastHint": "Using {{code}}, your last chosen currency. You can change it.",
     "creating": "Creating…",
     "setupStep": "Step {{current}} of {{total}}",

@@ -213,6 +213,118 @@ describe("expenseRepo", () => {
     expect((await db.expenses.get(e2.id))?.created_by).toBeNull();
   });
 
+  /**
+   * Regresión del bug de sincronización: `replaceExpense` borraba las porciones
+   * y creaba otras con id nuevo pero el MISMO (expense_id, participant_id). El
+   * servidor tiene unicidad sobre ese par, así que rechazaba la fila nueva (409)
+   * y la edición no se sincronizaba nunca (gasto sin porciones en la nube).
+   * Ahora se reusa el id: un solo par lógico, push limpio.
+   */
+  it("replaceExpense reusa el id de cada porción: nunca hay pares duplicados", async () => {
+    const g = await groupRepo.createGroup(
+      { name: "G", currency_code: "ARS" },
+      db,
+    );
+    const a = await participantRepo.addParticipant(g.id, "Ana", db);
+    const b = await participantRepo.addParticipant(g.id, "Beto", db);
+    const { expense, shares } = await expenseRepo.createExpense(
+      {
+        group_id: g.id,
+        description: "Súper",
+        amount_minor_units: 20000,
+        paid_by: a.id,
+        participant_ids: [a.id, b.id],
+      },
+      db,
+    );
+    const idBefore = new Map(shares.map((s) => [s.participant_id, s.id]));
+
+    // Editar el monto: mismas personas, otro total.
+    await expenseRepo.replaceExpense(
+      expense.id,
+      {
+        description: "Súper",
+        amount_minor_units: 30000,
+        paid_by: a.id,
+        participant_ids: [a.id, b.id],
+        expense_date: expense.expense_date,
+        split_strategy: { kind: "equal" },
+      },
+      db,
+    );
+
+    const rows = await db.expense_participants
+      .where("expense_id")
+      .equals(expense.id)
+      .toArray();
+
+    // Un par (expense, participante) aparece UNA sola vez en toda la tabla.
+    const pairs = rows.map((r) => `${r.expense_id}:${r.participant_id}`);
+    expect(new Set(pairs).size).toBe(pairs.length);
+
+    // Y son las MISMAS filas de antes, actualizadas.
+    for (const r of rows) {
+      expect(r.id).toBe(idBefore.get(r.participant_id));
+      expect(r.deleted_at).toBeNull();
+      expect(r.share_minor_units).toBe(15000);
+      expect(r.version).toBeGreaterThan(1);
+    }
+  });
+
+  it("sacar a alguien del gasto lo marca borrado; volver a sumarlo revive la MISMA fila", async () => {
+    const g = await groupRepo.createGroup(
+      { name: "G", currency_code: "ARS" },
+      db,
+    );
+    const a = await participantRepo.addParticipant(g.id, "Ana", db);
+    const b = await participantRepo.addParticipant(g.id, "Beto", db);
+    const { expense, shares } = await expenseRepo.createExpense(
+      {
+        group_id: g.id,
+        description: "Cena",
+        amount_minor_units: 10000,
+        paid_by: a.id,
+        participant_ids: [a.id, b.id],
+      },
+      db,
+    );
+    const betoShareId = shares.find((s) => s.participant_id === b.id)!.id;
+
+    const base = {
+      description: "Cena",
+      amount_minor_units: 10000,
+      paid_by: a.id,
+      expense_date: expense.expense_date,
+      split_strategy: { kind: "equal" as const },
+    };
+
+    // Sólo Ana.
+    await expenseRepo.replaceExpense(
+      expense.id,
+      { ...base, participant_ids: [a.id] },
+      db,
+    );
+    let beto = await db.expense_participants.get(betoShareId);
+    expect(beto?.deleted_at).not.toBeNull();
+
+    // Vuelve Beto: se revive la misma fila, no se crea otra.
+    await expenseRepo.replaceExpense(
+      expense.id,
+      { ...base, participant_ids: [a.id, b.id] },
+      db,
+    );
+    beto = await db.expense_participants.get(betoShareId);
+    expect(beto?.deleted_at).toBeNull();
+    expect(beto?.share_minor_units).toBe(5000);
+
+    const rows = await db.expense_participants
+      .where("expense_id")
+      .equals(expense.id)
+      .toArray();
+    const pairs = rows.map((r) => `${r.expense_id}:${r.participant_id}`);
+    expect(new Set(pairs).size).toBe(pairs.length);
+  });
+
   it("soft delete marca deleted_at y lo saca del listado", async () => {
     const g = await groupRepo.createGroup(
       { name: "G", currency_code: "ARS" },

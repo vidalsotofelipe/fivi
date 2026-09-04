@@ -24,16 +24,45 @@ export interface CurrencyInfo {
  * las que aparecen destacadas en el selector (sección 2 del documento).
  */
 export const CURRENCIES: Record<string, CurrencyInfo> = {
+  // América Latina
   ARS: { code: "ARS", name: "Peso argentino", decimal_digits: 2, locale: "es-AR" },
-  USD: { code: "USD", name: "Dólar estadounidense", decimal_digits: 2, locale: "en-US" },
-  EUR: { code: "EUR", name: "Euro", decimal_digits: 2, locale: "es-ES" },
+  BOB: { code: "BOB", name: "Boliviano", decimal_digits: 2, locale: "es-BO" },
   BRL: { code: "BRL", name: "Real brasileño", decimal_digits: 2, locale: "pt-BR" },
   CLP: { code: "CLP", name: "Peso chileno", decimal_digits: 0, locale: "es-CL" },
-  UYU: { code: "UYU", name: "Peso uruguayo", decimal_digits: 2, locale: "es-UY" },
+  COP: { code: "COP", name: "Peso colombiano", decimal_digits: 2, locale: "es-CO" },
+  CRC: { code: "CRC", name: "Colón costarricense", decimal_digits: 2, locale: "es-CR" },
+  DOP: { code: "DOP", name: "Peso dominicano", decimal_digits: 2, locale: "es-DO" },
   GTQ: { code: "GTQ", name: "Quetzal guatemalteco", decimal_digits: 2, locale: "es-GT" },
-  GBP: { code: "GBP", name: "Libra esterlina", decimal_digits: 2, locale: "en-GB" },
+  HNL: { code: "HNL", name: "Lempira hondureño", decimal_digits: 2, locale: "es-HN" },
   MXN: { code: "MXN", name: "Peso mexicano", decimal_digits: 2, locale: "es-MX" },
+  NIO: { code: "NIO", name: "Córdoba nicaragüense", decimal_digits: 2, locale: "es-NI" },
+  PEN: { code: "PEN", name: "Sol peruano", decimal_digits: 2, locale: "es-PE" },
+  PYG: { code: "PYG", name: "Guaraní paraguayo", decimal_digits: 0, locale: "es-PY" },
+  UYU: { code: "UYU", name: "Peso uruguayo", decimal_digits: 2, locale: "es-UY" },
+  VES: { code: "VES", name: "Bolívar venezolano", decimal_digits: 2, locale: "es-VE" },
+
+  // Resto del mundo (las más frecuentes en viajes)
+  USD: { code: "USD", name: "Dólar estadounidense", decimal_digits: 2, locale: "en-US" },
+  EUR: { code: "EUR", name: "Euro", decimal_digits: 2, locale: "es-ES" },
+  GBP: { code: "GBP", name: "Libra esterlina", decimal_digits: 2, locale: "en-GB" },
+  CAD: { code: "CAD", name: "Dólar canadiense", decimal_digits: 2, locale: "en-CA" },
+  CHF: { code: "CHF", name: "Franco suizo", decimal_digits: 2, locale: "de-CH" },
+  AUD: { code: "AUD", name: "Dólar australiano", decimal_digits: 2, locale: "en-AU" },
+  NZD: { code: "NZD", name: "Dólar neozelandés", decimal_digits: 2, locale: "en-NZ" },
+  SEK: { code: "SEK", name: "Corona sueca", decimal_digits: 2, locale: "sv-SE" },
+  NOK: { code: "NOK", name: "Corona noruega", decimal_digits: 2, locale: "nb-NO" },
+  DKK: { code: "DKK", name: "Corona danesa", decimal_digits: 2, locale: "da-DK" },
+  PLN: { code: "PLN", name: "Złoty polaco", decimal_digits: 2, locale: "pl-PL" },
+  CZK: { code: "CZK", name: "Corona checa", decimal_digits: 2, locale: "cs-CZ" },
   JPY: { code: "JPY", name: "Yen japonés", decimal_digits: 0, locale: "ja-JP" },
+  CNY: { code: "CNY", name: "Yuan chino", decimal_digits: 2, locale: "zh-CN" },
+  KRW: { code: "KRW", name: "Won surcoreano", decimal_digits: 0, locale: "ko-KR" },
+  INR: { code: "INR", name: "Rupia india", decimal_digits: 2, locale: "hi-IN" },
+  THB: { code: "THB", name: "Baht tailandés", decimal_digits: 2, locale: "th-TH" },
+  ZAR: { code: "ZAR", name: "Rand sudafricano", decimal_digits: 2, locale: "en-ZA" },
+  TRY: { code: "TRY", name: "Lira turca", decimal_digits: 2, locale: "tr-TR" },
+  ILS: { code: "ILS", name: "Séquel israelí", decimal_digits: 2, locale: "he-IL" },
+  AED: { code: "AED", name: "Dirham de EAU", decimal_digits: 2, locale: "ar-AE" },
 };
 
 /** Decimales por defecto cuando una moneda no está en el catálogo. */

@@ -5,6 +5,7 @@ import {
   DEFAULT_CURRENCY,
 } from "@/domain/countryCurrency";
 import {
+  currencyForDetectedCountry,
   detectInitialCurrency,
   isSupportedCurrency,
   localeRegionCurrency,
@@ -32,15 +33,28 @@ afterEach(() => {
 });
 
 describe("currencyForCountry", () => {
-  it("mapea los países pedidos", () => {
+  it("mapea toda América Latina", () => {
     expect(currencyForCountry("AR")).toBe("ARS");
+    expect(currencyForCountry("BO")).toBe("BOB");
     expect(currencyForCountry("BR")).toBe("BRL");
     expect(currencyForCountry("CL")).toBe("CLP");
+    expect(currencyForCountry("CO")).toBe("COP");
+    expect(currencyForCountry("CR")).toBe("CRC");
+    expect(currencyForCountry("DO")).toBe("DOP");
     expect(currencyForCountry("GT")).toBe("GTQ");
+    expect(currencyForCountry("HN")).toBe("HNL");
     expect(currencyForCountry("MX")).toBe("MXN");
-    expect(currencyForCountry("US")).toBe("USD");
-    expect(currencyForCountry("GB")).toBe("GBP");
-    expect(currencyForCountry("JP")).toBe("JPY");
+    expect(currencyForCountry("NI")).toBe("NIO");
+    expect(currencyForCountry("PE")).toBe("PEN");
+    expect(currencyForCountry("PY")).toBe("PYG");
+    expect(currencyForCountry("UY")).toBe("UYU");
+    expect(currencyForCountry("VE")).toBe("VES");
+  });
+
+  it("países dolarizados usan USD", () => {
+    for (const c of ["US", "EC", "SV", "PA"]) {
+      expect(currencyForCountry(c), c).toBe("USD");
+    }
   });
 
   it("toda la zona euro cae en EUR", () => {
@@ -54,63 +68,96 @@ describe("currencyForCountry", () => {
     expect(currencyForCountry("gt")).toBe("GTQ");
   });
 
-  it("país desconocido o vacío → null", () => {
-    expect(currencyForCountry("CA")).toBeNull();
+  it("país fuera del mapa o vacío → null", () => {
+    expect(currencyForCountry("ZW")).toBeNull(); // Zimbabue: no está en el mapa
     expect(currencyForCountry("")).toBeNull();
     expect(currencyForCountry(null)).toBeNull();
     expect(currencyForCountry(undefined)).toBeNull();
   });
 
-  it("el mapa incluye GTQ para Guatemala", () => {
-    expect(COUNTRY_CURRENCY.GT).toBe("GTQ");
+  it("todas las monedas del mapa están soportadas por la app", () => {
+    for (const [country, code] of Object.entries(COUNTRY_CURRENCY)) {
+      expect(isSupportedCurrency(code), `${country} → ${code}`).toBe(true);
+    }
   });
 });
 
-describe("localeRegionCurrency", () => {
-  it("deriva la moneda de la región del navegador", () => {
-    stubEnv({ lang: "es-AR" });
-    expect(localeRegionCurrency()).toBe("ARS");
-    stubEnv({ lang: "es-GT" });
-    expect(localeRegionCurrency()).toBe("GTQ");
-    stubEnv({ lang: "de-DE" });
-    expect(localeRegionCurrency()).toBe("EUR");
+describe("currencyForDetectedCountry", () => {
+  it("país conocido → su moneda", () => {
+    expect(currencyForDetectedCountry("PE")).toEqual({
+      code: "PEN",
+      source: "geo",
+      country: "PE",
+    });
   });
 
-  it("región sin moneda soportada → null", () => {
-    stubEnv({ lang: "en-CA" });
-    expect(localeRegionCurrency()).toBeNull();
+  it("país fuera del mapa → USD (no adivina con el idioma)", () => {
+    expect(currencyForDetectedCountry("ZW")).toEqual({
+      code: DEFAULT_CURRENCY,
+      source: "country-unsupported",
+      country: "ZW",
+    });
   });
 });
 
 describe("detectInitialCurrency", () => {
-  it("online: usa el país de Vercel (Argentina → ARS)", async () => {
+  it("manda el país de la conexión: Argentina → ARS", async () => {
     stubEnv();
     stubGeo("AR");
-    await expect(detectInitialCurrency()).resolves.toEqual({
+    await expect(detectInitialCurrency()).resolves.toMatchObject({
       code: "ARS",
       source: "geo",
     });
   });
 
-  it("online: Guatemala → GTQ", async () => {
+  it("el país gana sobre el idioma del navegador", async () => {
+    // Teléfono en inglés (en-US) pero conectado desde Perú → PEN, no USD.
     stubEnv({ lang: "en-US" });
+    stubGeo("PE");
+    await expect(detectInitialCurrency()).resolves.toMatchObject({
+      code: "PEN",
+      source: "geo",
+    });
+  });
+
+  it("el país gana sobre la última moneda elegida", async () => {
+    stubEnv({ lang: "es-AR" });
     stubGeo("GT");
-    await expect(detectInitialCurrency()).resolves.toEqual({
+    await expect(detectInitialCurrency("ARS")).resolves.toMatchObject({
       code: "GTQ",
       source: "geo",
     });
   });
 
-  it("online: país de la zona euro → EUR", async () => {
+  it("país de la zona euro → EUR", async () => {
     stubEnv({ lang: "en-US" });
     stubGeo("FR");
-    await expect(detectInitialCurrency()).resolves.toEqual({
+    await expect(detectInitialCurrency()).resolves.toMatchObject({
       code: "EUR",
       source: "geo",
     });
   });
 
-  it("online: sin país de Vercel, cae en la región del navegador", async () => {
+  it("país sin moneda soportada → USD (aunque el idioma sugiera otra)", async () => {
+    stubEnv({ lang: "es-AR" }); // el idioma diría ARS…
+    stubGeo("ZW"); // …pero nos conectamos desde Zimbabue
+    await expect(detectInitialCurrency("ARS")).resolves.toMatchObject({
+      code: DEFAULT_CURRENCY,
+      source: "country-unsupported",
+      country: "ZW",
+    });
+  });
+
+  it("sin país: la última moneda elegida a mano", async () => {
+    stubEnv({ lang: "es-CL" });
+    stubGeo(null);
+    await expect(detectInitialCurrency("MXN")).resolves.toEqual({
+      code: "MXN",
+      source: "last",
+    });
+  });
+
+  it("sin país ni última: la región del navegador", async () => {
     stubEnv({ lang: "es-CL" });
     stubGeo(null);
     await expect(detectInitialCurrency()).resolves.toEqual({
@@ -119,8 +166,8 @@ describe("detectInitialCurrency", () => {
     });
   });
 
-  it("falla la geolocalización y la región no mapea → USD", async () => {
-    stubEnv({ lang: "en-CA" });
+  it("falla la geolocalización y no hay nada más → USD", async () => {
+    stubEnv({ lang: "sw-KE" }); // Kenia: fuera del mapa
     stubGeo("reject");
     await expect(detectInitialCurrency()).resolves.toEqual({
       code: DEFAULT_CURRENCY,
@@ -145,7 +192,7 @@ describe("detectInitialCurrency", () => {
   });
 
   it("offline sin nada útil → USD", async () => {
-    stubEnv({ lang: "en-CA", online: false });
+    stubEnv({ lang: "sw-KE", online: false });
     await expect(detectInitialCurrency("ZZZ")).resolves.toEqual({
       code: "USD",
       source: "default",
@@ -154,11 +201,27 @@ describe("detectInitialCurrency", () => {
 });
 
 describe("isSupportedCurrency", () => {
-  it("reconoce el catálogo (incl. GTQ) y rechaza lo demás", () => {
-    expect(isSupportedCurrency("ARS")).toBe(true);
-    expect(isSupportedCurrency("GTQ")).toBe(true);
-    expect(isSupportedCurrency("USD")).toBe(true);
+  it("reconoce el catálogo ampliado y rechaza inventos", () => {
+    for (const c of ["ARS", "GTQ", "USD", "PEN", "COP", "PYG", "CAD"]) {
+      expect(isSupportedCurrency(c), c).toBe(true);
+    }
     expect(isSupportedCurrency("ZZZ")).toBe(false);
     expect(isSupportedCurrency(null)).toBe(false);
+  });
+});
+
+describe("localeRegionCurrency", () => {
+  it("deriva la moneda de la región del navegador", () => {
+    stubEnv({ lang: "es-AR" });
+    expect(localeRegionCurrency()).toBe("ARS");
+    stubEnv({ lang: "es-GT" });
+    expect(localeRegionCurrency()).toBe("GTQ");
+    stubEnv({ lang: "de-DE" });
+    expect(localeRegionCurrency()).toBe("EUR");
+  });
+
+  it("región fuera del mapa → null", () => {
+    stubEnv({ lang: "sw-KE" });
+    expect(localeRegionCurrency()).toBeNull();
   });
 });

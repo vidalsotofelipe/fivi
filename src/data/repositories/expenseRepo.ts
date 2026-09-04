@@ -226,29 +226,69 @@ export async function replaceExpense(
         .where("expense_id")
         .equals(id)
         .toArray();
-      for (const s of previous.filter(isLive)) {
+
+      /**
+       * Una fila por participante, REUSANDO su id.
+       *
+       * Antes se borraba (tombstone) la porción vieja y se creaba otra con id
+       * nuevo: quedaban dos filas con el mismo `(expense_id, participant_id)` y
+       * el servidor rechazaba la nueva por unicidad (409), así que la edición
+       * nunca se sincronizaba y el gasto quedaba sin porciones en la nube.
+       * Reusando el id, el par lógico existe una sola vez y el push es un
+       * UPDATE limpio.
+       */
+      const byParticipant = new Map<string, ExpenseParticipant>();
+      for (const row of previous) {
+        const cur = byParticipant.get(row.participant_id);
+        // Preferimos la fila viva; si sólo hay tombstones, la más antigua (que
+        // es la que el servidor ya conoce).
+        if (!cur || (isLive(row) && !isLive(cur))) {
+          byParticipant.set(row.participant_id, row);
+        }
+      }
+
+      const nextIds = new Set(computed.map((s) => s.participant_id));
+      for (const row of previous.filter(isLive)) {
+        if (nextIds.has(row.participant_id)) continue;
         await softDeleteRecord<ExpenseParticipant>(
           database.expense_participants,
           "expense_participant",
-          s.id,
+          row.id,
           database,
         );
       }
 
       const shares: ExpenseParticipant[] = [];
       for (const s of computed) {
-        shares.push(
-          await createRecord<ExpenseParticipant>(
-            database.expense_participants,
-            "expense_participant",
-            {
-              expense_id: id,
-              participant_id: s.participant_id,
-              share_minor_units: s.share_minor_units,
-            },
-            database,
-          ),
-        );
+        const existing = byParticipant.get(s.participant_id);
+        if (existing) {
+          shares.push(
+            await updateRecord<ExpenseParticipant>(
+              database.expense_participants,
+              "expense_participant",
+              existing.id,
+              {
+                share_minor_units: s.share_minor_units,
+                // Si estaba borrada (se lo había sacado del gasto), revive.
+                deleted_at: null,
+              },
+              database,
+            ),
+          );
+        } else {
+          shares.push(
+            await createRecord<ExpenseParticipant>(
+              database.expense_participants,
+              "expense_participant",
+              {
+                expense_id: id,
+                participant_id: s.participant_id,
+                share_minor_units: s.share_minor_units,
+              },
+              database,
+            ),
+          );
+        }
       }
       return { expense, shares };
     },

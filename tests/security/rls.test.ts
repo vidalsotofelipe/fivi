@@ -118,6 +118,7 @@ beforeAll(async () => {
     "0012_admin_auth_access.sql",
     "0013_created_by.sql",
     "0014_exchange_rates.sql",
+    "0015_expense_participants_live_unique.sql",
   ]) {
     await pg.exec(migration(file));
   }
@@ -847,5 +848,82 @@ describe("acceso a auth.users desde las funciones admin (0012)", () => {
         }),
       ).rejects.toThrow(/permission denied/i);
     }
+  });
+});
+
+/**
+ * Bug de sincronización: al editar un gasto, `replaceExpense` (antes) creaba una
+ * porción NUEVA con el mismo (expense_id, participant_id) que la que acababa de
+ * marcar borrada. Con `unique (expense_id, participant_id)` de 0001 el servidor
+ * la rechazaba (23505) y la edición nunca se sincronizaba: quedaban gastos sin
+ * porciones en la nube. 0015 hace que la unicidad sólo aplique a filas VIVAS.
+ */
+describe("porciones de gasto: unicidad sólo entre filas vivas (0015)", () => {
+  async function seed(uid: string) {
+    const gid = await createGroupAs(uid, "Edición");
+    const pid = randomUUID();
+    const eid = randomUUID();
+    await asUser(uid, async (tx) => {
+      await tx.query(
+        "insert into public.participants (id, group_id, name) values ($1,$2,'Ana')",
+        [pid, gid],
+      );
+      await tx.query(
+        `insert into public.expenses (id, group_id, description, amount_minor_units, paid_by, expense_date, split_strategy)
+         values ($1,$2,'Súper',20000,$3, current_date, '{"kind":"equal"}'::jsonb)`,
+        [eid, gid, pid],
+      );
+    });
+    return { gid, pid, eid };
+  }
+
+  it("un tombstone y una fila viva pueden compartir (expense_id, participant_id)", async () => {
+    const { pid, eid } = await seed(U1);
+    const oldShare = randomUUID();
+    const newShare = randomUUID();
+
+    await asUser(U1, async (tx) => {
+      // porción original
+      await tx.query(
+        "insert into public.expense_participants (id, expense_id, participant_id, share_minor_units) values ($1,$2,$3,20000)",
+        [oldShare, eid, pid],
+      );
+      // se edita el gasto: la vieja queda como tombstone…
+      await tx.query(
+        "update public.expense_participants set deleted_at = now() where id = $1",
+        [oldShare],
+      );
+      // …y entra una nueva con el MISMO par (esto antes explotaba con 23505)
+      await tx.query(
+        "insert into public.expense_participants (id, expense_id, participant_id, share_minor_units) values ($1,$2,$3,30000)",
+        [newShare, eid, pid],
+      );
+    });
+
+    const rows = await asUser(U1, (tx) =>
+      tx.query<{ n: string }>(
+        "select count(*) as n from public.expense_participants where expense_id = $1",
+        [eid],
+      ),
+    );
+    expect(Number(rows.rows[0]!.n)).toBe(2);
+  });
+
+  it("pero DOS porciones vivas de la misma persona en el mismo gasto siguen prohibidas", async () => {
+    const { pid, eid } = await seed(U2);
+    await asUser(U2, (tx) =>
+      tx.query(
+        "insert into public.expense_participants (id, expense_id, participant_id, share_minor_units) values ($1,$2,$3,10000)",
+        [randomUUID(), eid, pid],
+      ),
+    );
+    await expect(
+      asUser(U2, (tx) =>
+        tx.query(
+          "insert into public.expense_participants (id, expense_id, participant_id, share_minor_units) values ($1,$2,$3,10000)",
+          [randomUUID(), eid, pid],
+        ),
+      ),
+    ).rejects.toThrow(/duplicate key|unique/i);
   });
 });

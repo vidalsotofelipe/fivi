@@ -126,6 +126,7 @@
     "currencyLocked": "La moneda no puede modificarse porque este grupo ya tiene movimientos registrados.",
     "currencyDetectedHint": "Seleccionamos {{code}} según tu ubicación. Podés cambiarlo.",
     "currencyDefaultHint": "No pudimos detectar tu moneda. Seleccionamos USD, pero podés cambiarlo.",
+    "currencyUnsupportedHint": "Todavía no tenemos la moneda de tu país. Seleccionamos USD, pero podés cambiarlo.",
     "currencyLastHint": "Usamos {{code}}, tu última moneda elegida. Podés cambiarlo.",
     "creating": "Creando…",
     "setupStep": "Paso {{current}} de {{total}}",

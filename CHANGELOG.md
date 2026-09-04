@@ -13,6 +13,52 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.16.4] - 2026-09-05
+
+### Fixed
+
+- **Gastos que nunca terminaban de sincronizar ("N sin sincronizar" que sólo
+  crecía).** Causa raíz, confirmada contra producción: al **editar un gasto** o
+  al **sumar a alguien a gastos anteriores**, la app borraba lógicamente las
+  porciones viejas y creaba filas nuevas con otro `id` pero **el mismo par
+  `(gasto, persona)`**. La restricción de unicidad del servidor no distinguía
+  las filas borradas, así que el envío chocaba con un 409, reintentaba 5 veces
+  y quedaba trabado para siempre. Peor: en el servidor quedaban gastos con
+  porciones **incompletas o sin ninguna** (se encontraron dos casos reales, uno
+  con 0 porciones vivas sobre un total de 20.000,00 y otro con 1 de 3).
+  - Ahora `replaceExpense` **reutiliza la fila de cada persona** (actualiza el
+    importe en lugar de borrar y crear), así que ese par duplicado ya no se
+    genera.
+  - Migración `0015`: la unicidad de `(gasto, persona)` pasa a ser un índice
+    **parcial sobre las filas vivas** (`where deleted_at is null`). Esto además
+    **destraba a los dispositivos que ya estaban colgados**: su próximo
+    reintento entra bien y la cola se vacía sola.
+
+### Changed
+
+- **La moneda se propone según el lugar desde donde te conectás.** El país
+  detectado ahora **decide**: si te conectás desde Perú, el grupo arranca en
+  PEN aunque el teléfono esté en inglés o hayas usado otra moneda antes. Si el
+  país no tiene una moneda que la app maneje, arranca en **USD** y se avisa.
+  Sin país (offline o falla la detección) se mantiene el orden de siempre:
+  última moneda elegida → región del navegador → USD.
+- **Catálogo de monedas de 10 a 35**, con toda América Latina (ARS, BOB, BRL,
+  CLP, COP, CRC, DOP, GTQ, HNL, MXN, NIO, PEN, PYG, UYU, VES) más los mercados
+  principales. El mapa país→moneda cubre la zona euro completa y los países
+  dolarizados (EC, SV, PA, …).
+
+### Tests
+
+- Regresión del bug de sincronización: `replaceExpense` reusa ids y nunca deja
+  pares duplicados; sacar y volver a sumar a alguien revive **la misma fila**.
+  En RLS, la unicidad parcial de `0015` sobre filas vivas.
+- **Mismos nombres en grupos distintos** (11 casos): cada grupo tiene su propio
+  participante aunque el nombre se repita, los saldos no se mezclan, quitar a
+  alguien de un grupo no lo toca en el otro, y el reconocimiento de "quién sos"
+  funciona por grupo (incluso con dos homónimos en el mismo grupo).
+- Detección de moneda por país reescrita: el país gana sobre el idioma y sobre
+  la última elección; país sin moneda soportada → USD.
+
 ## [0.16.3] - 2026-09-04
 
 ### Fixed

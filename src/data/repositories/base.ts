@@ -72,12 +72,20 @@ export async function createRecord<T extends SyncableRecord>(
   return record;
 }
 
-/** Aplica cambios parciales a una entidad y encola su UPDATE. */
+/**
+ * Aplica cambios parciales a una entidad y encola su UPDATE.
+ *
+ * `deleted_at` se acepta en el patch para poder **revivir** una fila borrada
+ * conservando su id (lo usa `replaceExpense`: reusar el id evita crear dos
+ * filas con el mismo par lógico, que el servidor rechaza por unicidad).
+ */
 export async function updateRecord<T extends SyncableRecord>(
   table: Table<T, string>,
   entityType: SyncEntityType,
   id: string,
-  patch: Partial<Omit<T, keyof SyncableRecord>>,
+  patch: Partial<Omit<T, keyof SyncableRecord>> & {
+    deleted_at?: string | null;
+  },
   database: FiviDatabase = defaultDb,
 ): Promise<T> {
   return database.transaction("rw", table, database.sync_queue, async () => {

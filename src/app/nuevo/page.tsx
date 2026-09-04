@@ -85,11 +85,13 @@ export default function NewGroupPage() {
   const currencyHint =
     detection === "geo" || detection === "locale"
       ? t("group:currencyDetectedHint", { code: currency })
-      : detection === "default"
-        ? t("group:currencyDefaultHint")
-        : detection === "last"
-          ? t("group:currencyLastHint", { code: currency })
-          : undefined;
+      : detection === "country-unsupported"
+        ? t("group:currencyUnsupportedHint")
+        : detection === "default"
+          ? t("group:currencyDefaultHint")
+          : detection === "last"
+            ? t("group:currencyLastHint", { code: currency })
+            : undefined;
 
   return (
     <AppShell title={t("group:newTitle")} back="/" showSync={false}>
