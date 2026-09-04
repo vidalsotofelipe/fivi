@@ -8,10 +8,13 @@ import { test, expect, type Page } from "@playwright/test";
  * enlace de invitación— necesita Supabase, que este arnés E2E excluye a
  * propósito (corre sin backend).
  *
- * Dos cosas que antes fallaban en silencio:
+ * Tres cosas que antes fallaban en silencio:
  *  - "Gastos anteriores" no hacía NADA cuando la persona ya estaba en todos.
  *  - Los gastos con división a medida se omitían por completo, así que "todos o
  *    algunos gastos anteriores" era una promesa incompleta.
+ *  - Sumarse como "persona nueva" desde `MePicker` (el flujo típico al entrar
+ *    por invitación) nunca preguntaba en qué gastos anteriores corresponde
+ *    incluir a esa persona: el sheet se cerraba de una sin ofrecer nada.
  */
 
 async function seedGroup(page: Page): Promise<string> {
@@ -154,4 +157,67 @@ test("sumarse al grupo desde '¿Quién sos?' cuando no se está en la lista", as
   // Queda como participante del grupo y como "yo".
   await page.goto(`/g/${id}/personas`);
   await expect(page.getByText("Dani")).toBeVisible();
+});
+
+test("sumarse por invitación con un gasto anterior pendiente: pregunta antes de cerrar y aplica el reparto", async ({
+  page,
+}) => {
+  const id = await seedGroup(page);
+  await addEqualExpense(page, id, "Cena", "300");
+
+  await page.goto(`/g/${id}`);
+  await page.getByRole("button", { name: "¿Quién sos en este grupo?" }).click();
+  await expect(page.getByText("¿No estás en la lista?")).toBeVisible();
+  await page.getByPlaceholder("Tu nombre").fill("Cami");
+  await page.getByRole("button", { name: "Sumarme al grupo" }).click();
+
+  // El sheet NO se cierra todavía: antes pregunta en qué gastos anteriores
+  // corresponde sumar a Cami (reusa AddToPastExpenses, pre-tildado porque el
+  // único gasto incluye a todo el grupo).
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(
+    page.getByText("¿Sumar a Cami a gastos ya registrados?"),
+  ).toBeVisible();
+  await page.getByRole("button", { name: /Sumar a 1 gasto/ }).click();
+
+  // Confirmado: el sheet se cierra y ya no ofrece elegir quién sos (Cami
+  // quedó como "yo").
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "¿Quién sos en este grupo?" }),
+  ).toHaveCount(0);
+
+  // El gasto ahora se reparte entre tres: 100 cada uno.
+  await page.goto(`/g/${id}/balance`);
+  await expect(page.getByText(/100,00/).first()).toBeVisible();
+});
+
+test("sumarse por invitación y elegir 'Ahora no': cierra igual, sin tocar el reparto", async ({
+  page,
+}) => {
+  const id = await seedGroup(page);
+  await addEqualExpense(page, id, "Cena", "300");
+
+  await page.goto(`/g/${id}`);
+  await page.getByRole("button", { name: "¿Quién sos en este grupo?" }).click();
+  await page.getByPlaceholder("Tu nombre").fill("Dana");
+  await page.getByRole("button", { name: "Sumarme al grupo" }).click();
+
+  await expect(
+    page.getByText("¿Sumar a Dana a gastos ya registrados?"),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Ahora no" }).click();
+
+  // Cierra igual, y Dana ya quedó como "yo" (eso pasa apenas se crea, antes
+  // de preguntar por los gastos anteriores).
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "¿Quién sos en este grupo?" }),
+  ).toHaveCount(0);
+
+  // El gasto sigue repartido sólo entre Ana y Beto (150 cada uno): "Ahora no"
+  // no aplicó ningún reparto.
+  await page.goto(`/g/${id}/balance`);
+  await expect(page.getByText(/150,00/).first()).toBeVisible();
+  await expect(page.getByText(/100,00/)).toHaveCount(0);
 });

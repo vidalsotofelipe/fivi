@@ -279,6 +279,7 @@ export default function GroupSummaryPage() {
         open={pickMe}
         onClose={() => setPickMe(false)}
         groupId={group.id}
+        currency={cc}
         participants={participants}
         currentId={me ?? null}
       />

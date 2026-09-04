@@ -13,6 +13,26 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.16.6] - 2026-09-04
+
+### Added
+
+- **Botón de apoyo (Cafecito) en "Más".** Aporte voluntario y opcional para
+  sostener el desarrollo de fivi, con un enlace a `cafecito.app` en una pestaña
+  nueva. No es una función paga ni algo necesario para usar la app.
+
+### Fixed
+
+- **Sumarse por invitación como "persona nueva" no preguntaba por los gastos
+  anteriores.** Al entrar por invitación y elegir "no estoy en la lista" en
+  `MePicker`, el participante se creaba y el panel se cerraba de una, sin
+  ofrecer sumarlo a los gastos de división equitativa ya registrados (algo que
+  sí pasaba al agregar a alguien desde Personas). Ahora `MePicker` reusa
+  `AddToPastExpenses` como paso intermedio antes de cerrar: si hay algo que
+  ofrecer, pregunta y aplica el reparto elegido (o "Ahora no"); si no hay nada,
+  se cierra solo como antes. Elegir un nombre que ya está en la lista sigue
+  cerrando de inmediato, sin este paso.
+
 ## [0.16.5] - 2026-09-04
 
 ### Fixed

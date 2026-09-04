@@ -415,7 +415,10 @@
     "shareCopied": "Enlace copiado",
     "shareLocalHint": "Sin servidor configurado: el enlace sólo abre el grupo en este dispositivo.",
     "shareInviteText": "Sumate al grupo “{{name}}” en fivi",
-    "shareCopyPrompt": "Copiá el enlace para compartir el grupo:"
+    "shareCopyPrompt": "Copiá el enlace para compartir el grupo:",
+    "sectionSupport": "Apoyar el proyecto",
+    "supportBody": "El desarrollo de fivi se sostiene con aportes voluntarios de la comunidad que la usa: si querés colaborar, invitame un café — no hace falta para usar la app.",
+    "supportButtonAlt": "Invitame un café en cafecito.app"
   },
   "a11y": {
     "goBack": "Volver",
