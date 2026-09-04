@@ -111,23 +111,28 @@ export function GroupsSummaryHeader({
           ) : null}
           {showFx ? (
             <div className="mt-1 flex flex-col gap-1 text-xs text-faint">
-              {/* Fuente, fecha y condición: la cotización actual es una
-                  referencia de mercado, no una fuente oficial. Decirlo es parte
-                  del dato (ver docs/FX_SOURCES.md). */}
-              <p>
-                {t("onboarding:fxDetail", {
-                  date: global!.quoted_at
-                    ? formatDate(global!.quoted_at.slice(0, 10), lang)
-                    : "—",
-                  provider: global!.provider ?? "—",
-                  kind: global!.official
-                    ? t("onboarding:fxOfficial")
-                    : t("onboarding:fxAlternative"),
-                })}
-              </p>
-              {!global!.official ? (
+              {/* Fuente, fecha y condición POR MONEDA: no todas vienen del mismo
+                  lado. ARS sale del Banco de la Nación (oficial); el resto, de
+                  una referencia de mercado. Decirlo es parte del dato
+                  (ver docs/FX_SOURCES.md). */}
+              <ul className="flex flex-col gap-0.5">
+                {global!.rate_sources.map(({ currency, source }) => (
+                  <li key={currency}>
+                    {t("onboarding:fxSourceLine", {
+                      code: currency,
+                      provider: source.provider,
+                      date: formatDate(source.quoted_at.slice(0, 10), lang),
+                      kind: source.official
+                        ? t("onboarding:fxOfficial")
+                        : t("onboarding:fxAlternative"),
+                    })}
+                  </li>
+                ))}
+              </ul>
+              {global!.rate_sources.some((s) => !s.source.official) ? (
                 <p>{t("onboarding:fxNotOfficialNote")}</p>
               ) : null}
+              <p>{t("onboarding:fxMidNote")}</p>
             </div>
           ) : null}
         </div>

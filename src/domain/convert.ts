@@ -20,17 +20,36 @@ import { minorUnitFactor } from "./currencies";
  * de `X` equivalen a 1 unidad de `base`. Es la forma que devuelven casi todos
  * los proveedores (`open.er-api.com`, ECB, …).
  */
+/** De dónde salió la cotización de UNA moneda. */
+export interface RateSource {
+  /** Nombre de la fuente, tal como se cita al usuario. */
+  provider: string;
+  /** Banco central / organismo oficial (`true`) o referencia de mercado. */
+  official: boolean;
+  /** ISO de la cotización de esa moneda (puede diferir del resto de la tabla). */
+  quoted_at: string;
+  /** Aclaración corta de qué valor es (p. ej. "punto medio compra/venta"). */
+  note?: string;
+}
+
 export interface RateTable {
   base: CurrencyCode;
   /** `rates[code]` unidades de `code` por 1 de `base`. Incluye `rates[base] = 1`. */
   rates: Readonly<Record<string, number>>;
-  /** Proveedor de la cotización (para citar la fuente). */
+  /**
+   * Fuente por moneda. Las que no tienen entrada propia vienen del proveedor
+   * base (`provider`). Permite decir "ARS: BNA (oficial), el resto: referencia
+   * de mercado" en vez de una sola etiqueta para toda la tabla.
+   */
+  sources?: Readonly<Record<string, RateSource>>;
+  /** Proveedor base de la cotización (para citar la fuente). */
   provider: string;
   /**
    * Si la fuente es **oficial** (banco central u organismo de gobierno) o una
    * referencia de mercado. Se muestra al usuario: una conversión estimada con
    * una fuente alternativa no puede presentarse como cotización oficial.
-   * Ver `docs/FX_SOURCES.md`.
+   * Es la condición del proveedor BASE; `sources` puede marcar como oficiales
+   * monedas puntuales. Ver `docs/FX_SOURCES.md`.
    */
   official: boolean;
   /** ISO del momento en que el proveedor calculó la cotización. */
@@ -86,4 +105,18 @@ export function convertWithTable(
 ): number | null {
   const rate = rateBetween(table, from, to);
   return rate == null ? null : convertMinor(minor, from, to, rate);
+}
+
+/** Fuente efectiva de una moneda: la propia si la tiene, si no la del proveedor base. */
+export function sourceFor(
+  table: Pick<RateTable, "provider" | "official" | "quoted_at" | "sources">,
+  code: CurrencyCode,
+): RateSource {
+  return (
+    table.sources?.[code] ?? {
+      provider: table.provider,
+      official: table.official,
+      quoted_at: table.quoted_at,
+    }
+  );
 }

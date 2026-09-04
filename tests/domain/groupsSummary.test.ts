@@ -190,3 +190,86 @@ describe("groupInitials", () => {
     expect(groupInitials("2026 viaje")).toBe("2V");
   });
 });
+
+/**
+ * Fuente por moneda: ARS sale del Banco de la Nación (oficial) y el resto de una
+ * referencia de mercado. El total consolidado sólo puede llamarse "oficial" si
+ * TODAS las conversiones lo son.
+ */
+describe("globalBalance: fuentes por moneda", () => {
+  const withSources: RateTable = {
+    ...table({ ARS: 1503.5, EUR: 0.92 }),
+    sources: {
+      ARS: {
+        provider: "Banco de la Nación Argentina",
+        official: true,
+        quoted_at: "2026-09-03",
+        note: "mid",
+      },
+    },
+  };
+
+  it("atribuye ARS al BNA y el resto al proveedor base", () => {
+    const g = globalBalance(
+      [
+        { currency: "USD", net_minor: 10000, owed_to_me_minor: 10000, i_owe_minor: 0 },
+        { currency: "ARS", net_minor: 150350, owed_to_me_minor: 150350, i_owe_minor: 0 },
+        { currency: "EUR", net_minor: 9200, owed_to_me_minor: 9200, i_owe_minor: 0 },
+      ],
+      "USD",
+      withSources,
+    );
+
+    const byCode = Object.fromEntries(
+      g.rate_sources.map((s) => [s.currency, s.source]),
+    );
+    // La moneda principal no se convierte: no aporta fuente.
+    expect(byCode.USD).toBeUndefined();
+    expect(byCode.ARS).toMatchObject({
+      provider: "Banco de la Nación Argentina",
+      official: true,
+      quoted_at: "2026-09-03",
+    });
+    expect(byCode.EUR).toMatchObject({ provider: "test", official: false });
+  });
+
+  it("con una sola conversión de mercado, el total NO es oficial", () => {
+    const g = globalBalance(
+      [
+        { currency: "USD", net_minor: 10000, owed_to_me_minor: 10000, i_owe_minor: 0 },
+        { currency: "ARS", net_minor: 150350, owed_to_me_minor: 150350, i_owe_minor: 0 },
+        { currency: "EUR", net_minor: 9200, owed_to_me_minor: 9200, i_owe_minor: 0 },
+      ],
+      "USD",
+      withSources,
+    );
+    expect(g.official).toBe(false);
+  });
+
+  it("si todo lo convertido es oficial, el total sí lo es", () => {
+    const g = globalBalance(
+      [
+        { currency: "USD", net_minor: 10000, owed_to_me_minor: 10000, i_owe_minor: 0 },
+        { currency: "ARS", net_minor: 150350, owed_to_me_minor: 150350, i_owe_minor: 0 },
+      ],
+      "USD",
+      withSources,
+    );
+    expect(g.rate_sources.map((s) => s.currency)).toEqual(["ARS"]);
+    expect(g.official).toBe(true);
+  });
+
+  it("una moneda sin cotización no se convierte ni aporta fuente", () => {
+    const g = globalBalance(
+      [
+        { currency: "USD", net_minor: 10000, owed_to_me_minor: 10000, i_owe_minor: 0 },
+        { currency: "GTQ", net_minor: 5000, owed_to_me_minor: 5000, i_owe_minor: 0 },
+      ],
+      "USD",
+      withSources,
+    );
+    expect(g.missing).toEqual(["GTQ"]);
+    expect(g.rate_sources).toEqual([]);
+    expect(g.balance_minor).toBe(10000);
+  });
+});

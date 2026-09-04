@@ -122,10 +122,11 @@
     "byCurrency": "Por moneda",
     "fxInfo": "De dónde sale la conversión",
     "fxStale": "Conversión estimada con la cotización del {{date}}",
-    "fxDetail": "Cotización del {{date}} · Fuente: {{provider}} ({{kind}})",
     "fxOfficial": "oficial",
     "fxAlternative": "fuente alternativa, no oficial",
-    "fxNotOfficialNote": "No es una fuente oficial ni de banco central: es una referencia de mercado para estimar el total. Los importes originales de cada moneda no cambian."
+    "fxNotOfficialNote": "No es una fuente oficial ni de banco central: es una referencia de mercado para estimar el total. Los importes originales de cada moneda no cambian.",
+    "fxSourceLine": "{{code}} — {{provider}} ({{kind}}), cotización del {{date}}",
+    "fxMidNote": "Cuando la fuente publica compra y venta, se usa el punto medio."
   },
   "group": {
     "newTitle": "Nuevo grupo",

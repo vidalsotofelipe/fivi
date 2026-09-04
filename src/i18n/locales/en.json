@@ -122,10 +122,11 @@
     "byCurrency": "By currency",
     "fxInfo": "Where this conversion comes from",
     "fxStale": "Estimated with the rate from {{date}}",
-    "fxDetail": "Rate from {{date}} · Source: {{provider}} ({{kind}})",
     "fxOfficial": "official",
     "fxAlternative": "alternative source, not official",
-    "fxNotOfficialNote": "This is not an official or central-bank source: it is a market reference used to estimate the total. The original amounts in each currency do not change."
+    "fxNotOfficialNote": "This is not an official or central-bank source: it is a market reference used to estimate the total. The original amounts in each currency do not change.",
+    "fxSourceLine": "{{code}} — {{provider}} ({{kind}}), rate from {{date}}",
+    "fxMidNote": "When the source publishes buy and sell rates, the midpoint is used."
   },
   "group": {
     "newTitle": "New group",

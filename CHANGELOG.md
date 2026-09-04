@@ -63,6 +63,26 @@ _(sin cambios pendientes de release)_
 - **"Gastos anteriores" no hacía nada** cuando la persona ya estaba en todos los
   gastos. Ahora lo dice: "No hay gastos anteriores donde sumar a Ana".
 
+### Added
+
+- **Cotización oficial del dólar del Banco de la Nación Argentina para ARS.** Es
+  la primera fuente oficial por moneda: el resto sigue con la referencia de
+  mercado, y cada moneda muestra la suya en el detalle de conversión ("ARS —
+  Banco de la Nación Argentina (oficial), cotización del 3 de sept de 2026"). El
+  BNA publica compra y venta; se usa el **punto medio**, porque un saldo puede
+  ser a favor o en contra y tomar una punta inclinaría la estimación según el
+  signo. El total consolidado sólo se llama "oficial" si **todas** las
+  conversiones lo son.
+  - El BNA no tiene API: se parsea su tabla HTML, y el parser **falla cerrado**.
+    Busca la fila por su etiqueta (nunca por posición), descarta las filas
+    marcadas `(*)` (cotizan cada 100 unidades) y valida los números antes de
+    creerles. Ante cualquier problema —red, timeout, HTML distinto, números que
+    no cierran— devuelve `null`, ARS vuelve sola a la referencia de mercado y la
+    interfaz lo dice. Nunca se inventa una cotización.
+  - Sumar otra moneda oficial es agregar un override en
+    `src/lib/exchangeRates.ts`; nada más cambia. Ver
+    [`docs/FX_SOURCES.md`](docs/FX_SOURCES.md).
+
 ### Changed
 
 - **Los errores de reparto son códigos tipados en el dominio** (`SplitError`), y
@@ -72,14 +92,13 @@ _(sin cambios pendientes de release)_
   gastos anteriores. Se listan en su propia sección, sin poder tildarlos,
   explicando que hay que asignarle a mano su monto o porcentaje, con acceso
   directo a editar el gasto.
-- **La conversión de monedas ya no se presenta como oficial.** `open.er-api.com`
-  es una referencia de mercado, no un banco central: ahora se muestra la fuente,
-  la fecha y la condición ("fuente alternativa, no oficial") con la aclaración
-  de que los importes originales de cada moneda no cambian. El relevamiento de
-  qué fuente oficial cubre cada una de las 35 monedas soportadas, y el diseño de
-  proveedores por moneda/región, quedó documentado en
-  [`docs/FX_SOURCES.md`](docs/FX_SOURCES.md). La interfaz `Provider` sigue
-  desacoplada; migrar a fuentes oficiales es trabajo pendiente y planificado ahí.
+- **La conversión de monedas ya no se presenta como oficial cuando no lo es.**
+  `open.er-api.com` es una referencia de mercado, no un banco central: cada
+  moneda muestra su fuente, su fecha y su condición ("fuente alternativa, no
+  oficial"), con la aclaración de que los importes originales no cambian. El
+  relevamiento de qué fuente oficial cubre cada una de las 35 monedas quedó en
+  [`docs/FX_SOURCES.md`](docs/FX_SOURCES.md); ARS ya usa la del BNA (ver
+  "Added"), el resto sigue pendiente y planificado ahí.
 - **Límites de longitud visibles y en el servidor** para nombre de grupo (60),
   descripción de grupo (120), descripción de gasto (120) y nombre de participante
   (60). Con contador en la interfaz, validación en los repos y `check` en
@@ -109,6 +128,13 @@ _(sin cambios pendientes de release)_
   cuando no hay ninguno, y el listado aparte de los gastos a medida con su
   acceso a edición. También "quién sos en este grupo" y "sumarme al grupo".
 - RLS: los límites de longitud de la migración `0016`.
+- Parser del BNA contra el marcado real capturado: punto medio, búsqueda por
+  etiqueta, exclusión de las filas `(*)`, los dos formatos numéricos posibles, y
+  un caso por cada modo de falla (sin tabla, sin fila, celdas no numéricas, venta
+  menor que compra, spread absurdo, ceros) — todos devuelven `null`.
+- Atribución de fuentes: ARS al BNA y el resto al proveedor base; el consolidado
+  no es "oficial" si alguna conversión es de mercado; una moneda sin cotización
+  no se convierte ni aporta fuente.
 
 ## [0.16.4] - 2026-09-04
 

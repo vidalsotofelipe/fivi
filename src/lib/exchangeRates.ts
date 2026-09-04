@@ -28,8 +28,9 @@
  *     como `stale` (nunca se rompe el dashboard ni se ocultan los importes).
  */
 import { CURRENCIES } from "@/domain/currencies";
-import type { RateTable } from "@/domain/convert";
+import type { RateSource, RateTable } from "@/domain/convert";
 import { getAdminClient } from "@/lib/supabaseAdmin";
+import { BNA_NAME, BNA_URL, fetchBnaUsd } from "@/lib/fx/bna";
 
 /** Monedas que a FIVI le interesa cotizar. */
 export const FX_SYMBOLS = Object.keys(CURRENCIES);
@@ -101,6 +102,65 @@ export function isOfficialProvider(name: string | null | undefined): boolean {
 
 const provider: Provider = openErApi;
 
+/**
+ * Fuentes oficiales POR MONEDA, que pisan al proveedor base.
+ *
+ * Primer caso implementado: **ARS con la cotización del Banco de la Nación
+ * Argentina**. Es el primer paso del diseño de `docs/FX_SOURCES.md`: no existe
+ * una única fuente oficial que cubra las 35 monedas, así que se van sumando por
+ * moneda, cada una con su fuente y su fecha.
+ *
+ * Contrato de cada override: devuelve cuántas unidades de esa moneda equivalen a
+ * 1 USD, o `null`. Un `null` NO rompe nada: la moneda se queda con el proveedor
+ * base y se sigue mostrando como referencia de mercado.
+ */
+interface CurrencyOverride {
+  currency: string;
+  fetchPerUsd(): Promise<{ perUsd: number; source: RateSource } | null>;
+}
+
+const bnaArs: CurrencyOverride = {
+  currency: "ARS",
+  async fetchPerUsd() {
+    const q = await fetchBnaUsd();
+    if (!q) return null;
+    return {
+      perUsd: q.arsPerUsd,
+      source: {
+        provider: BNA_NAME,
+        official: true,
+        quoted_at: q.quoted_at,
+        note: "mid",
+      },
+    };
+  },
+};
+
+const OVERRIDES: CurrencyOverride[] = [bnaArs];
+
+export { BNA_URL };
+
+/**
+ * Aplica las fuentes oficiales por moneda sobre la tabla base. Cada override es
+ * independiente: si uno falla, los demás siguen. Nunca lanza.
+ */
+async function applyOverrides(
+  rates: Record<string, number>,
+): Promise<Record<string, RateSource>> {
+  const sources: Record<string, RateSource> = {};
+  const results = await Promise.allSettled(
+    OVERRIDES.map(async (o) => ({ o, res: await o.fetchPerUsd() })),
+  );
+  for (const r of results) {
+    if (r.status !== "fulfilled" || !r.value.res) continue;
+    const { o, res } = r.value;
+    if (!Number.isFinite(res.perUsd) || res.perUsd <= 0) continue;
+    rates[o.currency] = res.perUsd;
+    sources[o.currency] = res.source;
+  }
+  return sources;
+}
+
 // --- Cache en memoria del proceso ------------------------------------------
 let memo: { table: RateTable; expires: number } | null = null;
 
@@ -109,7 +169,7 @@ async function readWarmCache(): Promise<RateTable | null> {
   try {
     const { data, error } = await getAdminClient()
       .from("exchange_rates")
-      .select("base, rates, provider, quoted_at, fetched_at")
+      .select("base, rates, provider, sources, quoted_at, fetched_at")
       .eq("base", FX_BASE)
       .maybeSingle();
     if (error || !data) return null;
@@ -118,6 +178,7 @@ async function readWarmCache(): Promise<RateTable | null> {
       rates: data.rates as Record<string, number>,
       provider: data.provider as string,
       official: isOfficialProvider(data.provider as string),
+      sources: (data.sources as Record<string, RateSource> | null) ?? {},
       quoted_at: data.quoted_at as string,
       fetched_at: data.fetched_at as string,
     };
@@ -135,6 +196,7 @@ async function writeWarmCache(table: RateTable): Promise<void> {
           base: table.base,
           rates: table.rates,
           provider: table.provider,
+          sources: table.sources ?? {},
           quoted_at: table.quoted_at,
           fetched_at: table.fetched_at,
           updated_at: new Date().toISOString(),
@@ -170,11 +232,14 @@ export async function getRateTable(): Promise<RatesResponse> {
 
   try {
     const { rates, quoted_at } = await provider.fetchRates(FX_BASE);
+    // Las fuentes oficiales por moneda pisan al proveedor base (hoy: ARS/BNA).
+    const sources = await applyOverrides(rates);
     const table: RateTable = {
       base: FX_BASE,
       rates,
       provider: provider.name,
       official: provider.official,
+      sources,
       quoted_at,
       fetched_at: new Date().toISOString(),
     };

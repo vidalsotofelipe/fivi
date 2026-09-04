@@ -10,7 +10,12 @@
  * distinto de `null`): sin eso no hay un "te deben / debés" que calcular.
  */
 import type { CurrencyCode } from "./types";
-import { convertWithTable, type RateTable } from "./convert";
+import {
+  convertWithTable,
+  sourceFor,
+  type RateSource,
+  type RateTable,
+} from "./convert";
 
 export interface GroupBalanceInput {
   currency_code: CurrencyCode;
@@ -97,14 +102,20 @@ export interface GlobalBalance {
   stale: boolean;
   /** ISO de la cotización usada (para "actualizada el …"). */
   quoted_at: string | null;
-  /** Proveedor de la cotización. */
+  /** Proveedor base de la cotización. */
   provider: string | null;
   /**
-   * Si la fuente es oficial (banco central / gobierno) o una referencia de
-   * mercado. La UI lo dice explícitamente: no se presenta una estimación de
-   * mercado como cotización oficial. Ver `docs/FX_SOURCES.md`.
+   * `true` sólo si TODAS las monedas convertidas vinieron de fuentes oficiales
+   * (banco central / gobierno). La UI lo dice explícitamente: no se presenta una
+   * estimación de mercado como cotización oficial. Ver `docs/FX_SOURCES.md`.
    */
   official: boolean;
+  /**
+   * Fuente efectiva de cada moneda que hubo que convertir. Permite mostrar
+   * "ARS — Banco de la Nación Argentina (oficial)" junto al resto, en vez de una
+   * sola etiqueta para toda la tabla.
+   */
+  rate_sources: { currency: CurrencyCode; source: RateSource }[];
 }
 
 /**
@@ -143,6 +154,14 @@ export function globalBalance(
     }
   }
 
+  // Fuente de cada moneda que EFECTIVAMENTE hubo que convertir (la principal no
+  // se convierte, así que no aporta fuente).
+  const rate_sources = table
+    ? converted
+        .filter((c) => c !== preferredCurrency)
+        .map((currency) => ({ currency, source: sourceFor(table, currency) }))
+    : [];
+
   return {
     currency: preferredCurrency,
     balance_minor: balance,
@@ -151,7 +170,11 @@ export function globalBalance(
     stale: stale && converted.some((c) => c !== preferredCurrency),
     quoted_at: table?.quoted_at ?? null,
     provider: table?.provider ?? null,
-    official: table?.official ?? false,
+    // Oficial sólo si TODAS las conversiones lo son. Con una sola de mercado,
+    // el total consolidado no puede llamarse oficial.
+    official:
+      rate_sources.length > 0 && rate_sources.every((s) => s.source.official),
+    rate_sources,
   };
 }
 

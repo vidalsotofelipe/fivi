@@ -70,6 +70,7 @@ export function useExchangeTable(enabled: boolean): ExchangeState {
           // Un cache viejo (o un servidor anterior) no trae el campo: sin dato,
           // se asume NO oficial. Nunca al revés.
           official: body.official === true,
+          sources: body.sources ?? {},
           quoted_at: body.quoted_at,
           fetched_at: body.fetched_at ?? new Date().toISOString(),
         };

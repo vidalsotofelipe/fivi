@@ -1,9 +1,50 @@
-# Fuentes de cotización — relevamiento previo a usar fuentes oficiales
+# Fuentes de cotización
 
-Estado: **relevamiento**. Hoy FIVI usa un único proveedor de mercado
-(`open.er-api.com`) y lo declara como tal en la interfaz. Este documento es el
-paso previo que pide el requerimiento: **qué fuente oficial cubre cada una de las
-35 monedas soportadas**, antes de diseñar proveedores por moneda o región.
+Estado: **primera fuente oficial implementada (ARS)**. El resto de las monedas
+usa un proveedor de mercado (`open.er-api.com`), declarado como tal en la
+interfaz. Este documento tiene el relevamiento que pide el requerimiento —**qué
+fuente oficial cubre cada una de las 35 monedas soportadas**— y el diseño para ir
+sumándolas.
+
+## Implementado
+
+| Moneda | Fuente | Oficial | Valor usado |
+|---|---|---|---|
+| **ARS** | [Banco de la Nación Argentina](https://bna.com.ar/Cotizador/MonedasHistorico) — "Cotizaciones de divisas en el Mercado Libre de Cambios, Valor Hoy" | Sí (banco público) | **Punto medio entre compra y venta** |
+| Todas las demás | `open.er-api.com` | No — referencia de mercado | El que publica el proveedor |
+
+### Por qué el punto medio
+
+El BNA publica compra y venta (por ejemplo 1499 / 1508). Un saldo en FIVI puede
+ser a favor o en contra, así que tomar una sola punta inclinaría la estimación
+hacia un lado según el signo. El punto medio es neutral, y la interfaz aclara que
+se usa el medio cuando la fuente publica las dos puntas.
+
+### El BNA no tiene API
+
+Publica una tabla HTML (`table.cotizador`), así que se parsea. Eso es frágil por
+definición, y el código lo trata como tal — ver `src/lib/fx/bna.ts`:
+
+- la fila se busca por su **etiqueta** ("Dolar U.S.A"), nunca por posición;
+- se descartan las filas marcadas `(*)`, que cotizan cada 100 unidades;
+- los números se validan antes de creerles: compra y venta positivas, venta ≥
+  compra, spread menor al 50 %, y una banda absoluta muy amplia para descartar
+  lecturas absurdas;
+- **falla cerrado**: ante cualquier problema —red, timeout, HTML distinto,
+  números que no cierran— devuelve `null`, la moneda se queda con el proveedor de
+  mercado y se muestra como tal. Nunca se inventa ni se adivina una cotización.
+
+Si el BNA cambia el marcado, la app no se rompe: vuelve sola a la referencia de
+mercado y lo dice en la interfaz. Los tests de `tests/lib/bna.test.ts` corren
+contra el marcado real capturado y cubren cada modo de falla.
+
+### Decisión pendiente que este documento dejaba abierta
+
+En Argentina conviven varios tipos de cambio legales. Se eligió el que publica el
+BNA en su cotizador de divisas (el que el usuario indicó), y la interfaz muestra
+la fuente y la fecha. Si más adelante hiciera falta ofrecer otro (billete,
+tarjeta, MEP), el diseño de abajo lo soporta sin tocar nada fuera de
+`src/lib/exchangeRates.ts`.
 
 ## Por qué importa
 
@@ -32,7 +73,7 @@ en un formato consumible.
 
 | Moneda | País | Fuente oficial | Accesible | Notas |
 |---|---|---|---|---|
-| ARS | Argentina | BCRA — Estadísticas cambiarias | Sí (API REST pública) | Publica el tipo de cambio mayorista (Com. A 3500). Existen múltiples tipos de cambio legales conviviendo: elegir cuál se muestra es una decisión de producto, no técnica. |
+| **ARS** | Argentina | **BNA — Cotizador de divisas** (implementado) · BCRA Com. A 3500 como alternativa | Sí (BNA por HTML; BCRA por API REST) | Ver arriba. El BCRA queda como opción si se prefiere el mayorista o si el BNA cambia el marcado. |
 | BOB | Bolivia | BCB — Tipo de cambio oficial | Parcial | Publicado en web; sin API estable documentada. |
 | BRL | Brasil | Banco Central do Brasil — PTAX | Sí (API Olinda, REST) | Fuente oficial de referencia, muy bien documentada. |
 | CLP | Chile | Banco Central de Chile — Dólar observado | Sí (API con registro gratuito) | Requiere credenciales de la BDE. |
@@ -90,26 +131,43 @@ en un formato consumible.
   moneda latinoamericana salvo BRL y MXN**, que son justamente el centro de uso
   de FIVI.
 
-## Diseño propuesto (pendiente de implementar)
+## Diseño
 
-1. `Provider` pasa de ser único a un **registro por moneda**: `official`,
-   `homepage`, `fetchRate(base, quote)`, prioridad.
-2. Resolución por moneda: fuente oficial del país → si no hay, encadenar por
-   USD/EUR con fuentes oficiales → si tampoco, **fuente alternativa declarada
-   como tal** (la actual) → si tampoco, no convertir.
-3. La condición (`official: true|false`) viaja por moneda, no por tabla, y se
-   muestra en el detalle de conversión.
-4. Caso especial ARS: hay más de un tipo de cambio legal. Antes de implementarlo
-   hay que decidir cuál se usa y decirlo en la interfaz.
+Ya implementado con ARS como primer caso; sumar una moneda es agregar un
+override.
+
+1. Una tabla **base** (hoy el proveedor de mercado, base USD) da cotización para
+   todas las monedas.
+2. Encima corren los **overrides por moneda** (`OVERRIDES` en
+   `src/lib/exchangeRates.ts`): cada uno devuelve cuántas unidades de esa moneda
+   equivalen a 1 USD, más su `RateSource` (fuente, si es oficial, fecha).
+3. Los overrides corren en paralelo y son independientes: si uno falla, los demás
+   siguen, y la moneda afectada se queda con la tabla base.
+4. La condición viaja **por moneda** (`RateTable.sources`), no por tabla. El
+   total consolidado sólo se llama oficial si **todas** las conversiones lo son.
+5. Una moneda sin cotización utilizable no se convierte: queda fuera del total,
+   se lista aparte con su importe original y no se inventa nada.
+
+### Sumar una moneda
+
+Escribir el fetch + parser en `src/lib/fx/<fuente>.ts` (con sus validaciones y
+`null` ante la duda), y agregar un `CurrencyOverride` a `OVERRIDES`. Nada fuera
+de `src/lib/exchangeRates.ts` cambia.
 
 ## Estado actual en el código
 
-- `src/lib/exchangeRates.ts` — interfaz `Provider` con `official` y `homepage`,
-  registro `PROVIDERS`, y `isOfficialProvider()` para resolver la condición
-  desde el cache tibio sin migración de base.
-- `src/domain/convert.ts` / `src/domain/groupsSummary.ts` — `official` viaja en
-  `RateTable` y `GlobalBalance`.
-- `src/components/GroupsSummaryHeader.tsx` — muestra fuente, fecha, condición y
-  la aclaración de que no es oficial.
+- `src/lib/fx/bna.ts` — cotización oficial del dólar del BNA: fetch con timeout,
+  parser defensivo y validaciones. Exporta el parser aparte para testearlo sin
+  red.
+- `src/lib/exchangeRates.ts` — interfaz `Provider` (base) con `official` y
+  `homepage`, registro `PROVIDERS`, `isOfficialProvider()`, y `OVERRIDES` con las
+  fuentes oficiales por moneda.
+- `src/domain/convert.ts` — `RateSource`, `RateTable.sources` y `sourceFor()`.
+- `src/domain/groupsSummary.ts` — `GlobalBalance.rate_sources` y un `official`
+  que exige que TODAS las conversiones lo sean.
+- `src/components/GroupsSummaryHeader.tsx` — lista fuente, condición y fecha de
+  cada moneda convertida, más la aclaración del punto medio.
+- `supabase/migrations/0017_exchange_rates_sources.sql` — columna `sources` en el
+  cache tibio.
 - Una fuente desconocida se trata como **no oficial**: el default seguro es no
   prometer oficialidad.

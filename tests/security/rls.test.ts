@@ -120,6 +120,7 @@ beforeAll(async () => {
     "0014_exchange_rates.sql",
     "0015_expense_participants_live_unique.sql",
     "0016_text_length_limits.sql",
+    "0017_exchange_rates_sources.sql",
   ]) {
     await pg.exec(migration(file));
   }
