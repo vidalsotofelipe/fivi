@@ -27,7 +27,12 @@ export default function GeneralSettingsPage() {
   }));
 
   return (
-    <AppShell title={t("settings:generalTitle")} back="/">
+    // `back={true}` (no un href fijo): /ajustes es alcanzable desde CUALQUIER
+    // pantalla (ícono global en AppBar), así que "volver" tiene que devolver a
+    // donde el usuario estaba de verdad —un grupo, un gasto, el inicio—, no
+    // saltar siempre a home. La marca de la app (siempre presente en AppBar)
+    // sigue siendo el camino directo al inicio.
+    <AppShell title={t("settings:generalTitle")} back={true}>
       <section className="flex flex-col gap-2">
         <h2 className="label-caps">{t("settings:sectionLanguage")}</h2>
         <SegmentedControl

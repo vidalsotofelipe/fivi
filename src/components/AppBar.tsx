@@ -30,7 +30,38 @@ function SettingsLink() {
 }
 
 /**
- * Barra superior: volver opcional, título, estado de sync, slot de menú
+ * Marca + nombre de la app: SIEMPRE presente (a diferencia de la flecha de
+ * volver, que es contextual y puede faltar o apuntar a la pantalla anterior).
+ * Es la única navegación que garantiza llegar a la lista de grupos desde
+ * cualquier pantalla — la flecha de volver no sirve para eso: en `/ajustes`,
+ * por ejemplo, "volver" tiene que devolver al grupo del que viniste, no
+ * saltar siempre al inicio.
+ *
+ * El ícono nunca se oculta. El nombre de texto sí, cuando la pantalla YA tiene
+ * un menú contextual propio (hoy sólo el detalle de un gasto): entre volver +
+ * marca + título + sync + ese menú + ajustes no entra nada más a 320px sin
+ * que el título de la página quede irreconocible. El ícono solo alcanza para
+ * volver al inicio; el texto es un refuerzo, no la única vía.
+ */
+function HomeMark({ compact }: { compact: boolean }) {
+  const { t } = useTranslation();
+  return (
+    <Link
+      href="/"
+      aria-label={t("appName")}
+      className="flex h-11 shrink-0 items-center gap-1.5 px-1 text-text"
+    >
+      <AppMark className="h-6 w-6 shrink-0" />
+      {compact ? null : (
+        <span className="text-xs font-bold tracking-tight">{t("appName")}</span>
+      )}
+    </Link>
+  );
+}
+
+/**
+ * Barra superior: volver contextual opcional, marca de la app (siempre
+ * presente, lleva al inicio), título, estado de sync, slot de menú
  * contextual y el ícono de ajustes generales (siempre presente).
  * Sticky, respeta el ancho del contenedor.
  */
@@ -70,16 +101,9 @@ export function AppBar({
             <span aria-hidden="true">←</span>
           </Link>
         )
-      ) : (
-        // Sin botón de volver (inicio / onboarding / "grupo listo"): la marca.
-        <Link
-          href="/"
-          aria-label={t("appName")}
-          className="ml-1 flex h-11 w-9 shrink-0 items-center justify-center"
-        >
-          <AppMark className="h-7 w-7" />
-        </Link>
-      )}
+      ) : null}
+
+      <HomeMark compact={!!menu} />
 
       <h1 className="min-w-0 flex-1 truncate px-1 text-base font-bold text-text">
         {title}

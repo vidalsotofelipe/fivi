@@ -13,6 +13,25 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.16.9] - 2026-09-04
+
+### Fixed
+
+- **"Volver" desde Ajustes generales mandaba siempre a la lista de grupos**, en
+  vez de al grupo (o pantalla) del que viniste. `/ajustes` es alcanzable desde
+  CUALQUIER pantalla (ícono global), así que un destino fijo estaba mal por
+  definición: ahora usa el historial de navegación, igual que cualquier otra
+  pantalla a la que se entra desde más de un lugar.
+
+### Added
+
+- **Marca "fivi" siempre presente en el nav superior**, junto a la flecha de
+  volver (cuando la hay). Es la única navegación que garantiza llegar a la
+  lista de grupos desde cualquier pantalla — a diferencia de "volver", que es
+  contextual. En la pantalla de detalle de un gasto (la única con un menú
+  propio ⋯) se muestra sólo el ícono, sin el texto, para no ahogar el título
+  de la página a 320px.
+
 ## [0.16.8] - 2026-09-04
 
 ### Changed

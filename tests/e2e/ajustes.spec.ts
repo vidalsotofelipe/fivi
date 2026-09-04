@@ -134,3 +134,35 @@ test("sin desborde horizontal en /ajustes a 320px", async ({ page }) => {
   );
   expect(overflow).toBe(false);
 });
+
+test("volver desde /ajustes regresa a donde estabas, no siempre al inicio", async ({
+  page,
+}) => {
+  await page.goto("/nuevo");
+  await page.getByPlaceholder("Viaje a Bariloche").fill("Volver bien");
+  await page.getByLabel("Moneda").selectOption("ARS");
+  await page.getByRole("button", { name: "Continuar" }).click();
+  await page.waitForURL(/\/g\/[0-9a-f-]{36}\/nuevo\/personas$/);
+  const id = page.url().split("/g/")[1]!.split("/")[0]!;
+  await page.getByPlaceholder("Ej.: Ana").fill("Ana");
+  await page.getByRole("button", { name: "Agregar", exact: true }).click();
+  await expect(page.getByRole("listitem").filter({ hasText: "Ana" })).toBeVisible();
+  await page.getByRole("button", { name: /Continuar con 1/ }).click();
+  await page.waitForURL(/\/listo$/);
+  await page.getByRole("button", { name: "Ir al resumen" }).click();
+  await page.waitForURL(new RegExp(`/g/${id}$`));
+
+  // Desde DENTRO del grupo, ir a Ajustes generales y volver: antes esto
+  // mandaba siempre a la lista de grupos ("/"), porque /ajustes usaba un
+  // destino fijo en vez del historial de navegación.
+  await page.getByRole("link", { name: "Ajustes generales" }).click();
+  await page.waitForURL(/\/ajustes$/);
+  await page.getByRole("button", { name: "Volver" }).click();
+  await expect(page).toHaveURL(new RegExp(`/g/${id}$`));
+
+  // La marca "fivi" sí lleva siempre al inicio, sin importar de dónde vengas.
+  await page.getByRole("link", { name: "Ajustes generales" }).click();
+  await page.waitForURL(/\/ajustes$/);
+  await page.getByRole("link", { name: "fivi", exact: true }).click();
+  await expect(page).toHaveURL(/\/$/);
+});
