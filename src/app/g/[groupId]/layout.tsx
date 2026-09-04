@@ -9,7 +9,7 @@ import { EmptyState, Loading } from "@/components/EmptyState";
 import { GroupContextProvider } from "@/components/GroupProvider";
 import { useSyncActions, useSyncState } from "@/components/SyncProvider";
 import { isUuid } from "@/data/ids";
-import { useGroup, useParticipants } from "@/lib/db-hooks";
+import { useAllParticipants, useGroup, useParticipants } from "@/lib/db-hooks";
 import { useHydrated } from "@/lib/useHydrated";
 
 /** Tope de espera para el primer pull de un grupo pedido por enlace. */
@@ -35,6 +35,9 @@ export default function GroupLayout({ children }: { children: ReactNode }) {
   const hydrated = useHydrated();
   const group = useGroup(validId ? groupId : "");
   const participants = useParticipants(validId ? groupId : "");
+  // Incluye a los quitados: sus movimientos siguen contando y sus nombres
+  // tienen que poder resolverse en saldos y actividad.
+  const allParticipants = useAllParticipants(validId ? groupId : "");
   const { requestGroup } = useSyncActions();
   const { hydrating_group_ids, online } = useSyncState();
 
@@ -65,7 +68,12 @@ export default function GroupLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  if (!hydrated || group === undefined || participants === undefined) {
+  if (
+    !hydrated ||
+    group === undefined ||
+    participants === undefined ||
+    allParticipants === undefined
+  ) {
     return (
       <AppShell title={t("common:appName")} back="/">
         <Loading />
@@ -103,7 +111,7 @@ export default function GroupLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <GroupContextProvider value={{ group, participants }}>
+    <GroupContextProvider value={{ group, participants, allParticipants }}>
       {children}
     </GroupContextProvider>
   );

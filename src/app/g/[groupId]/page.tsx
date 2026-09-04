@@ -64,7 +64,7 @@ export default function GroupSummaryPage() {
   const { lang } = useLocale();
   const router = useRouter();
   const toast = useToast();
-  const { group, participants } = useGroupContext();
+  const { group, participants, allParticipants } = useGroupContext();
   const hydrated = useHydrated();
   const summary = useGroupSummary(group.id);
   const me = useMe(group.id);
@@ -200,7 +200,7 @@ export default function GroupSummaryPage() {
               <TransferRow
                 key={`${tr.from_id}-${tr.to_id}-${i}`}
                 transfer={tr}
-                participants={participants}
+                participants={allParticipants}
                 currency={cc}
                 groupId={group.id}
               />
@@ -215,7 +215,7 @@ export default function GroupSummaryPage() {
                 <BalanceRow
                   key={b.participant_id}
                   balance={b}
-                  participants={participants}
+                  participants={allParticipants}
                   currency={cc}
                   highlight={b.participant_id === me}
                 />
@@ -245,7 +245,7 @@ export default function GroupSummaryPage() {
                 <ExpenseCard
                   key={item.data.id}
                   expense={item.data}
-                  participants={participants}
+                  participants={allParticipants}
                   currency={cc}
                   groupId={group.id}
                 />
@@ -256,8 +256,8 @@ export default function GroupSummaryPage() {
                 >
                   <span className="min-w-0 text-[15px] text-text">
                     {t("activity:paymentCreated", {
-                      from: nameOf(participants, item.data.from_participant),
-                      to: nameOf(participants, item.data.to_participant),
+                      from: nameOf(allParticipants, item.data.from_participant),
+                      to: nameOf(allParticipants, item.data.to_participant),
                     })}
                     <span className="block text-xs text-muted">
                       {formatDate(item.data.payment_date, lang)}

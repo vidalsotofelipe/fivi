@@ -57,6 +57,20 @@ export function useParticipants(
   );
 }
 
+/**
+ * Incluye a los quitados del grupo (tombstones). Sólo para **resolver nombres**
+ * en saldos / actividad: sus movimientos siguen contando, así que sus filas no
+ * pueden quedar como "—".
+ */
+export function useAllParticipants(
+  groupId: string,
+): Participant[] | undefined {
+  return useLiveQuery(
+    () => participantRepo.listAllParticipants(groupId, db),
+    [groupId],
+  );
+}
+
 export function useGroupSummary(
   groupId: string,
 ): GroupSummary | undefined {

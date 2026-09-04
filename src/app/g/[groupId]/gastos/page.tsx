@@ -19,7 +19,7 @@ type Filter = "all" | "mine" | "month";
 
 export default function ExpenseListPage() {
   const { t } = useTranslation(["expense", "common"]);
-  const { group, participants } = useGroupContext();
+  const { group, allParticipants } = useGroupContext();
   const hydrated = useHydrated();
   const expenses = useExpenses(group.id);
   const me = useMe(group.id);
@@ -33,7 +33,7 @@ export default function ExpenseListPage() {
     const now = new Date();
     return expenses.filter((e) => {
       if (q) {
-        const payer = nameOf(participants, e.paid_by).toLowerCase();
+        const payer = nameOf(allParticipants, e.paid_by).toLowerCase();
         if (
           !e.description.toLowerCase().includes(q) &&
           !payer.includes(q)
@@ -55,7 +55,7 @@ export default function ExpenseListPage() {
       }
       return true;
     });
-  }, [expenses, query, filter, me, participants]);
+  }, [expenses, query, filter, me, allParticipants]);
 
   const bottomNav = <BottomNav groupId={group.id} />;
 
@@ -151,7 +151,7 @@ export default function ExpenseListPage() {
             <ExpenseCard
               key={e.id}
               expense={e}
-              participants={participants}
+              participants={allParticipants}
               currency={group.currency_code}
               groupId={group.id}
             />

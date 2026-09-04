@@ -101,6 +101,47 @@ describe("participantRepo", () => {
     const list = await participantRepo.listParticipants(g.id, db);
     expect(list.map((p) => p.name)).toEqual(["Lucas", "Martín"]);
   });
+
+  /**
+   * Quitar a alguien es soft delete: sus gastos siguen contando en los saldos,
+   * así que su NOMBRE tiene que poder resolverse. Con sólo `listParticipants`
+   * las filas de "quién le debe a quién" quedaban como "—".
+   */
+  it("listAllParticipants incluye a los quitados; listParticipants no", async () => {
+    const g = await groupRepo.createGroup(
+      { name: "G", currency_code: "ARS" },
+      db,
+    );
+    const ana = await participantRepo.addParticipant(g.id, "Ana", db);
+    const beto = await participantRepo.addParticipant(g.id, "Beto", db);
+    await expenseRepo.createExpense(
+      {
+        group_id: g.id,
+        description: "Cena",
+        amount_minor_units: 10000,
+        paid_by: ana.id,
+        participant_ids: [ana.id, beto.id],
+      },
+      db,
+    );
+
+    await participantRepo.removeParticipant(beto.id, db);
+
+    const live = await participantRepo.listParticipants(g.id, db);
+    expect(live.map((p) => p.name)).toEqual(["Ana"]);
+
+    const all = await participantRepo.listAllParticipants(g.id, db);
+    expect(all.map((p) => p.name)).toEqual(["Ana", "Beto"]);
+
+    // El saldo del quitado sigue existiendo: su nombre debe ser resoluble.
+    const summary = await getGroupSummary(g.id, db);
+    const betoBalance = summary.balances.find(
+      (b) => b.participant_id === beto.id,
+    );
+    expect(betoBalance).toBeDefined();
+    expect(betoBalance!.balance_minor).toBe(-5000);
+    expect(all.find((p) => p.id === beto.id)?.name).toBe("Beto");
+  });
 });
 
 describe("expenseRepo", () => {

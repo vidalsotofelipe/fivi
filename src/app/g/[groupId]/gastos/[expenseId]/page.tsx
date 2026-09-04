@@ -24,7 +24,7 @@ export default function ExpenseDetailPage() {
   const router = useRouter();
   const { t } = useTranslation(["expense", "common"]);
   const { lang } = useLocale();
-  const { group, participants } = useGroupContext();
+  const { group, allParticipants } = useGroupContext();
   const { expenseId } = useParams<{ expenseId: string }>();
   const hydrated = useHydrated();
   const data = useExpenseWithShares(expenseId);
@@ -83,7 +83,7 @@ export default function ExpenseDetailPage() {
         </p>
         <p className="mt-1 text-sm text-muted">
           {formatDate(e.expense_date, lang)} ·{" "}
-          {t("expense:paidBy", { name: nameOf(participants, e.paid_by) })}
+          {t("expense:paidBy", { name: nameOf(allParticipants, e.paid_by) })}
         </p>
         {edited ? (
           <p className="mt-1 text-xs text-muted">
@@ -103,7 +103,7 @@ export default function ExpenseDetailPage() {
               className="flex items-center justify-between px-4 py-2.5 text-[15px]"
             >
               <span className="text-text">
-                {nameOf(participants, s.participant_id)}
+                {nameOf(allParticipants, s.participant_id)}
               </span>
               <Money minor={s.share_minor_units} currency={cc} />
             </li>

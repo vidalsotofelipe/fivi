@@ -39,7 +39,7 @@ function NewPaymentForm() {
   const params = useSearchParams();
   const { t } = useTranslation(["payment", "common", "errors"]);
   const { lang } = useLocale();
-  const { group, participants } = useGroupContext();
+  const { group, participants, allParticipants } = useGroupContext();
   const summary = useGroupSummary(group.id);
   const me = useMe(group.id);
   const toast = useToast();
@@ -139,6 +139,20 @@ function NewPaymentForm() {
     );
   }
 
+  /**
+   * Opciones de los selectores: los participantes vivos + cualquiera que ya
+   * esté elegido aunque lo hayan quitado del grupo (p. ej. se llegó por
+   * "Saldar" desde una deuda con alguien que ya no está). Sin esto el selector
+   * quedaba vacío y no se podía saldar esa deuda.
+   */
+  const options = (() => {
+    const ids = new Set(participants.map((p) => p.id));
+    const extra = allParticipants.filter(
+      (p) => !ids.has(p.id) && (p.id === from || p.id === to),
+    );
+    return [...participants, ...extra];
+  })();
+
   const canSubmit =
     from !== "" &&
     to !== "" &&
@@ -220,7 +234,7 @@ function NewPaymentForm() {
           <option value="" disabled>
             {t("payment:choosePerson")}
           </option>
-          {participants.map((p) => (
+          {options.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name}
             </option>
@@ -240,7 +254,7 @@ function NewPaymentForm() {
           <option value="" disabled>
             {t("payment:choosePerson")}
           </option>
-          {participants.map((p) => (
+          {options.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name}
             </option>
@@ -288,14 +302,14 @@ function NewPaymentForm() {
             <div className="mt-2 flex flex-col gap-1">
               <div className="flex justify-between">
                 <span className="text-muted">
-                  {nameOf(participants, from)} ({t("payment:before")}{" "}
+                  {nameOf(allParticipants, from)} ({t("payment:before")}{" "}
                   <Money minor={preview.fromBefore} currency={cc} signed />)
                 </span>
                 <Money minor={preview.fromAfter} currency={cc} signed />
               </div>
               <div className="flex justify-between">
                 <span className="text-muted">
-                  {nameOf(participants, to)} ({t("payment:before")}{" "}
+                  {nameOf(allParticipants, to)} ({t("payment:before")}{" "}
                   <Money minor={preview.toBefore} currency={cc} signed />)
                 </span>
                 <Money minor={preview.toAfter} currency={cc} signed />

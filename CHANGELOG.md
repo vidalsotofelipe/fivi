@@ -13,6 +13,22 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.16.3] - 2026-09-04
+
+### Fixed
+
+- **"Quién le debe a quién" mostraba "—" en vez de nombres.** Quitar a alguien
+  del grupo es un borrado lógico: sus gastos y pagos **siguen contando en los
+  saldos** (así lo dice la confirmación), pero la lista de participantes que
+  usaba la UI sólo traía a los que siguen en el grupo, así que esas filas
+  quedaban como "— le debe $X a —". Ahora el nombre se resuelve contra **todos**
+  los que alguna vez estuvieron en el grupo, en saldos, "quién le debe a quién",
+  actividad, lista y detalle de gastos.
+  - Para **elegir** personas (checkboxes del gasto, selectores, "quién sos") se
+    sigue usando sólo la lista viva.
+  - "Saldar" una deuda con alguien que ya no está ahora funciona: el selector de
+    receptor lo incluye cuando viene preseleccionado (antes quedaba vacío).
+
 ## [0.16.2] - 2026-09-03
 
 Más ajustes de UX y offline. Sin cambios de esquema.

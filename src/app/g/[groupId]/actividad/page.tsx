@@ -24,7 +24,7 @@ const CAT_KINDS: Record<Exclude<Cat, "all">, ActivityKind[]> = {
 
 export default function ActivityPage() {
   const { t } = useTranslation(["activity", "common"]);
-  const { group, participants } = useGroupContext();
+  const { group, participants, allParticipants } = useGroupContext();
   const hydrated = useHydrated();
   const events = useGroupActivity(group.id);
 
@@ -108,7 +108,7 @@ export default function ActivityPage() {
                 <ActivityItem
                   key={e.id}
                   event={e}
-                  participants={participants}
+                  participants={allParticipants}
                   currency={group.currency_code}
                   groupId={group.id}
                 />

@@ -40,6 +40,28 @@ export async function listParticipants(
   return rows.filter(isLive).sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/**
+ * TODOS los participantes que alguna vez estuvieron en el grupo, incluidos los
+ * quitados (tombstones).
+ *
+ * Quitar a alguien es un soft delete: sus gastos y pagos **siguen contando en
+ * los saldos** (así lo dice la confirmación). Para poder mostrar su nombre en
+ * balances, "quién le debe a quién" y la actividad hace falta esta lista; con
+ * `listParticipants` esas filas quedaban como "—".
+ *
+ * Para elegir personas (checkboxes, selectores) se sigue usando la lista viva.
+ */
+export async function listAllParticipants(
+  groupId: string,
+  database: FiviDatabase = defaultDb,
+): Promise<Participant[]> {
+  const rows = await database.participants
+    .where("group_id")
+    .equals(groupId)
+    .toArray();
+  return rows.sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export async function renameParticipant(
   id: string,
   name: string,

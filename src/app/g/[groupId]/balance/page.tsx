@@ -15,7 +15,7 @@ import { useHydrated } from "@/lib/useHydrated";
 
 export default function BalancesPage() {
   const { t } = useTranslation(["payment", "group", "common"]);
-  const { group, participants } = useGroupContext();
+  const { group, allParticipants } = useGroupContext();
   const hydrated = useHydrated();
   const summary = useGroupSummary(group.id);
   const me = useMe(group.id);
@@ -67,7 +67,7 @@ export default function BalancesPage() {
               <BalanceRow
                 key={b.participant_id}
                 balance={b}
-                participants={participants}
+                participants={allParticipants}
                 currency={cc}
                 highlight={b.participant_id === me}
               />
@@ -87,7 +87,7 @@ export default function BalancesPage() {
               <TransferRow
                 key={`${tr.from_id}-${tr.to_id}-${i}`}
                 transfer={tr}
-                participants={participants}
+                participants={allParticipants}
                 currency={cc}
                 groupId={group.id}
               />
