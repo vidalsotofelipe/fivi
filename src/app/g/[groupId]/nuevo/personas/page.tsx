@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AppShell } from "@/components/AppShell";
 import { Button, IconButton } from "@/components/Button";
-import { TextField } from "@/components/ui/TextField";
+import { AddPersonRow } from "@/components/AddPersonRow";
 import { StepIndicator, StickyActionBar } from "@/components/ui/primitives";
 import { useGroupContext } from "@/components/GroupProvider";
 import { db } from "@/data/db";
@@ -36,8 +36,7 @@ export default function SetupParticipantsPage() {
     if (myName) void ensureMeInGroup(group.id, { create: true }, db);
   }, [myName, group.id]);
 
-  async function add(e: React.FormEvent) {
-    e.preventDefault();
+  async function add() {
     const name = value.trim();
     if (!name) {
       setError(t("errors:participantNameRequired"));
@@ -92,28 +91,21 @@ export default function SetupParticipantsPage() {
         ))}
         {participants.length === 0 ? (
           <li className="px-3.5 py-3 text-sm text-muted">
-            {t("group:personNamePlaceholder")}
+            {t("group:noParticipantsYet")}
           </li>
         ) : null}
       </ul>
 
-      <form onSubmit={add} className="flex items-end gap-2">
-        <div className="flex-1">
-          <TextField
-            label={t("group:addPerson")}
-            placeholder={t("group:personNamePlaceholder")}
-            value={value}
-            onChange={(e) => {
-              setValue(e.target.value);
-              if (error) setError(null);
-            }}
-            error={error}
-          />
-        </div>
-        <Button type="submit" variant="secondary" loading={busy}>
-          {t("common:add")}
-        </Button>
-      </form>
+      <AddPersonRow
+        value={value}
+        onChange={(v) => {
+          setValue(v);
+          if (error) setError(null);
+        }}
+        onSubmit={add}
+        busy={busy}
+        error={error}
+      />
 
       <StickyActionBar>
         <Button

@@ -43,7 +43,6 @@ async function addExpense(
   await page.locator('input[inputmode="decimal"]').first().fill(opts.amount);
   await page.locator("select").first().selectOption({ label: opts.payer });
   await page.getByRole("button", { name: "Continuar" }).click();
-  await page.getByRole("button", { name: "Revisar gasto" }).click();
   await page.getByRole("button", { name: "Guardar gasto" }).click();
   await page.waitForURL(new RegExp(`/g/${id}$`));
 }
@@ -94,7 +93,6 @@ test("flujo completo: grupo → personas → gasto → balance → pago → edit
     .getByPlaceholder("Cena, supermercado, Uber…")
     .fill("Cena editada");
   await page.getByRole("button", { name: "Continuar" }).click();
-  await page.getByRole("button", { name: "Revisar gasto" }).click();
   await page.getByRole("button", { name: "Guardar", exact: true }).click();
   await page.waitForURL(/\/gastos\/[0-9a-f-]{36}$/);
   await expect(

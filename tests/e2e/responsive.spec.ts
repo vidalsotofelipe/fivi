@@ -101,7 +101,6 @@ async function seedGroup(page: Page): Promise<string> {
   await page.getByPlaceholder("Cena, supermercado, Uber…").fill("Cena");
   await page.locator('input[inputmode="decimal"]').first().fill("45000.50");
   await page.getByRole("button", { name: "Continuar" }).click();
-  await page.getByRole("button", { name: "Revisar gasto" }).click();
   await page.getByRole("button", { name: "Guardar gasto" }).click();
   await page.waitForURL(new RegExp(`/g/${id}$`));
 

@@ -44,3 +44,6 @@ next-env.d.ts
 
 .vercel
 .env*
+
+# Build output (SW precache list)
+public/precache.json

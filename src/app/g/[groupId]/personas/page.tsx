@@ -5,11 +5,10 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AppShell } from "@/components/AppShell";
 import { AddToPastExpenses } from "@/components/AddToPastExpenses";
+import { AddPersonRow } from "@/components/AddPersonRow";
 import { BottomNav } from "@/components/BottomNav";
-import { Button } from "@/components/Button";
 import { EmptyState, Loading } from "@/components/EmptyState";
 import { PersonRow } from "@/components/ui/cards";
-import { TextField } from "@/components/ui/TextField";
 import { useGroupContext } from "@/components/GroupProvider";
 import { db } from "@/data/db";
 import { addParticipant } from "@/data/repositories/participantRepo";
@@ -37,8 +36,7 @@ export default function PeoplePage() {
     );
   }
 
-  async function add(e: React.FormEvent) {
-    e.preventDefault();
+  async function add() {
     const name = value.trim();
     if (!name) {
       setError(t("errors:participantNameRequired"));
@@ -112,23 +110,17 @@ export default function PeoplePage() {
         />
       ) : null}
 
-      <form onSubmit={add} className="flex items-end gap-2">
-        <div className="flex-1">
-          <TextField
-            label={t("people:addPerson")}
-            placeholder={t("group:personNamePlaceholder")}
-            value={value}
-            onChange={(e) => {
-              setValue(e.target.value);
-              if (error) setError(null);
-            }}
-            error={error}
-          />
-        </div>
-        <Button type="submit" variant="secondary" loading={busy}>
-          {t("common:add")}
-        </Button>
-      </form>
+      <AddPersonRow
+        label={t("people:addPerson")}
+        value={value}
+        onChange={(v) => {
+          setValue(v);
+          if (error) setError(null);
+        }}
+        onSubmit={add}
+        busy={busy}
+        error={error}
+      />
     </AppShell>
   );
 }

@@ -1,6 +1,6 @@
 {
   "name": "fivi",
-  "version": "0.16.1",
+  "version": "0.16.2",
   "private": true,
   "description": "PWA offline-first para dividir gastos compartidos entre un grupo de personas.",
   "engines": {
@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && node scripts/gen-precache.mjs",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",

@@ -13,6 +13,29 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.16.2] - 2026-09-03
+
+Más ajustes de UX y offline. Sin cambios de esquema.
+
+### Changed
+
+- **Alta de gasto en 2 pasos** (antes 3). El segundo paso —"División"— es ahora
+  la confirmación: muestra **cuánto le corresponde a cada persona** y desde ahí
+  se **guarda directo**, sin la tercera pantalla de "Revisar". Un clic menos.
+- **Offline de punta a punta.** El Service Worker (v9) precachea en `install`
+  **todos los assets del build** (chunks JS, CSS; lista en `public/precache.json`
+  generada al buildear) y los "shells" normalizados `/g/_` y `/join/_`. Así
+  cualquier ruta —incluido un grupo que nunca se abrió en este dispositivo—
+  carga sin conexión; los datos de cada grupo ya viven en IndexedDB.
+- **"Agregar persona": campo y botón a la misma altura.** El botón "Agregar"
+  quedaba más bajo que el input; ahora se estiran juntos (`AddPersonRow`).
+
+### Fixed
+
+- En el alta del grupo, la lista de participantes vacía mostraba **"Ej.: Ana"**
+  como si fuera una entrada (la gente lo tocaba). Ahora dice "Todavía no
+  agregaste a nadie." y "Ej.: Ana" queda sólo como placeholder del campo.
+
 ## [0.16.1] - 2026-09-03
 
 Ajustes de UX a partir de feedback. Sin cambios de esquema.

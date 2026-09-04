@@ -15,18 +15,56 @@
  * Los datos NO se cachean acá: viven en IndexedDB y los maneja la app.
  */
 
-const VERSION = "v8";
+const VERSION = "v9";
 const APP_SHELL = `fivi-shell-${VERSION}`;
 const RUNTIME = `fivi-runtime-${VERSION}`;
 const SHELL_URLS = ["/", "/nuevo", "/manifest.webmanifest"];
 
-self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches
-      .open(APP_SHELL)
-      .then((cache) => cache.addAll(SHELL_URLS))
-      .then(() => self.skipWaiting()),
+/**
+ * Rutas con id/token en el path: se piden con un placeholder y se guardan bajo
+ * la clave normalizada (`/g/_`, `/join/_`), la misma que usa el `fetch` handler.
+ * Así, tras `install`, CUALQUIER grupo abre offline aunque nunca se haya visitado.
+ */
+const NORMALIZED_SHELLS = [
+  ["/g/00000000-0000-4000-8000-000000000000", "/g/_"],
+  ["/join/00000000-0000-4000-8000-000000000000", "/join/_"],
+];
+
+async function precache() {
+  const cache = await caches.open(APP_SHELL);
+  await cache.addAll(SHELL_URLS).catch(() => {});
+
+  // Shells normalizados de las rutas con id.
+  await Promise.all(
+    NORMALIZED_SHELLS.map(async ([real, key]) => {
+      try {
+        const res = await fetch(real, { credentials: "same-origin" });
+        if (res.ok || res.type === "opaqueredirect") {
+          await cache.put(new Request(self.location.origin + key), res);
+        }
+      } catch (_) {}
+    }),
   );
+
+  // Todos los assets estáticos del build (chunks JS, CSS, fuentes): así la app
+  // web entera funciona sin conexión, no sólo las rutas ya visitadas.
+  try {
+    const list = await fetch("/precache.json", { credentials: "same-origin" })
+      .then((r) => (r.ok ? r.json() : []))
+      .catch(() => []);
+    const runtime = await caches.open(RUNTIME);
+    await Promise.all(
+      list.map((url) =>
+        runtime
+          .add(new Request(url, { credentials: "same-origin" }))
+          .catch(() => {}),
+      ),
+    );
+  } catch (_) {}
+}
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(precache().then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", (event) => {

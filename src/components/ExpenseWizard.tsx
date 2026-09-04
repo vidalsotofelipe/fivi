@@ -93,8 +93,12 @@ function seedFromStrategy(
 }
 
 /**
- * Alta / edición de un gasto en 3 pasos (Detalle → División → Confirmar).
- * Reusa el motor de dominio (`computeShares`). No cambia reglas de negocio.
+ * Alta / edición de un gasto en 2 pasos: **Detalle → División**.
+ *
+ * El segundo paso ES la confirmación: muestra la división y **cuánto le
+ * corresponde a cada persona**, y desde ahí se guarda directamente (sin una
+ * tercera pantalla de "revisar"). Reusa el motor de dominio (`computeShares`);
+ * no cambia reglas de negocio.
  */
 export function ExpenseWizard({
   groupId,
@@ -198,29 +202,25 @@ export function ExpenseWizard({
   }
 
   function goNext() {
-    if (step === 0) {
-      const errs: string[] = [];
-      if (description.trim() === "") errs.push(t("errors:descriptionRequired"));
-      if (amountMinor == null) errs.push(t("errors:amountPositive"));
-      if (paidBy === "") errs.push(t("expense:payerLabel"));
-      setStepErrors(errs);
-      if (errs.length === 0) setStep(1);
-      return;
-    }
-    if (step === 1) {
-      const errs: string[] = [];
-      if (selectedIds.length === 0)
-        errs.push(t("expense:selectParticipants"));
-      if (!preview.ok)
-        errs.push(preview.error || t("errors:splitMismatch"));
-      setStepErrors(errs);
-      if (errs.length === 0) setStep(2);
-      return;
-    }
+    // Paso 0 → 1: valida el detalle.
+    const errs: string[] = [];
+    if (description.trim() === "") errs.push(t("errors:descriptionRequired"));
+    if (amountMinor == null) errs.push(t("errors:amountPositive"));
+    if (paidBy === "") errs.push(t("expense:payerLabel"));
+    setStepErrors(errs);
+    if (errs.length === 0) setStep(1);
   }
 
   async function save() {
+    const errs: string[] = [];
+    if (selectedIds.length === 0) errs.push(t("expense:selectParticipants"));
+    if (!preview.ok) errs.push(preview.error || t("errors:splitMismatch"));
+    if (errs.length > 0) {
+      setStepErrors(errs);
+      return;
+    }
     if (amountMinor == null || !preview.ok) return;
+    setStepErrors([]);
     setBusy(true);
     setSaveError(null);
     try {
@@ -248,11 +248,8 @@ export function ExpenseWizard({
   const remainingMinor = (amountMinor ?? 0) - assignedMinor;
   const weightSum = selectedIds.reduce((a, id) => a + num(rows[id]), 0);
 
-  const stepLabels = [
-    t("expense:stepDetail"),
-    t("expense:stepSplit"),
-    t("expense:stepConfirm"),
-  ];
+  const stepLabels = [t("expense:stepDetail"), t("expense:stepSplit")];
+  const payerName = participants.find((p) => p.id === paidBy)?.name ?? "—";
 
   return (
     <div className="flex flex-1 flex-col gap-4">
@@ -276,8 +273,6 @@ export function ExpenseWizard({
               onPick={(label) => {
                 setDescription(label);
                 if (stepErrors.length > 0) setStepErrors([]);
-                // El concepto ya está: dejamos el foco en el importe, que es lo
-                // único que falta. Foco por gesto del usuario (no auto al cargar).
                 if (label) {
                   requestAnimationFrame(() =>
                     document.getElementById("expense-amount")?.focus(),
@@ -314,6 +309,20 @@ export function ExpenseWizard({
 
       {step === 1 ? (
         <div className="flex flex-col gap-4">
+          {/* Resumen del detalle (a un "Volver" de editarlo). */}
+          <div className="border-2 border-border bg-surface-raised px-4 py-3">
+            <p className="font-semibold text-text">
+              {description || "—"}{" "}
+              <span className="font-normal text-muted">
+                · <Money minor={amountMinor ?? 0} currency={currency} />
+              </span>
+            </p>
+            <p className="mt-0.5 text-xs text-muted">
+              {formatDate(date, lang)} ·{" "}
+              {t("expense:paidBy", { name: payerName })}
+            </p>
+          </div>
+
           <SegmentedControl
             label={t("expense:splitLabel")}
             value={mode}
@@ -406,29 +415,6 @@ export function ExpenseWizard({
             </ul>
           </div>
 
-          {mode === "equal" && preview.ok && preview.shares[0] != null ? (
-            (() => {
-              const shares = preview.shares;
-              // División no exacta: no todos pagan lo mismo (el centavo sobrante
-              // se reparte). Se avisa en vez de afirmar un monto único.
-              const uneven = shares.some(
-                (s) => s.share_minor_units !== shares[0]!.share_minor_units,
-              );
-              const amount = formatMoney(
-                shares[0]!.share_minor_units,
-                currency,
-                lang,
-              );
-              return (
-                <p className="text-sm text-muted">
-                  {uneven
-                    ? t("expense:perPersonApprox", { amount })
-                    : t("expense:perPerson", { amount })}
-                </p>
-              );
-            })()
-          ) : null}
-
           {mode === "custom" && customKind === "amount" ? (
             <div className="flex justify-between rounded-md bg-text/[0.04] px-4 py-2 text-sm">
               <span className="text-muted">
@@ -454,54 +440,31 @@ export function ExpenseWizard({
             </p>
           ) : null}
 
+          {/* Cuánto le corresponde a cada persona. */}
+          {preview.ok && preview.shares.length > 0 ? (
+            <div className="flex flex-col gap-1">
+              <span className="label-caps">{t("expense:eachOwes")}</span>
+              <ul className="divide-y divide-border rounded-md border border-border">
+                {preview.shares.map((s) => (
+                  <li
+                    key={s.participant_id}
+                    className="flex items-center justify-between px-4 py-2.5 text-[15px]"
+                  >
+                    <span className="min-w-0 truncate text-text">
+                      {participants.find((p) => p.id === s.participant_id)
+                        ?.name ?? "—"}
+                    </span>
+                    <Money minor={s.share_minor_units} currency={currency} />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
           {!preview.ok && preview.error ? (
             <p className="text-sm text-danger">{preview.error}</p>
           ) : null}
-        </div>
-      ) : null}
 
-      {step === 2 ? (
-        <div className="flex flex-col gap-3">
-          <div className="rounded-md border border-border bg-surface-raised p-4">
-            <p className="text-lg font-semibold text-text">{description}</p>
-            <p className="mt-1 text-2xl font-semibold">
-              <Money minor={amountMinor ?? 0} currency={currency} />
-            </p>
-          </div>
-          <dl className="rounded-md border border-border">
-            {[
-              [t("expense:payerLabel"), participants.find((p) => p.id === paidBy)?.name ?? "—"],
-              [t("expense:dateLabel"), formatDate(date, lang)],
-              [
-                t("expense:participantsLabel"),
-                t("common:person", { count: selectedIds.length }),
-              ],
-            ].map(([k, v]) => (
-              <div
-                key={String(k)}
-                className="flex justify-between border-b border-border px-4 py-2.5 text-[15px] last:border-0"
-              >
-                <dt className="text-muted">{k}</dt>
-                <dd className="text-text">{v}</dd>
-              </div>
-            ))}
-          </dl>
-          {preview.ok ? (
-            <ul className="divide-y divide-border rounded-md border border-border">
-              {preview.shares.map((s) => (
-                <li
-                  key={s.participant_id}
-                  className="flex justify-between px-4 py-2.5 text-[15px]"
-                >
-                  <span className="text-text">
-                    {participants.find((p) => p.id === s.participant_id)?.name ??
-                      "—"}
-                  </span>
-                  <Money minor={s.share_minor_units} currency={currency} />
-                </li>
-              ))}
-            </ul>
-          ) : null}
           <p className="text-xs text-muted">{t("expense:willUpdateBalances")}</p>
           {saveError ? <FormError messages={[saveError]} /> : null}
         </div>
@@ -521,9 +484,9 @@ export function ExpenseWizard({
               {t("common:back")}
             </Button>
           ) : null}
-          {step < 2 ? (
+          {step === 0 ? (
             <Button full onClick={goNext}>
-              {step === 1 ? t("expense:reviewExpense") : t("common:continue")}
+              {t("common:continue")}
             </Button>
           ) : (
             <Button full loading={busy} onClick={save}>

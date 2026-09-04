@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AppShell } from "@/components/AppShell";
 import { AddToPastExpenses } from "@/components/AddToPastExpenses";
+import { AddPersonRow } from "@/components/AddPersonRow";
 import { Button, IconButton } from "@/components/Button";
 import { CurrencySelect } from "@/components/CurrencySelect";
 import { InvitesSection } from "@/components/InvitesSection";
@@ -87,8 +88,7 @@ export default function GroupConfigPage() {
     }
   }
 
-  async function addPerson(e: React.FormEvent) {
-    e.preventDefault();
+  async function addPerson() {
     const n = newName.trim();
     if (!n) {
       setPersonError(t("errors:participantNameRequired"));
@@ -235,23 +235,16 @@ export default function GroupConfigPage() {
           />
         ) : null}
 
-        <form onSubmit={addPerson} className="flex items-end gap-2">
-          <div className="flex-1">
-            <TextField
-              label={t("people:addPerson")}
-              placeholder={t("group:personNamePlaceholder")}
-              value={newName}
-              onChange={(e) => {
-                setNewName(e.target.value);
-                if (personError) setPersonError(null);
-              }}
-              error={personError}
-            />
-          </div>
-          <Button type="submit" variant="secondary" disabled={!newName.trim()}>
-            {t("common:add")}
-          </Button>
-        </form>
+        <AddPersonRow
+          label={t("people:addPerson")}
+          value={newName}
+          onChange={(v) => {
+            setNewName(v);
+            if (personError) setPersonError(null);
+          }}
+          onSubmit={addPerson}
+          error={personError}
+        />
       </section>
 
       <InvitesSection groupId={group.id} />
