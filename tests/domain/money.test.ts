@@ -28,41 +28,119 @@ describe("minorFromDecimal / fromMinorUnits", () => {
   });
 });
 
+const ES = "es-AR";
+const EN = "en-US";
+
 describe("toMinorUnits (parseo de texto del usuario)", () => {
   it("parsea formato es-AR con símbolo y separadores", () => {
-    expect(toMinorUnits("$ 1.234,56", "ARS")).toBe(123456);
-    expect(toMinorUnits("1234,5", "ARS")).toBe(123450);
-    expect(toMinorUnits("1000", "ARS")).toBe(100000);
+    expect(toMinorUnits("$ 1.234,56", "ARS", ES)).toBe(123456);
+    expect(toMinorUnits("1234,5", "ARS", ES)).toBe(123450);
+    expect(toMinorUnits("1000", "ARS", ES)).toBe(100000);
   });
 
   it("parsea formato en-US para USD", () => {
-    expect(toMinorUnits("1,234.56", "USD")).toBe(123456);
-    expect(toMinorUnits("450", "USD")).toBe(45000);
+    expect(toMinorUnits("1,234.56", "USD", EN)).toBe(123456);
+    expect(toMinorUnits("450", "USD", EN)).toBe(45000);
   });
 
-  it("respeta monedas de 0 decimales (CLP)", () => {
-    expect(toMinorUnits("$ 12.500", "CLP")).toBe(12500);
-    expect(toMinorUnits("12500", "CLP")).toBe(12500);
+  /**
+   * El bug de v0.16.4: el separador salía del locale de la MONEDA (USD →
+   * en-US), así que con la app en español "10,50" en un grupo en dólares se leía
+   * como 1.050,00 — cien veces más de lo escrito.
+   */
+  describe("manda el idioma de la interfaz, no la moneda", () => {
+    it("interfaz en español: 10,50 son diez con cincuenta en cualquier moneda", () => {
+      for (const code of ["ARS", "USD", "EUR", "GTQ", "BRL", "MXN"]) {
+        expect(toMinorUnits("10,50", code, ES), code).toBe(1050);
+      }
+    });
+
+    it("interfaz en inglés: 10.50 son diez con cincuenta en cualquier moneda", () => {
+      for (const code of ["ARS", "USD", "EUR", "GTQ", "BRL", "MXN"]) {
+        expect(toMinorUnits("10.50", code, EN), code).toBe(1050);
+      }
+    });
+
+    it("español + ARS + 1.234,56 -> 123456", () => {
+      expect(toMinorUnits("1.234,56", "ARS", ES)).toBe(123456);
+    });
+
+    it("inglés + ARS + 10.50 -> 1050 (la moneda no cambia cómo se escribe)", () => {
+      expect(toMinorUnits("10.50", "ARS", EN)).toBe(1050);
+    });
+
+    it("español + USD + 1.050 -> mil cincuenta, no uno con cero cinco", () => {
+      expect(toMinorUnits("1.050", "USD", ES)).toBe(105000);
+    });
+  });
+
+  describe("desambiguación de separadores", () => {
+    it("con los dos separadores, el último es el decimal", () => {
+      expect(toMinorUnits("1.234,56", "USD", EN)).toBe(123456);
+      expect(toMinorUnits("1,234.56", "USD", ES)).toBe(123456);
+    });
+
+    it("un separador repetido son miles, en cualquier idioma", () => {
+      expect(toMinorUnits("1.234.567", "ARS", ES)).toBe(123456700);
+      expect(toMinorUnits("1,234,567", "ARS", EN)).toBe(123456700);
+    });
+
+    it("un separador con 3 dígitos detrás es ambiguo: decide el idioma", () => {
+      expect(toMinorUnits("1.234", "USD", ES)).toBe(123400); // miles
+      expect(toMinorUnits("1.234", "USD", EN)).toBe(123); // 1,234 -> redondea
+      expect(toMinorUnits("1,234", "USD", ES)).toBe(123);
+      expect(toMinorUnits("1,234", "USD", EN)).toBe(123400);
+    });
+
+    it("un separador con otra cantidad de dígitos es siempre decimal", () => {
+      expect(toMinorUnits("10,5", "USD", EN)).toBe(1050);
+      expect(toMinorUnits("10.5", "USD", ES)).toBe(1050);
+    });
+  });
+
+  describe("monedas sin decimales", () => {
+    it("CLP, JPY, PYG y KRW guardan el entero tal cual", () => {
+      for (const code of ["CLP", "JPY", "PYG", "KRW"]) {
+        expect(toMinorUnits("12.500", code, ES), code).toBe(12500);
+        expect(toMinorUnits("12,500", code, EN), code).toBe(12500);
+        expect(toMinorUnits("12500", code, ES), code).toBe(12500);
+      }
+    });
+
+    it("un decimal escrito en una moneda sin decimales se redondea", () => {
+      expect(toMinorUnits("10,4", "CLP", ES)).toBe(10);
+      expect(toMinorUnits("10,6", "CLP", ES)).toBe(11);
+    });
   });
 
   it("rechaza entradas no numéricas", () => {
-    expect(() => toMinorUnits("abc", "ARS")).toThrow();
-    expect(() => toMinorUnits("", "ARS")).toThrow();
+    expect(() => toMinorUnits("abc", "ARS", ES)).toThrow();
+    expect(() => toMinorUnits("", "ARS", ES)).toThrow();
+    expect(() => toMinorUnits(",", "ARS", ES)).toThrow();
   });
 });
 
 describe("minorToRawInput", () => {
-  it("produce texto re-parseable con toMinorUnits en cada moneda", () => {
-    for (const code of ["ARS", "USD", "EUR", "BRL", "CLP", "GBP", "GTQ"]) {
-      for (const minor of [0, 5, 100, 12345, 1000000]) {
-        const raw = minorToRawInput(minor, code);
-        expect(toMinorUnits(raw, code)).toBe(minor);
+  it("produce texto re-parseable con toMinorUnits en cada moneda e idioma", () => {
+    for (const locale of [ES, EN]) {
+      for (const code of ["ARS", "USD", "EUR", "BRL", "CLP", "GBP", "GTQ", "JPY"]) {
+        for (const minor of [0, 5, 100, 12345, 1000000]) {
+          const raw = minorToRawInput(minor, code, locale);
+          expect(toMinorUnits(raw, code, locale), `${code} ${locale} ${minor}`).toBe(
+            minor,
+          );
+        }
       }
     }
   });
 
+  it("usa el separador decimal del idioma, no el de la moneda", () => {
+    expect(minorToRawInput(1050, "USD", ES)).toBe("10,5");
+    expect(minorToRawInput(1050, "ARS", EN)).toBe("10.5");
+  });
+
   it("no incluye separador de miles", () => {
-    expect(minorToRawInput(123456789, "ARS")).not.toContain(".");
+    expect(minorToRawInput(123456789, "ARS", ES)).not.toContain(".");
   });
 });
 
@@ -85,7 +163,8 @@ describe("formatMoney", () => {
       locale: "es-GT",
     });
     // 123456 unidades mínimas = Q 1.234,56
-    expect(toMinorUnits("Q 1,234.56", "GTQ")).toBe(123456);
+    expect(toMinorUnits("Q 1,234.56", "GTQ", EN)).toBe(123456);
+    expect(toMinorUnits("Q 1.234,56", "GTQ", ES)).toBe(123456);
     const out = formatMoney(123456, "GTQ", "es-GT");
     expect(out).toMatch(/1[.,]234[.,]56/);
     expect(out).toMatch(/Q/);

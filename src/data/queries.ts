@@ -147,12 +147,51 @@ export interface PastExpensePick {
   includes_all_others: boolean;
 }
 
+export interface PastExpenses {
+  /**
+   * División equitativa: se pueden repartir de nuevo automáticamente al sumar a
+   * la persona.
+   */
+  equal: PastExpensePick[];
+  /**
+   * División a medida (montos, porcentajes o partes). NO se pueden rehacer solos
+   * —habría que inventar cuánto le toca a la persona nueva—, pero tampoco se
+   * ocultan: se listan para que quede claro que existen y se puedan editar a
+   * mano.
+   */
+  custom: PastExpensePick[];
+}
+
 /**
- * Gastos de división equitativa del grupo en los que `participantId` todavía no
- * está. Se usa para preguntar, al sumar a alguien, en qué gastos anteriores
- * corresponde tenerlo en cuenta.
+ * Gastos anteriores del grupo en los que `participantId` todavía no está,
+ * separados según se puedan repartir de nuevo o no. Se usa al sumar a alguien,
+ * para preguntar en qué gastos corresponde tenerlo en cuenta.
+ */
+export async function listPastExpensesFor(
+  groupId: string,
+  participantId: string,
+  database: FiviDatabase = defaultDb,
+): Promise<PastExpenses> {
+  const all = await listPastExpensePicks(groupId, participantId, database);
+  return {
+    equal: all.filter((p) => p.expense.split_strategy.kind === "equal"),
+    custom: all.filter((p) => p.expense.split_strategy.kind !== "equal"),
+  };
+}
+
+/**
+ * Sólo los de división equitativa (los que `addParticipantToExpenses` sabe
+ * rehacer). Se mantiene porque es la lista que efectivamente se puede aplicar.
  */
 export async function listPastEqualExpensesFor(
+  groupId: string,
+  participantId: string,
+  database: FiviDatabase = defaultDb,
+): Promise<PastExpensePick[]> {
+  return (await listPastExpensesFor(groupId, participantId, database)).equal;
+}
+
+async function listPastExpensePicks(
   groupId: string,
   participantId: string,
   database: FiviDatabase = defaultDb,
@@ -177,7 +216,6 @@ export async function listPastEqualExpensesFor(
 
   const out: PastExpensePick[] = [];
   for (const expense of expenses) {
-    if (expense.split_strategy.kind !== "equal") continue;
     const ids = sharesByExpense.get(expense.id) ?? [];
     if (ids.includes(participantId)) continue;
     out.push({

@@ -79,7 +79,7 @@ function NewPaymentForm() {
     if (owedTo) setTo(owedTo.to_id);
   }, [me, summary, touched]);
   const [amountRaw, setAmountRaw] = useState(
-    Number.isFinite(preset) && preset > 0 ? minorToRawInput(preset, cc) : "",
+    Number.isFinite(preset) && preset > 0 ? minorToRawInput(preset, cc, BCP47[lang]) : "",
   );
   const [date, setDate] = useState(todayIso());
   const [note, setNote] = useState("");
@@ -88,7 +88,7 @@ function NewPaymentForm() {
 
   // En "saldar deuda completa" el monto es el pendiente, fijo.
   const effectiveAmount =
-    maxMinor != null && mode === "full" ? maxMinor : parseAmount(amountRaw, cc);
+    maxMinor != null && mode === "full" ? maxMinor : parseAmount(amountRaw, cc, BCP47[lang]);
 
   const amountError = useMemo<string | null>(() => {
     const kind = settleAmountError(effectiveAmount, maxMinor);
@@ -211,7 +211,7 @@ function NewPaymentForm() {
               onChange={(m) => {
                 setMode(m);
                 if (m === "partial" && amountRaw === "") {
-                  setAmountRaw(minorToRawInput(maxMinor, cc));
+                  setAmountRaw(minorToRawInput(maxMinor, cc, BCP47[lang]));
                 }
               }}
               options={[

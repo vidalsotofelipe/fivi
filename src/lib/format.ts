@@ -13,9 +13,16 @@ export function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function bcp47(lang: Lang = "es"): string {
+/**
+ * Locale BCP-47 de la **interfaz**. Es el que decide cómo se escriben y se leen
+ * los números: se pasa a `toMinorUnits` / `minorToRawInput` para que el parseo
+ * de montos dependa del idioma de la persona y no de la moneda del grupo.
+ */
+export function localeFor(lang: Lang = "es"): string {
   return BCP47[lang] ?? BCP47.es;
 }
+
+const bcp47 = localeFor;
 
 /**
  * Parsea un ISO a `Date`. Clave: una **fecha sola** (`YYYY-MM-DD`, sin hora) se

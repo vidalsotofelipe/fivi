@@ -99,6 +99,12 @@ export interface GlobalBalance {
   quoted_at: string | null;
   /** Proveedor de la cotización. */
   provider: string | null;
+  /**
+   * Si la fuente es oficial (banco central / gobierno) o una referencia de
+   * mercado. La UI lo dice explícitamente: no se presenta una estimación de
+   * mercado como cotización oficial. Ver `docs/FX_SOURCES.md`.
+   */
+  official: boolean;
 }
 
 /**
@@ -145,6 +151,7 @@ export function globalBalance(
     stale: stale && converted.some((c) => c !== preferredCurrency),
     quoted_at: table?.quoted_at ?? null,
     provider: table?.provider ?? null,
+    official: table?.official ?? false,
   };
 }
 

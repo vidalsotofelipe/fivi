@@ -5,6 +5,8 @@ import { formatMoney as domainFormatMoney, toMinorUnits } from "@/domain/money";
 import type { CurrencyCode } from "@/domain/types";
 import { cn } from "@/lib/cn";
 import { controlClass } from "@/components/fields";
+import { useLocale } from "@/components/LocaleProvider";
+import { localeFor } from "@/lib/format";
 
 function labelledIds(id: string | undefined, auto: string, error?: string | null, hint?: ReactNode) {
   const fieldId = id ?? auto;
@@ -62,11 +64,19 @@ export function MoneyField({
 }) {
   const auto = useId();
   const { fieldId, errId, hintId, describedBy } = labelledIds(id, auto, error, hint);
+  // El locale de la INTERFAZ manda al leer y al mostrar: con la app en español,
+  // "10,50" son diez con cincuenta aunque el grupo esté en USD.
+  const { lang } = useLocale();
+  const locale = localeFor(lang);
 
   let preview: string | null = null;
   if (value.trim()) {
     try {
-      preview = domainFormatMoney(toMinorUnits(value, currency), currency);
+      preview = domainFormatMoney(
+        toMinorUnits(value, currency, locale),
+        currency,
+        locale,
+      );
     } catch {
       preview = null;
     }

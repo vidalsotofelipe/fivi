@@ -64,7 +64,17 @@
     "descriptionRequired": "Ingresá una descripción",
     "splitMismatch": "La división no coincide con el total",
     "samePerson": "Elegí dos personas distintas",
-    "formHasErrors": "Revisá los campos marcados"
+    "formHasErrors": "Revisá los campos marcados",
+    "splitNoParticipants": "Elegí al menos una persona para dividir el gasto",
+    "splitAmountNegative": "Los montos no pueden ser negativos",
+    "splitAmountMismatch": "Los montos asignados suman {{assigned}} y el gasto es {{total}}.",
+    "splitPercentSum": "Los porcentajes deben sumar 100 %. Actualmente suman {{sum}} %.",
+    "splitPercentZero": "Asigná un porcentaje a cada persona: ahora están todos en cero.",
+    "splitPercentNegative": "Los porcentajes no pueden ser negativos",
+    "splitSharesZero": "Asigná al menos una parte a alguien: ahora están todas en cero.",
+    "splitSharesNegative": "Las partes no pueden ser negativas",
+    "groupNameTooLong": "El nombre del grupo no puede superar los {{max}} caracteres",
+    "descriptionTooLong": "La descripción no puede superar los {{max}} caracteres"
   },
   "onboarding": {
     "title": "Organizá gastos compartidos sin cuentas pendientes",
@@ -112,7 +122,10 @@
     "byCurrency": "Por moneda",
     "fxInfo": "De dónde sale la conversión",
     "fxStale": "Conversión estimada con la cotización del {{date}}",
-    "fxDetail": "Cotización actualizada el {{date}} · Fuente: {{provider}}"
+    "fxDetail": "Cotización del {{date}} · Fuente: {{provider}} ({{kind}})",
+    "fxOfficial": "oficial",
+    "fxAlternative": "fuente alternativa, no oficial",
+    "fxNotOfficialNote": "No es una fuente oficial ni de banco central: es una referencia de mercado para estimar el total. Los importes originales de cada moneda no cambian."
   },
   "group": {
     "newTitle": "Nuevo grupo",
@@ -164,7 +177,8 @@
     "wiz2": "Personas",
     "wiz3": "Listo",
     "youAreOwed": "Te deben",
-    "pendingSync": "Cambios sin sincronizar"
+    "pendingSync": "Cambios sin sincronizar",
+    "nameCount": "{{count}}/{{max}} caracteres"
   },
   "expense": {
     "listTitle": "Gastos",
@@ -230,7 +244,9 @@
     "quickFood": "Comida",
     "quickCoffee": "Café",
     "quickDrink": "Bebida",
-    "quickTransport": "Transporte"
+    "quickTransport": "Transporte",
+    "percentTotal": "Total asignado: {{sum}} % de 100 %",
+    "sharesTotal": "Total: {{sum}} partes"
   },
   "payment": {
     "title": "Registrar pago",
@@ -286,7 +302,7 @@
     "emptyBody": "Agregá a las personas que comparten los gastos.",
     "addFirstHint": "Sumá a todas las personas que comparten gastos. No hace falta que tengan cuenta.",
     "pastTitle": "¿Sumar a {{name}} a gastos ya registrados?",
-    "pastHint": "Se recalcula el reparto de los que elijas. Los gastos con división personalizada no se listan acá.",
+    "pastHint": "Se recalcula el reparto de los que elijas. Los de división a medida se listan aparte: esos hay que editarlos a mano.",
     "pastBetween": "entre {{names}}",
     "pastApply_one": "Sumar a {{count}} gasto",
     "pastApply_other": "Sumar a {{count}} gastos",
@@ -295,7 +311,11 @@
     "pastNotNow": "Ahora no",
     "pastOpen": "Gastos anteriores",
     "removePerson": "Quitar del grupo",
-    "backToPeople": "Volver a personas"
+    "backToPeople": "Volver a personas",
+    "pastNoneTitle": "No hay gastos anteriores donde sumar a {{name}}",
+    "pastCustomTitle": "Gastos con división a medida",
+    "pastCustomHint": "Estos no se pueden repartir de nuevo en forma automática: abrí el gasto y asignale a {{name}} el monto o porcentaje que le corresponde.",
+    "pastCustomOpen": "Editar gasto"
   },
   "activity": {
     "title": "Actividad",

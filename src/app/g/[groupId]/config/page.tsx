@@ -33,9 +33,10 @@ import {
   addParticipant,
   removeParticipant,
 } from "@/data/repositories/participantRepo";
-import { getCurrencyInfo } from "@/domain/currencies";
+import { currencyDisplayName } from "@/lib/currencyName";
+import { GROUP_DESCRIPTION_MAX, GROUP_NAME_MAX } from "@/domain/limits";
 
-const MAX_DESC = 120;
+
 
 export default function GroupConfigPage() {
   const router = useRouter();
@@ -64,6 +65,13 @@ export default function GroupConfigPage() {
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [pastFor, setPastFor] = useState<Participant | null>(null);
+  /**
+   * `true` cuando el panel se abrió tocando "Gastos anteriores": si no hay
+   * ningún gasto donde sumar a esa persona hay que decirlo, en vez de que el
+   * botón no haga nada. Al crear a alguien el panel se abre solo (`false`) y
+   * puede cerrarse en silencio.
+   */
+  const [explicitPast, setExplicitPast] = useState(false);
 
   const isArchived = group.archived_at !== null;
 
@@ -101,6 +109,7 @@ export default function GroupConfigPage() {
     const created = await addParticipant(group.id, n, db);
     setNewName("");
     setPersonError(null);
+    setExplicitPast(false);
     setPastFor(created);
   }
 
@@ -122,12 +131,17 @@ export default function GroupConfigPage() {
         <TextField
           label={t("settings:groupNameLabel")}
           value={name}
+          maxLength={GROUP_NAME_MAX}
           onChange={(e) => setName(e.target.value)}
+          hint={t("group:nameCount", {
+            count: name.length,
+            max: GROUP_NAME_MAX,
+          })}
         />
         <TextAreaField
           label={t("settings:groupDescriptionLabel")}
           value={description}
-          maxLength={MAX_DESC}
+          maxLength={GROUP_DESCRIPTION_MAX}
           onChange={(e) => setDescription(e.target.value)}
           hint={t("group:descriptionCount", { count: description.length })}
         />
@@ -175,7 +189,7 @@ export default function GroupConfigPage() {
         </h2>
         {hasMovements ? (
           <p className="rounded-md bg-text/[0.04] px-4 py-3 text-sm text-muted">
-            {getCurrencyInfo(group.currency_code).name} ({group.currency_code}).{" "}
+            {currencyDisplayName(group.currency_code, lang)} ({group.currency_code}).{" "}
             {t("group:currencyLocked")}
           </p>
         ) : (
@@ -204,7 +218,10 @@ export default function GroupConfigPage() {
               <span className="flex shrink-0 items-center gap-1">
                 <button
                   type="button"
-                  onClick={() => setPastFor(p)}
+                  onClick={() => {
+                    setExplicitPast(true);
+                    setPastFor(p);
+                  }}
                   className="min-h-touch rounded-sm px-2 text-xs text-muted hover:text-text"
                 >
                   {t("people:pastOpen")}
@@ -230,8 +247,12 @@ export default function GroupConfigPage() {
           <AddToPastExpenses
             groupId={group.id}
             participant={pastFor}
+            explicit={explicitPast}
             currency={group.currency_code}
-            onDone={() => setPastFor(null)}
+            onDone={() => {
+              setPastFor(null);
+              setExplicitPast(false);
+            }}
           />
         ) : null}
 

@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { computeShares, splitEqually, type Share } from "@/domain/split";
+import { PERCENT_TOLERANCE } from "@/domain/splitErrors";
+import { EXPENSE_DESCRIPTION_MAX } from "@/domain/limits";
 import { minorToRawInput } from "@/domain/money";
 import type {
   CurrencyCode,
@@ -10,7 +12,8 @@ import type {
   SplitStrategy,
 } from "@/domain/types";
 import { cn } from "@/lib/cn";
-import { formatDate, formatMoney, todayIso } from "@/lib/format";
+import { formatDate, localeFor, todayIso } from "@/lib/format";
+import { formatPercent, splitErrorText } from "@/lib/splitErrorText";
 import { Button } from "@/components/Button";
 import { Money } from "@/components/Money";
 import { QuickExpensePicker } from "@/components/QuickExpensePicker";
@@ -46,10 +49,12 @@ function seedRows(
   ids: string[],
   amountMinor: number | null,
   currency: CurrencyCode,
+  locale: string,
 ): Record<string, string> {
   if (kind === "shares")
     return Object.fromEntries(ids.map((id) => [id, "1"]));
   if (kind === "percent") {
+    // Reparte 100 % en centésimas para que la semilla sume exactamente 100.
     const parts = splitEqually(10000, ids);
     return Object.fromEntries(
       parts.map((p) => [p.participant_id, (p.share_minor_units / 100).toString()]),
@@ -61,7 +66,7 @@ function seedRows(
   return Object.fromEntries(
     parts.map((p) => [
       p.participant_id,
-      minorToRawInput(p.share_minor_units, currency),
+      minorToRawInput(p.share_minor_units, currency, locale),
     ]),
   );
 }
@@ -69,6 +74,7 @@ function seedRows(
 function seedFromStrategy(
   s: SplitStrategy | undefined,
   currency: CurrencyCode,
+  locale: string,
 ): { mode: "equal" | "custom"; kind: CustomKind; rows: Record<string, string> } {
   if (!s || s.kind === "equal")
     return { mode: "equal", kind: "amount", rows: {} };
@@ -79,7 +85,7 @@ function seedFromStrategy(
       rows: Object.fromEntries(
         Object.entries(s.amounts).map(([id, v]) => [
           id,
-          minorToRawInput(v, currency),
+          minorToRawInput(v, currency, locale),
         ]),
       ),
     };
@@ -117,16 +123,18 @@ export function ExpenseWizard({
   submitLabel: string;
   onSubmit: (draft: ExpenseDraft) => Promise<void>;
 }) {
-  const { t } = useTranslation(["expense", "common", "errors"]);
+  const { t } = useTranslation(["expense", "common", "errors", "group"]);
   const { lang } = useLocale();
+  // Locale de la interfaz: manda al leer y escribir montos (ver `toMinorUnits`).
+  const locale = localeFor(lang);
 
-  const seed = seedFromStrategy(initial?.split_strategy, currency);
+  const seed = seedFromStrategy(initial?.split_strategy, currency, locale);
 
   const [step, setStep] = useState(0);
   const [description, setDescription] = useState(initial?.description ?? "");
   const [amountRaw, setAmountRaw] = useState(
     initial?.amount_minor_units
-      ? minorToRawInput(initial.amount_minor_units, currency)
+      ? minorToRawInput(initial.amount_minor_units, currency, locale)
       : "",
   );
   const [date, setDate] = useState(initial?.expense_date ?? todayIso());
@@ -143,7 +151,7 @@ export function ExpenseWizard({
   const [stepErrors, setStepErrors] = useState<string[]>([]);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const amountMinor = parseAmount(amountRaw, currency);
+  const amountMinor = parseAmount(amountRaw, currency, locale);
   const selectedIds = participants
     .map((p) => p.id)
     .filter((id) => selected.has(id));
@@ -156,7 +164,7 @@ export function ExpenseWizard({
         amounts: Object.fromEntries(
           selectedIds.map((id) => [
             id,
-            parseAmount(rows[id] ?? "", currency) ?? 0,
+            parseAmount(rows[id] ?? "", currency, locale) ?? 0,
           ]),
         ),
       };
@@ -167,27 +175,44 @@ export function ExpenseWizard({
     return customKind === "percent"
       ? { kind: "percent", percents: weights }
       : { kind: "shares", shares: weights };
-  }, [mode, customKind, rows, selectedIds, currency]);
+  }, [mode, customKind, rows, selectedIds, currency, locale]);
 
+  /**
+   * Reparto en vivo. El error se guarda **sin traducir** (`SplitError` del
+   * dominio) y se convierte a texto al pintar, con la moneda del grupo y el
+   * idioma de la interfaz.
+   */
   const preview = useMemo<
-    { ok: true; shares: Share[] } | { ok: false; error: string }
+    { ok: true; shares: Share[] } | { ok: false; error: unknown }
   >(() => {
     if (amountMinor == null || selectedIds.length === 0)
-      return { ok: false, error: "" };
+      return { ok: false, error: null };
     try {
       return {
         ok: true,
         shares: computeShares(amountMinor, selectedIds, strategy),
       };
     } catch (err) {
-      return {
-        ok: false,
-        error: err instanceof Error ? err.message : String(err),
-      };
+      return { ok: false, error: err };
     }
   }, [amountMinor, selectedIds, strategy]);
 
+  const previewError =
+    !preview.ok && preview.error != null
+      ? splitErrorText(preview.error, t, { currency, lang })
+      : null;
+
+  /** Sólo se puede guardar con un reparto válido. */
+  const canSave =
+    amountMinor != null && selectedIds.length > 0 && preview.ok;
+
+  /** Cambiar de modo/estrategia/participantes invalida el error anterior. */
+  function clearStepErrors() {
+    setStepErrors((prev) => (prev.length > 0 ? [] : prev));
+  }
+
   function toggle(id: string) {
+    clearStepErrors();
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -212,14 +237,10 @@ export function ExpenseWizard({
   }
 
   async function save() {
-    const errs: string[] = [];
-    if (selectedIds.length === 0) errs.push(t("expense:selectParticipants"));
-    if (!preview.ok) errs.push(preview.error || t("errors:splitMismatch"));
-    if (errs.length > 0) {
-      setStepErrors(errs);
-      return;
-    }
-    if (amountMinor == null || !preview.ok) return;
+    // El botón ya está deshabilitado si el reparto no cierra; esto es la red de
+    // seguridad. El detalle del problema se muestra junto al reparto, no acá
+    // arriba, para no repetir el mismo error dos veces en pantalla.
+    if (!canSave || amountMinor == null || !preview.ok) return;
     setStepErrors([]);
     setBusy(true);
     setSaveError(null);
@@ -241,7 +262,7 @@ export function ExpenseWizard({
   const assignedMinor =
     customKind === "amount"
       ? selectedIds.reduce(
-          (a, id) => a + (parseAmount(rows[id] ?? "", currency) ?? 0),
+          (a, id) => a + (parseAmount(rows[id] ?? "", currency, locale) ?? 0),
           0,
         )
       : 0;
@@ -265,7 +286,12 @@ export function ExpenseWizard({
               label={t("expense:descriptionLabel")}
               placeholder={t("expense:descriptionPlaceholder")}
               value={description}
+              maxLength={EXPENSE_DESCRIPTION_MAX}
               onChange={(e) => setDescription(e.target.value)}
+              hint={t("group:nameCount", {
+                count: description.length,
+                max: EXPENSE_DESCRIPTION_MAX,
+              })}
             />
             <QuickExpensePicker
               groupId={groupId}
@@ -327,9 +353,12 @@ export function ExpenseWizard({
             label={t("expense:splitLabel")}
             value={mode}
             onChange={(m) => {
+              clearStepErrors();
               setMode(m);
               if (m === "custom")
-                setRows(seedRows(customKind, selectedIds, amountMinor, currency));
+                setRows(
+                  seedRows(customKind, selectedIds, amountMinor, currency, locale),
+                );
             }}
             options={[
               { value: "equal", label: t("expense:splitEqual") },
@@ -342,8 +371,9 @@ export function ExpenseWizard({
               label={t("expense:splitLabel")}
               value={customKind}
               onChange={(k) => {
+                clearStepErrors();
                 setCustomKind(k);
-                setRows(seedRows(k, selectedIds, amountMinor, currency));
+                setRows(seedRows(k, selectedIds, amountMinor, currency, locale));
               }}
               options={[
                 { value: "amount", label: t("expense:splitByAmount") },
@@ -433,10 +463,22 @@ export function ExpenseWizard({
           ) : null}
 
           {mode === "custom" && customKind !== "amount" ? (
-            <p className="text-sm text-muted">
+            <p
+              className={cn(
+                "text-sm",
+                customKind === "percent" &&
+                  Math.abs(weightSum - 100) > PERCENT_TOLERANCE
+                  ? "text-warm-strong"
+                  : "text-muted",
+              )}
+            >
               {customKind === "percent"
-                ? `${Number(weightSum.toFixed(2))}%`
-                : `${Number(weightSum.toFixed(2))} ×`}
+                ? t("expense:percentTotal", {
+                    sum: formatPercent(weightSum, lang),
+                  })
+                : t("expense:sharesTotal", {
+                    sum: formatPercent(weightSum, lang),
+                  })}
             </p>
           ) : null}
 
@@ -461,8 +503,10 @@ export function ExpenseWizard({
             </div>
           ) : null}
 
-          {!preview.ok && preview.error ? (
-            <p className="text-sm text-danger">{preview.error}</p>
+          {previewError ? (
+            <p role="alert" className="text-sm text-danger">
+              {previewError}
+            </p>
           ) : null}
 
           <p className="text-xs text-muted">{t("expense:willUpdateBalances")}</p>
@@ -489,7 +533,7 @@ export function ExpenseWizard({
               {t("common:continue")}
             </Button>
           ) : (
-            <Button full loading={busy} onClick={save}>
+            <Button full loading={busy} disabled={!canSave} onClick={save}>
               {busy ? t("expense:saving") : submitLabel}
             </Button>
           )}

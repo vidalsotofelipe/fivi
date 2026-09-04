@@ -63,6 +63,19 @@ async function writeAudit(adminId: string, e: AuditEvent): Promise<void> {
   }
 }
 
+/**
+ * Marca la respuesta como no cacheable por nadie: navegador, CDN, proxies y —
+ * sobre todo— el Service Worker. `Vary: Authorization` evita además que una
+ * respuesta obtenida con credenciales se reutilice para un pedido sin ellas.
+ *
+ * Se aplica a TODAS las respuestas del panel, incluidos los 401/403/500.
+ */
+function noStore(res: Response): Response {
+  res.headers.set("cache-control", "private, no-store");
+  res.headers.set("vary", "Authorization");
+  return res;
+}
+
 /** `export const GET = adminRoute(async (req, ctx, params) => { ... })` */
 export function adminRoute(fn: Handler) {
   return async (req: Request, route: RouteContext): Promise<Response> => {
@@ -71,7 +84,9 @@ export function adminRoute(fn: Handler) {
       ident = await requireAdmin(req);
     } catch (e) {
       const err = e instanceof AdminAuthError ? e : new AdminAuthError(401, "No autorizado");
-      return NextResponse.json({ error: err.message }, { status: err.status });
+      return noStore(
+        NextResponse.json({ error: err.message }, { status: err.status }),
+      );
     }
 
     const ctx: AdminCtx = {
@@ -89,10 +104,12 @@ export function adminRoute(fn: Handler) {
         | RouteParams
         | undefined;
       const params = raw ? await raw : {};
-      return await fn(req, ctx, params);
+      return noStore(await fn(req, ctx, params));
     } catch (e) {
       console.error("[admin] handler error:", (e as Error)?.message, (e as Error)?.stack);
-      return NextResponse.json({ error: "Error interno" }, { status: 500 });
+      return noStore(
+        NextResponse.json({ error: "Error interno" }, { status: 500 }),
+      );
     }
   };
 }

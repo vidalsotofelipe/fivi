@@ -3,15 +3,20 @@
  * principal. SÓLO servidor (`/api/rates`): la API key —si el proveedor la
  * necesitara— nunca llega al cliente.
  *
- * Proveedor elegido: **open.er-api.com** (ExchangeRate-API, endpoint abierto).
+ * Proveedor actual: **open.er-api.com** (ExchangeRate-API, endpoint abierto).
  *  - Sin API key, CORS abierto, ~160 monedas —incluye ARS, GTQ, CLP, UYU, BRL,
  *    MXN—, actualización diaria, devuelve la fecha de la cotización.
- *  - Se prefería en principio una fuente de banco central (ECB / Frankfurter),
- *    pero el BCE sólo publica ~30 monedas y **no cubre ARS, GTQ ni CLP**, que
- *    son centrales para FIVI. Por eso se usa un proveedor de exchange rates
- *    ampliamente utilizado como base.
- *  - La interfaz `Provider` abstrae la fuente: cambiarla es tocar sólo este
- *    archivo, no la lógica del dashboard.
+ *  - **NO es una fuente oficial** ni de banco central: es una referencia de
+ *    mercado. Está marcado `official: false` y la UI lo dice con todas las
+ *    letras, en vez de presentarlo como "la" cotización.
+ *  - El relevamiento de qué banco central o fuente de gobierno cubre cada una de
+ *    las 35 monedas soportadas está en `docs/FX_SOURCES.md`. Migrar a fuentes
+ *    oficiales por moneda/región es trabajo pendiente y planificado ahí; la
+ *    interfaz `Provider` existe justamente para que ese cambio no toque nada
+ *    fuera de este archivo.
+ *  - Regla que ya se cumple y no debe romperse: una moneda sin cotización
+ *    utilizable NO se convierte ni se inventa — queda fuera del total y se
+ *    lista en `missing` con su importe original (ver `domain/groupsSummary`).
  *
  * Estrategia de cache (no somos trading, priorizamos confiabilidad y bajo
  * consumo):
@@ -39,11 +44,20 @@ interface ProviderResult {
 }
 interface Provider {
   name: string;
+  /**
+   * `true` sólo para bancos centrales u organismos oficiales. Viaja hasta la UI:
+   * define si la conversión se presenta como oficial o como estimación.
+   */
+  official: boolean;
+  /** Página de la fuente, para poder citarla. */
+  homepage: string;
   fetchRates(base: string): Promise<ProviderResult>;
 }
 
 const openErApi: Provider = {
   name: "open.er-api.com",
+  official: false,
+  homepage: "https://www.exchangerate-api.com",
   async fetchRates(base) {
     const res = await fetch(`https://open.er-api.com/v6/latest/${base}`, {
       // El propio servicio cachea ~1 día; no forzamos revalidación agresiva.
@@ -71,6 +85,20 @@ const openErApi: Provider = {
   },
 };
 
+/**
+ * Registro de proveedores conocidos. El cache tibio de Supabase sólo guarda el
+ * NOMBRE de la fuente, así que la condición de "oficial" se resuelve acá y no
+ * hace falta una columna nueva ni una migración. Una fuente desconocida se trata
+ * como no oficial: el default seguro es no prometer oficialidad.
+ */
+const PROVIDERS: Record<string, Provider> = {
+  [openErApi.name]: openErApi,
+};
+
+export function isOfficialProvider(name: string | null | undefined): boolean {
+  return name ? (PROVIDERS[name]?.official ?? false) : false;
+}
+
 const provider: Provider = openErApi;
 
 // --- Cache en memoria del proceso ------------------------------------------
@@ -89,6 +117,7 @@ async function readWarmCache(): Promise<RateTable | null> {
       base: data.base as string,
       rates: data.rates as Record<string, number>,
       provider: data.provider as string,
+      official: isOfficialProvider(data.provider as string),
       quoted_at: data.quoted_at as string,
       fetched_at: data.fetched_at as string,
     };
@@ -145,6 +174,7 @@ export async function getRateTable(): Promise<RatesResponse> {
       base: FX_BASE,
       rates,
       provider: provider.name,
+      official: provider.official,
       quoted_at,
       fetched_at: new Date().toISOString(),
     };

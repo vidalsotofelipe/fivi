@@ -7,6 +7,11 @@
 
 import type { CurrencyCode, Group } from "@/domain/types";
 import { getCurrencyInfo } from "@/domain/currencies";
+import {
+  checkLength,
+  GROUP_DESCRIPTION_MAX,
+  GROUP_NAME_MAX,
+} from "@/domain/limits";
 import { FiviDatabase, db as defaultDb } from "../db";
 import { nowIso } from "../ids";
 import {
@@ -26,7 +31,7 @@ export async function createGroup(
   input: CreateGroupInput,
   database: FiviDatabase = defaultDb,
 ): Promise<Group> {
-  const name = input.name.trim();
+  const name = checkLength(input.name, "group_name", GROUP_NAME_MAX);
   if (!name) throw new Error("El nombre del grupo es obligatorio");
   if (!input.currency_code) throw new Error("La moneda del grupo es obligatoria");
   // Valida que la moneda sea reconocible (no lanza si es un ISO desconocido,
@@ -38,7 +43,12 @@ export async function createGroup(
     "group",
     {
       name,
-      description: input.description?.trim() || null,
+      description:
+        checkLength(
+          input.description ?? "",
+          "group_description",
+          GROUP_DESCRIPTION_MAX,
+        ) || null,
       currency_code: input.currency_code,
       archived_at: null,
     },
@@ -111,12 +121,17 @@ export async function renameGroup(
 ): Promise<Group> {
   const next: { name?: string; description?: string | null } = {};
   if (patch.name !== undefined) {
-    const name = patch.name.trim();
+    const name = checkLength(patch.name, "group_name", GROUP_NAME_MAX);
     if (!name) throw new Error("El nombre del grupo es obligatorio");
     next.name = name;
   }
   if (patch.description !== undefined) {
-    next.description = patch.description?.trim() || null;
+    next.description =
+      checkLength(
+        patch.description ?? "",
+        "group_description",
+        GROUP_DESCRIPTION_MAX,
+      ) || null;
   }
   return updateRecord<Group>(database.groups, "group", id, next, database);
 }

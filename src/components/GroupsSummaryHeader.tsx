@@ -98,7 +98,7 @@ export function GroupsSummaryHeader({
               type="button"
               onClick={() => setShowFx((v) => !v)}
               aria-expanded={showFx}
-              className="mt-1 text-xs text-muted underline underline-offset-2"
+              className="mt-1 flex min-h-touch items-center text-left text-xs text-muted underline underline-offset-2"
             >
               {global!.stale
                 ? t("onboarding:fxStale", {
@@ -110,14 +110,25 @@ export function GroupsSummaryHeader({
             </button>
           ) : null}
           {showFx ? (
-            <p className="mt-1 text-xs text-faint">
-              {t("onboarding:fxDetail", {
-                date: global!.quoted_at
-                  ? formatDate(global!.quoted_at.slice(0, 10), lang)
-                  : "—",
-                provider: global!.provider ?? "—",
-              })}
-            </p>
+            <div className="mt-1 flex flex-col gap-1 text-xs text-faint">
+              {/* Fuente, fecha y condición: la cotización actual es una
+                  referencia de mercado, no una fuente oficial. Decirlo es parte
+                  del dato (ver docs/FX_SOURCES.md). */}
+              <p>
+                {t("onboarding:fxDetail", {
+                  date: global!.quoted_at
+                    ? formatDate(global!.quoted_at.slice(0, 10), lang)
+                    : "—",
+                  provider: global!.provider ?? "—",
+                  kind: global!.official
+                    ? t("onboarding:fxOfficial")
+                    : t("onboarding:fxAlternative"),
+                })}
+              </p>
+              {!global!.official ? (
+                <p>{t("onboarding:fxNotOfficialNote")}</p>
+              ) : null}
+            </div>
           ) : null}
         </div>
       ) : null}

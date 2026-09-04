@@ -3,7 +3,7 @@
 import { useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { listCurrencies } from "@/domain/currencies";
-import { BCP47 } from "@/i18n/config";
+import { currencyDisplayName } from "@/lib/currencyName";
 import { SelectField } from "@/components/ui/formfields";
 import { useLocale } from "./LocaleProvider";
 
@@ -33,20 +33,14 @@ export function CurrencySelect({
   const { t } = useTranslation("group");
   const { lang } = useLocale();
 
-  const options = useMemo(() => {
-    let display: Intl.DisplayNames | null = null;
-    try {
-      display = new Intl.DisplayNames([BCP47[lang]], { type: "currency" });
-    } catch {
-      display = null;
-    }
-    return listCurrencies().map((c) => {
-      const localized = display?.of(c.code);
-      const name =
-        localized && localized.toUpperCase() !== c.code ? localized : c.name;
-      return { code: c.code, label: `${c.code} — ${name}` };
-    });
-  }, [lang]);
+  const options = useMemo(
+    () =>
+      listCurrencies().map((c) => ({
+        code: c.code,
+        label: `${c.code} — ${currencyDisplayName(c.code, lang)}`,
+      })),
+    [lang],
+  );
 
   return (
     <SelectField

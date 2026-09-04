@@ -10,6 +10,7 @@ const T: RateTable = {
   base: "USD",
   rates: { USD: 1, ARS: 1450, EUR: 0.92, GTQ: 7.75, CLP: 950, JPY: 148 },
   provider: "test",
+  official: false,
   quoted_at: "2026-09-03T00:00:00Z",
   fetched_at: "2026-09-03T00:00:00Z",
 };

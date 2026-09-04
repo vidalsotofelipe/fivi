@@ -20,6 +20,7 @@ export async function GET(): Promise<Response> {
         base: table.base,
         rates: table.rates,
         provider: table.provider,
+        official: table.official,
         quoted_at: table.quoted_at,
         fetched_at: table.fetched_at,
         stale,

@@ -16,6 +16,7 @@ const table = (rates: Record<string, number>): RateTable => ({
   base: "USD",
   rates: { USD: 1, ...rates },
   provider: "test",
+  official: false,
   quoted_at: "2026-09-03T00:00:00.000Z",
   fetched_at: "2026-09-03T01:00:00.000Z",
 });

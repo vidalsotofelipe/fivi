@@ -70,7 +70,7 @@ export function PreferredCurrencyField() {
         <button
           type="button"
           onClick={() => setEditing(true)}
-          className="shrink-0 font-bold uppercase tracking-caps text-accent-strong"
+          className="flex min-h-touch shrink-0 items-center px-1 font-bold uppercase tracking-caps text-accent-strong"
         >
           {t("common:edit")}
         </button>

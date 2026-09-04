@@ -6,6 +6,8 @@
  *    monetaria mínima ("minor units"). Nunca floating point para almacenar.
  *  - La cantidad de decimales depende de la moneda (ver `currencies.ts`).
  *  - El formateo usa `Intl.NumberFormat` para respetar moneda y locale.
+ *  - El **parseo** usa el locale de la interfaz, no el de la moneda (ver
+ *    `toMinorUnits`).
  *
  * Todas las demás capas (split, balances, settlement, repos, UI) deben pasar
  * por estas funciones y no reimplementar aritmética de dinero.
@@ -41,39 +43,59 @@ export function fromMinorUnits(minor: number, code: CurrencyCode): number {
 /**
  * Parsea texto ingresado por el usuario a unidades mínimas enteras.
  *
- * Es locale-aware: usa los separadores de la moneda del grupo. Descarta
- * símbolos de moneda, espacios y cualquier caracter no numérico. Ejemplos
- * (moneda ARS, locale es-AR → miles ".", decimal ","):
- *   "$ 1.234,56"  -> 123456
- *   "1234,5"      -> 123450
- *   "1000"        -> 100000
- * Con CLP (0 decimales):
- *   "$ 12.500"    -> 12500
+ * El separador decimal lo decide el **locale de la interfaz**, NUNCA la moneda:
+ * quien escribe es la persona. Con la app en español "10,50" son diez con
+ * cincuenta, sea ARS, USD, EUR o GTQ; en inglés eso mismo se escribe "10.50".
+ * (Antes se usaba el locale de la moneda: app en español + grupo en USD hacía
+ * que "10,50" se leyera como 1.050,00 — cien veces más.)
+ *
+ * Reglas de desambiguación, en orden y sin casos librados al azar:
+ *  1. Si aparecen los dos separadores, el ÚLTIMO es el decimal:
+ *     "1.234,56" y "1,234.56" -> 1234.56.
+ *  2. Si aparece uno solo pero repetido, es separador de miles: "1.234.567".
+ *  3. Si aparece uno solo, una vez:
+ *     - con exactamente 3 dígitos detrás es genuinamente ambiguo ("1.234") y
+ *       decide el locale;
+ *     - con cualquier otra cantidad es decimal ("10,5", "10,50", "1,2345").
+ *
+ * Se descartan símbolos de moneda, espacios y cualquier otro caracter.
+ * Ejemplos con locale es-AR: "$ 1.234,56" -> 123456 · "1000" -> 100000.
+ * Con CLP (0 decimales): "$ 12.500" -> 12500.
  */
-export function toMinorUnits(input: string, code: CurrencyCode): number {
-  const info = getCurrencyInfo(code);
-  const { group, decimal } = separatorsFor(info.locale);
+export function toMinorUnits(
+  input: string,
+  code: CurrencyCode,
+  locale: string,
+): number {
+  const compact = input.trim().replace(/[^\d.,-]/g, "");
+  const negative = compact.startsWith("-");
+  const body = compact.replace(/-/g, "");
 
-  // Deja sólo dígitos y los separadores relevantes + signo.
-  let cleaned = input.trim().replace(/[^\d.,\-\s ']/g, "");
-  cleaned = cleaned.replace(/[\s ']/g, "");
+  const dots = (body.match(/\./g) ?? []).length;
+  const commas = (body.match(/,/g) ?? []).length;
 
-  // Quita separador de miles y normaliza el decimal a ".".
-  const escGroup = group.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  cleaned = cleaned.replace(new RegExp(escGroup, "g"), "");
-  if (decimal !== ".") {
-    cleaned = cleaned.split(decimal).join(".");
+  let decimalSep: "." | "," | null = null;
+  if (dots > 0 && commas > 0) {
+    decimalSep = body.lastIndexOf(".") > body.lastIndexOf(",") ? "." : ",";
+  } else if (dots + commas === 1) {
+    const sep: "." | "," = dots === 1 ? "." : ",";
+    const digitsAfter = body.length - body.lastIndexOf(sep) - 1;
+    decimalSep =
+      digitsAfter === 3
+        ? separatorsFor(locale).decimal === sep
+          ? sep
+          : null
+        : sep;
   }
-  // Cualquier separador remanente que no sea el decimal ya normalizado se elimina.
-  const dotCount = (cleaned.match(/\./g) ?? []).length;
-  if (dotCount > 1) {
-    const lastDot = cleaned.lastIndexOf(".");
-    cleaned =
-      cleaned.slice(0, lastDot).replace(/\./g, "") + cleaned.slice(lastDot);
-  }
-  cleaned = cleaned.replace(/,/g, "");
+  // Un solo tipo de separador, repetido: son miles. `decimalSep` queda null.
 
-  if (cleaned === "" || cleaned === "-" || cleaned === "." || cleaned === "-.") {
+  const idx = decimalSep === null ? -1 : body.lastIndexOf(decimalSep);
+  const cleaned =
+    idx < 0
+      ? body.replace(/[.,]/g, "")
+      : `${body.slice(0, idx).replace(/[.,]/g, "")}.${body.slice(idx + 1)}`;
+
+  if (cleaned === "" || cleaned === ".") {
     throw new Error(`Monto inválido: "${input}"`);
   }
 
@@ -81,7 +103,7 @@ export function toMinorUnits(input: string, code: CurrencyCode): number {
   if (!Number.isFinite(value)) {
     throw new Error(`Monto inválido: "${input}"`);
   }
-  return minorFromDecimal(value, code);
+  return minorFromDecimal(negative ? -value : value, code);
 }
 
 /**
@@ -111,12 +133,16 @@ export function formatMoney(
 
 /**
  * Convierte unidades mínimas a un texto editable, sin separador de miles y con
- * el separador decimal de la moneda. El resultado es re-parseable con
- * `toMinorUnits`. Útil para precargar formularios de edición.
+ * el separador decimal **del locale de la interfaz** (el mismo que entiende
+ * `toMinorUnits`), para que el valor precargado se re-parsee igual.
  */
-export function minorToRawInput(minor: number, code: CurrencyCode): string {
+export function minorToRawInput(
+  minor: number,
+  code: CurrencyCode,
+  locale: string,
+): string {
   const info = getCurrencyInfo(code);
-  return new Intl.NumberFormat(info.locale, {
+  return new Intl.NumberFormat(locale, {
     useGrouping: false,
     minimumFractionDigits: 0,
     maximumFractionDigits: info.decimal_digits,

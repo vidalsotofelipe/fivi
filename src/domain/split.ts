@@ -4,17 +4,26 @@
  * Estrategias implementadas:
  *  - `equal`   — partes iguales.
  *  - `amount`  — un monto fijo por participante (deben sumar el total).
- *  - `percent` — un porcentaje por participante.
- *  - `shares`  — un peso / cantidad de partes por participante.
+ *  - `percent` — un porcentaje por participante (deben sumar 100 %).
+ *  - `shares`  — un peso / cantidad de partes por participante (proporcional).
+ *
+ * `percent` y `shares` NO son lo mismo, aunque ambos terminen repartiendo en
+ * proporción: en `shares` sólo importan las proporciones relativas (2-1-1 es un
+ * reparto válido), mientras que en `percent` la suma **debe ser 100 %**. Cuando
+ * compartían implementación, escribir 60 % + 50 % se aceptaba y se normalizaba a
+ * 60/110 y 50/110, que no es lo que la persona pidió.
  *
  * Invariante central en todas: la suma de las porciones es EXACTAMENTE igual al
  * total. El remanente de una división no exacta se reparte de forma
  * determinística (participantes ordenados por id) para que todos los
  * dispositivos obtengan el mismo resultado.
+ *
+ * Los errores son `SplitError` con código: el texto lo pone la UI.
  */
 
 import type { SplitStrategy } from "./types";
 import { distributeByWeights, distributeMinor } from "./money";
+import { PERCENT_TOLERANCE, SplitError } from "./splitErrors";
 
 /** Porción asignada a un participante, en unidades mínimas enteras. */
 export interface Share {
@@ -24,7 +33,7 @@ export interface Share {
 
 function orderedIds(participantIds: string[]): string[] {
   if (participantIds.length === 0) {
-    throw new Error("El gasto debe dividirse entre al menos un participante");
+    throw new SplitError("noParticipants");
   }
   return [...participantIds].sort((a, b) => a.localeCompare(b));
 }
@@ -55,23 +64,55 @@ export function splitByAmounts(
   const shares = ordered.map((participant_id) => {
     const value = Math.round(amounts[participant_id] ?? 0);
     if (value < 0) {
-      throw new Error("Los montos asignados no pueden ser negativos");
+      throw new SplitError("amountNegative");
     }
     return { participant_id, share_minor_units: value };
   });
   const sum = shares.reduce((acc, s) => acc + s.share_minor_units, 0);
   if (sum !== totalMinor) {
-    throw new Error(
-      `Los montos asignados no suman el total del gasto (asignado ${sum}, total ${totalMinor})`,
-    );
+    throw new SplitError("amountMismatch", {
+      assignedMinor: sum,
+      totalMinor,
+    });
   }
   return shares;
 }
 
 /**
- * Reparte el total en proporción a un peso por participante. Se usa tanto para
- * porcentajes como para "partes" / cantidades: sólo importan las proporciones
- * relativas, no la escala.
+ * Reparte el total según un **porcentaje** por participante. La suma debe ser
+ * 100 % (con `PERCENT_TOLERANCE` de margen, para permitir 33,33 + 33,33 + 33,34).
+ * El reparto monetario sigue siendo exacto: el resto se asigna por Hamilton.
+ */
+export function splitByPercent(
+  totalMinor: number,
+  participantIds: string[],
+  percents: Record<string, number>,
+): Share[] {
+  const ordered = orderedIds(participantIds);
+  const values = ordered.map((id) => percents[id] ?? 0);
+
+  if (values.some((v) => !Number.isFinite(v) || v < 0)) {
+    throw new SplitError("percentNegative");
+  }
+  const sum = values.reduce((a, b) => a + b, 0);
+  if (sum <= 0) {
+    throw new SplitError("percentZero");
+  }
+  if (Math.abs(sum - 100) > PERCENT_TOLERANCE) {
+    throw new SplitError("percentSum", { sum });
+  }
+
+  const amounts = distributeByWeights(totalMinor, values);
+  return ordered.map((participant_id, i) => ({
+    participant_id,
+    share_minor_units: amounts[i]!,
+  }));
+}
+
+/**
+ * Reparte el total en proporción a un peso ("partes") por participante: sólo
+ * importan las proporciones relativas, no la escala. 2-1-1 y 4-2-2 reparten
+ * igual.
  */
 export function splitByWeights(
   totalMinor: number,
@@ -80,6 +121,14 @@ export function splitByWeights(
 ): Share[] {
   const ordered = orderedIds(participantIds);
   const values = ordered.map((id) => weights[id] ?? 0);
+
+  if (values.some((v) => !Number.isFinite(v) || v < 0)) {
+    throw new SplitError("sharesNegative");
+  }
+  if (values.reduce((a, b) => a + b, 0) <= 0) {
+    throw new SplitError("sharesZero");
+  }
+
   const amounts = distributeByWeights(totalMinor, values);
   return ordered.map((participant_id, i) => ({
     participant_id,
@@ -99,7 +148,7 @@ export function computeShares(
     case "amount":
       return splitByAmounts(totalMinor, participantIds, strategy.amounts);
     case "percent":
-      return splitByWeights(totalMinor, participantIds, strategy.percents);
+      return splitByPercent(totalMinor, participantIds, strategy.percents);
     case "shares":
       return splitByWeights(totalMinor, participantIds, strategy.shares);
     default: {
@@ -109,16 +158,19 @@ export function computeShares(
   }
 }
 
-/** Etiqueta corta para mostrar en la UI. */
-export function splitStrategyLabel(strategy: SplitStrategy): string {
+/**
+ * Clave i18n de la etiqueta corta de la estrategia. El dominio no devuelve texto
+ * en español: la UI resuelve la clave con `t(...)`.
+ */
+export function splitStrategyKey(strategy: SplitStrategy): string {
   switch (strategy.kind) {
     case "equal":
-      return "Partes iguales";
+      return "expense:splitEqual";
     case "amount":
-      return "Montos personalizados";
+      return "expense:splitByAmount";
     case "percent":
-      return "Porcentajes";
+      return "expense:splitByPercent";
     case "shares":
-      return "Partes";
+      return "expense:splitByShares";
   }
 }

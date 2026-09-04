@@ -10,15 +10,31 @@
  *    ruta de grupo, TODOS los grupos funcionan sin conexión.
  *  - Estáticos de Next (/_next/static): cache-first (inmutables).
  *  - RSC (?_rsc=…): igual que navegación, con clave normalizada para grupos.
- *  - El resto: stale-while-revalidate.
+ *  - El resto: **allowlist**. Sólo se cachea lo que está explícitamente listado
+ *    como público (assets, manifest, iconos y `/api/rates`). Todo lo demás pasa
+ *    a la red sin tocar Cache Storage.
  *
- * Los datos NO se cachean acá: viven en IndexedDB y los maneja la app.
+ * Qué NUNCA entra a Cache Storage:
+ *  - `/api/admin/**` y `/administracion/**` (datos y pantallas administrativas);
+ *  - cualquier pedido con encabezado `Authorization`;
+ *  - respuestas que no sean `ok` (un 401 cacheado se seguiría sirviendo después
+ *    de iniciar sesión);
+ *  - respuestas marcadas `Cache-Control: no-store` o `private`.
+ *
+ * Antes, todo GET same-origin que no fuera documento ni asset caía en
+ * stale-while-revalidate: las respuestas del panel admin podían quedar guardadas
+ * y servirse más tarde sin autorización.
+ *
+ * Los datos de la app NO se cachean acá: viven en IndexedDB y los maneja la app.
  */
 
-const VERSION = "v9";
+const VERSION = "v10";
 const APP_SHELL = `fivi-shell-${VERSION}`;
 const RUNTIME = `fivi-runtime-${VERSION}`;
 const SHELL_URLS = ["/", "/nuevo", "/manifest.webmanifest"];
+
+/** Endpoints de API públicos y sin credenciales que sí conviene cachear. */
+const CACHEABLE_API = ["/api/rates"];
 
 /**
  * Rutas con id/token en el path: se piden con un placeholder y se guardan bajo
@@ -29,6 +45,32 @@ const NORMALIZED_SHELLS = [
   ["/g/00000000-0000-4000-8000-000000000000", "/g/_"],
   ["/join/00000000-0000-4000-8000-000000000000", "/join/_"],
 ];
+
+/** Superficie administrativa: nunca se intercepta ni se cachea. */
+function isAdminPath(pathname) {
+  return (
+    pathname === "/administracion" ||
+    pathname.startsWith("/administracion/") ||
+    pathname === "/api/admin" ||
+    pathname.startsWith("/api/admin/")
+  );
+}
+
+/** Recursos públicos e inmutables/estables que sí se pueden guardar. */
+function isPublicAsset(pathname) {
+  if (pathname.startsWith("/api/")) return false;
+  return (
+    pathname.startsWith("/_next/static/") ||
+    pathname.startsWith("/icons/") ||
+    pathname.startsWith("/brand/") ||
+    pathname === "/manifest.webmanifest" ||
+    pathname === "/precache.json" ||
+    pathname === "/favicon.ico" ||
+    /\.(?:css|js|mjs|woff2?|ttf|otf|png|jpe?g|gif|svg|webp|avif|ico)$/.test(
+      pathname,
+    )
+  );
+}
 
 async function precache() {
   const cache = await caches.open(APP_SHELL);
@@ -54,11 +96,19 @@ async function precache() {
       .catch(() => []);
     const runtime = await caches.open(RUNTIME);
     await Promise.all(
-      list.map((url) =>
-        runtime
-          .add(new Request(url, { credentials: "same-origin" }))
-          .catch(() => {}),
-      ),
+      list
+        .filter((url) => {
+          try {
+            return isPublicAsset(new URL(url, self.location.origin).pathname);
+          } catch (_) {
+            return false;
+          }
+        })
+        .map((url) =>
+          runtime
+            .add(new Request(url, { credentials: "same-origin" }))
+            .catch(() => {}),
+        ),
     );
   } catch (_) {}
 }
@@ -92,7 +142,21 @@ function normalizeShellPath(pathname) {
   return pathname.replace(/^\/(g|join)\/[^/]+/, "/$1/_");
 }
 
-function cachePut(key, response) {
+/**
+ * Última barrera antes de escribir en Cache Storage. Vale para todas las
+ * estrategias: sin esto, un 401 o una respuesta privada podían quedar guardados.
+ */
+function mayCache(request, response) {
+  if (!response || !response.ok) return false;
+  if (response.type === "opaque") return false;
+  if (request.headers.get("authorization")) return false;
+  const cc = (response.headers.get("cache-control") || "").toLowerCase();
+  if (cc.includes("no-store") || cc.includes("private")) return false;
+  return true;
+}
+
+function cachePut(key, request, response) {
+  if (!mayCache(request, response)) return;
   const copy = response.clone();
   caches.open(RUNTIME).then((c) => c.put(key, copy));
 }
@@ -103,6 +167,13 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+
+  // Superficie administrativa: ni se intercepta. Va directo a la red y nunca
+  // toca Cache Storage, ni la petición ni la respuesta.
+  if (isAdminPath(url.pathname)) return;
+
+  // Cualquier pedido autenticado queda fuera del cache, sea la ruta que sea.
+  if (request.headers.get("authorization")) return;
 
   // Rutas con id/token en el path que comparten shell: /g/<id>/… y /join/<token>.
   const isShellRoute =
@@ -118,7 +189,7 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(request)
         .then((res) => {
-          cachePut(key, res);
+          cachePut(key, request, res);
           return res;
         })
         .catch(async () => (await caches.match(key)) || Response.error()),
@@ -140,7 +211,7 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(request)
         .then((res) => {
-          cachePut(key, res);
+          cachePut(key, request, res);
           return res;
         })
         .catch(async () => {
@@ -161,7 +232,7 @@ self.addEventListener("fetch", (event) => {
         (cached) =>
           cached ||
           fetch(request).then((res) => {
-            cachePut(request, res);
+            cachePut(request, request, res);
             return res;
           }),
       ),
@@ -169,12 +240,17 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Resto: stale-while-revalidate.
+  // Allowlist: assets públicos y los pocos endpoints públicos sin credenciales.
+  const cacheable =
+    isPublicAsset(url.pathname) || CACHEABLE_API.includes(url.pathname);
+  if (!cacheable) return; // todo lo demás va a la red, sin pasar por el cache
+
+  // stale-while-revalidate para lo permitido.
   event.respondWith(
     caches.match(request).then((cached) => {
       const network = fetch(request)
         .then((res) => {
-          cachePut(request, res);
+          cachePut(request, request, res);
           return res;
         })
         .catch(() => cached);

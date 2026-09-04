@@ -37,8 +37,14 @@ export default defineConfig({
       // Sin credenciales de Supabase a propósito.
       NEXT_PUBLIC_SUPABASE_URL: "",
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "",
-      // Sin service worker: navegación determinista entre pasos del test.
+      // Sin registro AUTOMÁTICO del service worker: navegación determinista
+      // entre pasos del test. `/sw.js` se sigue sirviendo, así que el test de
+      // caché (`sw-admin.spec.ts`) lo registra a mano cuando lo necesita.
       NEXT_PUBLIC_DISABLE_SW: "1",
+      // Llave de acceso del panel, sólo para el test de caché administrativa:
+      // permite obtener un 200 real de `/api/admin/me` (que no necesita
+      // Supabase) y verificar que esa respuesta NO queda en Cache Storage.
+      ADMIN_ACCESS_KEY: "e2e-admin-key-0123456789abcdef",
     },
   },
 });

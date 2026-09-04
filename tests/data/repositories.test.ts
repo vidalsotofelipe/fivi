@@ -6,7 +6,11 @@ import * as groupRepo from "@/data/repositories/groupRepo";
 import * as participantRepo from "@/data/repositories/participantRepo";
 import * as expenseRepo from "@/data/repositories/expenseRepo";
 import * as paymentRepo from "@/data/repositories/paymentRepo";
-import { getGroupSummary, listPastEqualExpensesFor } from "@/data/queries";
+import {
+  getGroupSummary,
+  listPastEqualExpensesFor,
+  listPastExpensesFor,
+} from "@/data/queries";
 import type { SyncQueueItem } from "@/sync/types";
 
 let db: FiviDatabase;
@@ -408,7 +412,7 @@ describe("expenseRepo", () => {
         },
         db,
       ),
-    ).rejects.toThrow(/no suman el total/);
+    ).rejects.toThrow(/amountMismatch/);
   });
 
   it("rechaza montos no enteros o no positivos", async () => {
@@ -648,8 +652,29 @@ describe("sumar un participante a gastos anteriores", () => {
     const c = await participantRepo.addParticipant(g.id, "Cami", db);
 
     const picks = await listPastEqualExpensesFor(g.id, c.id, db);
-    expect(picks.map((p) => p.expense.id)).toEqual([equal.id]); // el custom no aparece
+    expect(picks.map((p) => p.expense.id)).toEqual([equal.id]);
     expect(picks[0]!.includes_all_others).toBe(true);
+  });
+
+  /**
+   * Los gastos con división a medida ya no se descartan en silencio: van en su
+   * propia lista para que la UI los muestre (sin poder tildarlos) en vez de
+   * hacer de cuenta que no existen.
+   */
+  it("separa los gastos a medida de los equitativos, sin perderlos", async () => {
+    const { g, equal, custom } = await setup();
+    const c = await participantRepo.addParticipant(g.id, "Cami", db);
+
+    const picks = await listPastExpensesFor(g.id, c.id, db);
+    expect(picks.equal.map((p) => p.expense.id)).toEqual([equal.id]);
+    expect(picks.custom.map((p) => p.expense.id)).toEqual([custom.id]);
+  });
+
+  it("para alguien que ya está en todos los gastos, las dos listas quedan vacías", async () => {
+    const { g, a } = await setup();
+    const picks = await listPastExpensesFor(g.id, a.id, db);
+    expect(picks.equal).toEqual([]);
+    expect(picks.custom).toEqual([]);
   });
 
   it("recalcula el reparto del gasto elegido incluyendo al nuevo", async () => {

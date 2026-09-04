@@ -57,6 +57,22 @@ const nextConfig = {
       },
     ];
   },
+  // Nada administrativo se guarda en ningún cache: navegador, CDN, proxies ni
+  // Service Worker. `Vary: Authorization` impide además reutilizar una respuesta
+  // obtenida con credenciales para un pedido que no las trae. Los Route Handlers
+  // ya lo ponen (ver `lib/adminHandler`); esto cubre también las PÁGINAS del
+  // panel y cualquier ruta futura que se olvide de hacerlo.
+  async headers() {
+    const noStore = [
+      { key: "Cache-Control", value: "private, no-store" },
+      { key: "Vary", value: "Authorization" },
+    ];
+    return [
+      { source: "/administracion", headers: noStore },
+      { source: "/administracion/:path*", headers: noStore },
+      { source: "/api/admin/:path*", headers: noStore },
+    ];
+  },
 };
 
 export default nextConfig;

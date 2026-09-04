@@ -19,8 +19,9 @@ import {
   type CurrencySource,
 } from "@/lib/detectCurrency";
 import { DEFAULT_CURRENCY } from "@/domain/countryCurrency";
+import { GROUP_DESCRIPTION_MAX, GROUP_NAME_MAX } from "@/domain/limits";
 
-const MAX_DESC = 120;
+const GROUP_NAME_FIELD = "group-name";
 
 export default function NewGroupPage() {
   const router = useRouter();
@@ -64,6 +65,15 @@ export default function NewGroupPage() {
     const cleanName = name.trim();
     if (cleanName === "") {
       setNameError(t("errors:groupNameRequired"));
+      // Marcar `aria-invalid` no alcanza: hay que llevar el foco al campo, o con
+      // el teclado (y con lector de pantalla) el error queda arriba y sin
+      // contexto. `focus()` también hace scroll hasta él.
+      document.getElementById(GROUP_NAME_FIELD)?.focus();
+      return;
+    }
+    if (cleanName.length > GROUP_NAME_MAX) {
+      setNameError(t("errors:groupNameTooLong", { max: GROUP_NAME_MAX }));
+      document.getElementById(GROUP_NAME_FIELD)?.focus();
       return;
     }
 
@@ -104,21 +114,27 @@ export default function NewGroupPage() {
         {submitError ? <FormError messages={[submitError]} /> : null}
 
         <TextField
+          id={GROUP_NAME_FIELD}
           label={t("group:nameLabel")}
           placeholder={t("group:namePlaceholder")}
           value={name}
+          maxLength={GROUP_NAME_MAX}
           onChange={(e) => {
             setName(e.target.value);
             if (nameError) setNameError(null);
           }}
           error={nameError}
+          hint={t("group:nameCount", {
+            count: name.length,
+            max: GROUP_NAME_MAX,
+          })}
         />
 
         <TextAreaField
           label={t("group:descriptionLabel")}
           placeholder={t("group:descriptionPlaceholder")}
           value={description}
-          maxLength={MAX_DESC}
+          maxLength={GROUP_DESCRIPTION_MAX}
           onChange={(e) => setDescription(e.target.value)}
           hint={t("group:descriptionCount", { count: description.length })}
         />

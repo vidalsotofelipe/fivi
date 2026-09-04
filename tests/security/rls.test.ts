@@ -119,6 +119,7 @@ beforeAll(async () => {
     "0013_created_by.sql",
     "0014_exchange_rates.sql",
     "0015_expense_participants_live_unique.sql",
+    "0016_text_length_limits.sql",
   ]) {
     await pg.exec(migration(file));
   }
@@ -925,5 +926,65 @@ describe("porciones de gasto: unicidad sólo entre filas vivas (0015)", () => {
         ),
       ),
     ).rejects.toThrow(/duplicate key|unique/i);
+  });
+});
+
+/**
+ * Límites de longitud del lado del servidor (0016). Los mismos números que
+ * `src/domain/limits.ts`: si el cliente no valida —o lo saltean—, Postgres corta.
+ */
+describe("límites de longitud en el servidor (0016)", () => {
+  it("rechaza un nombre de grupo de más de 60 caracteres", async () => {
+    await expect(
+      asUser(U1, (tx) =>
+        tx.query(
+          "insert into public.groups (id, name, currency_code, created_by) values ($1,$2,'ARS',$3)",
+          [randomUUID(), "x".repeat(61), U1],
+        ),
+      ),
+    ).rejects.toThrow(/groups_name_len/);
+  });
+
+  it("acepta un nombre de exactamente 60", async () => {
+    await expect(
+      asUser(U1, (tx) =>
+        tx.query(
+          "insert into public.groups (id, name, currency_code, created_by) values ($1,$2,'ARS',$3)",
+          [randomUUID(), "x".repeat(60), U1],
+        ),
+      ),
+    ).resolves.toBeDefined();
+  });
+
+  it("rechaza una descripción de gasto de más de 120 caracteres", async () => {
+    const gid = await createGroupAs(U1, "Largos");
+    const pid = randomUUID();
+    await asUser(U1, (tx) =>
+      tx.query(
+        "insert into public.participants (id, group_id, name) values ($1,$2,'Ana')",
+        [pid, gid],
+      ),
+    );
+    await expect(
+      asUser(U1, (tx) =>
+        tx.query(
+          `insert into public.expenses (id, group_id, description, amount_minor_units, paid_by, expense_date, split_strategy)
+           values ($1,$2,$3,1000,$4, current_date, '{"kind":"equal"}'::jsonb)`,
+          [randomUUID(), gid, "y".repeat(121), pid],
+        ),
+      ),
+    ).rejects.toThrow(/expenses_description_len/);
+  });
+
+  it("rechaza un nombre de participante de más de 60 caracteres", async () => {
+    const gid = await createGroupAs(U1, "Largos 2");
+    await expect(
+      asUser(U1, (tx) =>
+        tx.query(
+          "insert into public.participants (id, group_id, name) values ($1,$2,$3)",
+          [randomUUID(), gid, "z".repeat(61)],
+        ),
+      ),
+    ).rejects.toThrow(/participants_name_len/);
   });
 });

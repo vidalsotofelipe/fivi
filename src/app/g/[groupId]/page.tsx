@@ -231,7 +231,7 @@ export default function GroupSummaryPage() {
           </h2>
           <Link
             href={`/g/${group.id}/actividad`}
-            className="text-xs text-muted underline"
+            className="flex min-h-touch items-center px-1 text-xs text-muted underline"
           >
             {t("common:seeAll")}
           </Link>

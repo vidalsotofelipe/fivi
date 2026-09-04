@@ -13,7 +13,104 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
-## [0.16.4] - 2026-09-05
+## [0.16.5] - 2026-09-04
+
+### Fixed
+
+- **Un gasto podía guardarse cien veces más grande de lo escrito.** Con la app
+  en español y un grupo en dólares, escribir `10,50` guardaba **US$ 1.050,00**.
+  El separador decimal salía del locale de la **moneda** (USD → `en-US`, donde
+  la coma separa miles) en vez del idioma de quien escribe. Ahora el parseo
+  depende del **idioma de la interfaz**: en español `10,50` son diez con
+  cincuenta en ARS, USD, EUR, GTQ o cualquier moneda de dos decimales; en inglés
+  eso mismo se escribe `10.50`. Los dos separadores se aceptan sólo con reglas
+  sin ambigüedad: si aparecen los dos, el último es el decimal; uno repetido son
+  miles; uno solo con tres dígitos detrás (`1.234`) es el único caso realmente
+  ambiguo y ahí decide el idioma. Todo se sigue guardando en unidades mínimas
+  enteras.
+- **El Service Worker podía guardar respuestas del panel administrativo.** Todo
+  GET que no fuera documento ni asset entraba en stale-while-revalidate, así que
+  `/api/admin/**` podía quedar en Cache Storage: datos administrativos servidos
+  después de cerrar sesión, o un 401 cacheado devuelto ya con la sesión
+  iniciada. Ahora el cache es una **allowlist**: sólo assets públicos, el
+  manifest y `/api/rates`. `/api/admin/**` y `/administracion/**` no se
+  interceptan siquiera, no se cachea ningún pedido con `Authorization`, ni
+  ninguna respuesta que no sea `ok` o que venga con `no-store`/`private`. Todas
+  las respuestas administrativas mandan `Cache-Control: private, no-store` y
+  `Vary: Authorization`. Versión del SW a **v10**: al activarse borra los caches
+  anteriores, incluido lo que hubiera quedado guardado.
+- **"Por porcentaje" funcionaba como "por partes".** 60 % + 50 % se aceptaba y
+  se repartía 60/110 y 50/110 —un reparto que nadie pidió—, con el botón de
+  guardar habilitado. `percent` y `shares` compartían implementación. Ahora los
+  porcentajes **deben sumar 100 %** (con margen para decimales: 33,33 + 33,33 +
+  33,34 entra), "por partes" conserva el comportamiento proporcional, y el error
+  dice exactamente qué pasa: "Los porcentajes deben sumar 100 %. Actualmente
+  suman 110 %".
+- **El idioma quedaba desincronizado con el navegador en inglés.** Los textos y
+  `<html lang>` salían en inglés, pero el selector marcaba "Español" y las
+  fechas, los tiempos relativos y los nombres de moneda aparecían en español
+  dentro de frases inglesas. `LocaleProvider` llamaba a `changeLanguage` **antes**
+  de registrar el listener `languageChanged`: con los recursos embebidos el
+  evento se emite en el acto y se perdía. Ahora el listener va primero y el
+  idioma inicial además se aplica explícitamente.
+- **El botón de guardar quedaba habilitado con un reparto inválido.** Ahora se
+  deshabilita mientras el reparto no cierre, el error se limpia al cambiar de
+  modo, estrategia o participantes, y no se muestra duplicado arriba y abajo.
+- **Los errores de reparto mostraban unidades mínimas internas** ("asignado
+  12000, total 10000"). Ahora van formateados en la moneda del grupo y el idioma
+  de la interfaz ("suman $ 120,00 y el gasto es $ 100,00"), y "La suma de los
+  pesos debe ser mayor que cero" se reemplazó por mensajes propios de cada modo.
+- **"Gastos anteriores" no hacía nada** cuando la persona ya estaba en todos los
+  gastos. Ahora lo dice: "No hay gastos anteriores donde sumar a Ana".
+
+### Changed
+
+- **Los errores de reparto son códigos tipados en el dominio** (`SplitError`), y
+  la UI los traduce. `splitStrategyLabel` (que devolvía texto en español) pasó a
+  ser `splitStrategyKey`, que devuelve una clave i18n.
+- **Los gastos con división a medida ya no se omiten** al sumar a alguien a
+  gastos anteriores. Se listan en su propia sección, sin poder tildarlos,
+  explicando que hay que asignarle a mano su monto o porcentaje, con acceso
+  directo a editar el gasto.
+- **La conversión de monedas ya no se presenta como oficial.** `open.er-api.com`
+  es una referencia de mercado, no un banco central: ahora se muestra la fuente,
+  la fecha y la condición ("fuente alternativa, no oficial") con la aclaración
+  de que los importes originales de cada moneda no cambian. El relevamiento de
+  qué fuente oficial cubre cada una de las 35 monedas soportadas, y el diseño de
+  proveedores por moneda/región, quedó documentado en
+  [`docs/FX_SOURCES.md`](docs/FX_SOURCES.md). La interfaz `Provider` sigue
+  desacoplada; migrar a fuentes oficiales es trabajo pendiente y planificado ahí.
+- **Límites de longitud visibles y en el servidor** para nombre de grupo (60),
+  descripción de grupo (120), descripción de gasto (120) y nombre de participante
+  (60). Con contador en la interfaz, validación en los repos y `check` en
+  Postgres (migración `0016`).
+- Áreas táctiles de "De dónde sale la conversión", "Editar" y "Ver todo" llevadas
+  al mínimo de 44 px de alto.
+- Al enviar el alta de grupo con el nombre vacío o demasiado largo, el foco ahora
+  **se mueve al campo** además de marcarlo con `aria-invalid`.
+
+### Tests
+
+- Parseo de montos: español + USD + `10,50` → 1050; español + ARS + `1.234,56` →
+  123456; inglés + ARS/USD + `10.50` → 1050; monedas sin decimales (CLP, JPY,
+  PYG, KRW); ida y vuelta `minorToRawInput` ↔ `toMinorUnits` en los dos idiomas.
+- Porcentajes: 50+50 válido; 33,33+33,33+33,34 válido y con suma monetaria
+  exacta; 60+50, 40+40, 0+0 y negativos inválidos, cada uno con su código.
+- **E2E con Service Worker activo** (`sw-admin.spec.ts`): pedido administrativo
+  autorizado → 200, se quita la autorización → 401, y Cache Storage no contiene
+  ninguna URL `/api/admin/**` ni `/administracion/**`. El resto de los E2E sigue
+  corriendo con el registro automático apagado; este test lo registra a mano.
+- E2E de montos por idioma, incluido el caso exacto del reporte, la edición, el
+  pago parcial y los mensajes de reparto formateados en pesos.
+- E2E con el navegador en `en-US` y sin preferencia guardada: interfaz,
+  `<html lang>`, pestaña "English" seleccionada, fechas y monedas en inglés, y
+  persistencia tras recargar.
+- E2E de gastos anteriores: sumar a alguien a un gasto equitativo, el aviso
+  cuando no hay ninguno, y el listado aparte de los gastos a medida con su
+  acceso a edición. También "quién sos en este grupo" y "sumarme al grupo".
+- RLS: los límites de longitud de la migración `0016`.
+
+## [0.16.4] - 2026-09-04
 
 ### Fixed
 

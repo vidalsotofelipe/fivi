@@ -26,6 +26,13 @@ export interface RateTable {
   rates: Readonly<Record<string, number>>;
   /** Proveedor de la cotización (para citar la fuente). */
   provider: string;
+  /**
+   * Si la fuente es **oficial** (banco central u organismo de gobierno) o una
+   * referencia de mercado. Se muestra al usuario: una conversión estimada con
+   * una fuente alternativa no puede presentarse como cotización oficial.
+   * Ver `docs/FX_SOURCES.md`.
+   */
+  official: boolean;
   /** ISO del momento en que el proveedor calculó la cotización. */
   quoted_at: string;
   /** ISO del momento en que FIVI la trajo. */

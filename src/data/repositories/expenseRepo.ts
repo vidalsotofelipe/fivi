@@ -14,6 +14,7 @@ import type {
   SplitStrategy,
 } from "@/domain/types";
 import { computeShares } from "@/domain/split";
+import { checkLength, EXPENSE_DESCRIPTION_MAX } from "@/domain/limits";
 import { FiviDatabase, db as defaultDb } from "../db";
 import {
   createRecord,
@@ -45,7 +46,11 @@ export async function createExpense(
   input: CreateExpenseInput,
   database: FiviDatabase = defaultDb,
 ): Promise<{ expense: Expense; shares: ExpenseParticipant[] }> {
-  const description = input.description.trim();
+  const description = checkLength(
+    input.description,
+    "expense_description",
+    EXPENSE_DESCRIPTION_MAX,
+  );
   if (!description) throw new Error("La descripción del gasto es obligatoria");
   if (!Number.isInteger(input.amount_minor_units) || input.amount_minor_units <= 0) {
     throw new Error("El monto del gasto debe ser un entero positivo");
@@ -183,7 +188,11 @@ export async function replaceExpense(
   },
   database: FiviDatabase = defaultDb,
 ): Promise<{ expense: Expense; shares: ExpenseParticipant[] }> {
-  const description = input.description.trim();
+  const description = checkLength(
+    input.description,
+    "expense_description",
+    EXPENSE_DESCRIPTION_MAX,
+  );
   if (!description) throw new Error("La descripción del gasto es obligatoria");
   if (
     !Number.isInteger(input.amount_minor_units) ||

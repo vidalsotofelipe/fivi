@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   computeShares,
   splitByAmounts,
+  splitByPercent,
   splitByWeights,
   splitEqually,
-  splitStrategyLabel,
+  splitStrategyKey,
 } from "@/domain/split";
+import { SplitError } from "@/domain/splitErrors";
 
 const sum = (xs: { share_minor_units: number }[]) =>
   xs.reduce((a, b) => a + b.share_minor_units, 0);
@@ -67,7 +69,7 @@ describe("splitByAmounts", () => {
   it("rechaza si los montos no suman el total", () => {
     expect(() =>
       splitByAmounts(10000, ["a", "b"], { a: 4000, b: 4000 }),
-    ).toThrow(/no suman el total/);
+    ).toThrow(SplitError);
   });
 
   it("rechaza montos negativos", () => {
@@ -148,15 +150,146 @@ describe("computeShares", () => {
   });
 });
 
-describe("splitStrategyLabel", () => {
-  it("da una etiqueta legible por estrategia", () => {
-    expect(splitStrategyLabel({ kind: "equal" })).toBe("Partes iguales");
-    expect(splitStrategyLabel({ kind: "amount", amounts: {} })).toBe(
-      "Montos personalizados",
+
+/**
+ * "Por porcentaje" NO es "por partes". Antes compartían implementación, así que
+ * 60 % + 50 % se aceptaba y se normalizaba a 60/110 y 50/110 — un reparto que
+ * nadie pidió, con el botón de guardar habilitado.
+ */
+describe("splitByPercent — la suma debe ser 100 %", () => {
+  it("50 + 50 es válido", () => {
+    const shares = splitByPercent(10000, ["a", "b"], { a: 50, b: 50 });
+    expect(shares.map((s) => s.share_minor_units)).toEqual([5000, 5000]);
+  });
+
+  it("33,33 + 33,33 + 33,34 es válido y la suma monetaria es exacta", () => {
+    const shares = splitByPercent(100050, ["p1", "p2", "p3"], {
+      p1: 33.33,
+      p2: 33.33,
+      p3: 33.34,
+    });
+    expect(sum(shares)).toBe(100050);
+  });
+
+  it("60 + 50 = 110 % es inválido y dice cuánto suma", () => {
+    try {
+      splitByPercent(100050, ["a", "b"], { a: 60, b: 50 });
+      throw new Error("debería haber fallado");
+    } catch (e) {
+      expect(e).toBeInstanceOf(SplitError);
+      expect((e as SplitError).code).toBe("percentSum");
+      expect((e as SplitError).params.sum).toBeCloseTo(110);
+    }
+  });
+
+  it("40 + 40 = 80 % es inválido", () => {
+    expect(() => splitByPercent(10000, ["a", "b"], { a: 40, b: 40 })).toThrow(
+      SplitError,
     );
-    expect(splitStrategyLabel({ kind: "percent", percents: {} })).toBe(
-      "Porcentajes",
+  });
+
+  it("0 + 0 es inválido, con su propio código", () => {
+    try {
+      splitByPercent(10000, ["a", "b"], { a: 0, b: 0 });
+      throw new Error("debería haber fallado");
+    } catch (e) {
+      expect((e as SplitError).code).toBe("percentZero");
+    }
+  });
+
+  it("un porcentaje negativo es inválido", () => {
+    try {
+      splitByPercent(10000, ["a", "b"], { a: 120, b: -20 });
+      throw new Error("debería haber fallado");
+    } catch (e) {
+      expect((e as SplitError).code).toBe("percentNegative");
+    }
+  });
+
+  it("tolera el error de coma flotante al sumar decimales", () => {
+    // 0.1 * 3 no da 0.3 exacto; el reparto igual tiene que entrar.
+    const p = { a: 33.33, b: 33.33, c: 33.34 };
+    expect(() => splitByPercent(1, ["a", "b", "c"], p)).not.toThrow();
+  });
+
+  it("no acepta un 100,1 escrito a mano", () => {
+    expect(() =>
+      splitByPercent(10000, ["a", "b"], { a: 50.05, b: 50.05 }),
+    ).toThrow(SplitError);
+  });
+});
+
+describe("splitByWeights conserva el comportamiento proporcional", () => {
+  it("2-1-1 reparte igual que 4-2-2 (sólo importan las proporciones)", () => {
+    const a = splitByWeights(10000, ["x", "y", "z"], { x: 2, y: 1, z: 1 });
+    const b = splitByWeights(10000, ["x", "y", "z"], { x: 4, y: 2, z: 2 });
+    expect(a).toEqual(b);
+    expect(sum(a)).toBe(10000);
+  });
+
+  it("partes negativas o todas en cero fallan con su código", () => {
+    try {
+      splitByWeights(10000, ["a", "b"], { a: 0, b: 0 });
+      throw new Error("debería haber fallado");
+    } catch (e) {
+      expect((e as SplitError).code).toBe("sharesZero");
+    }
+    try {
+      splitByWeights(10000, ["a", "b"], { a: 3, b: -1 });
+      throw new Error("debería haber fallado");
+    } catch (e) {
+      expect((e as SplitError).code).toBe("sharesNegative");
+    }
+  });
+});
+
+describe("computeShares con porcentajes inválidos", () => {
+  it("no reparte: propaga el error en vez de normalizar", () => {
+    expect(() =>
+      computeShares(100050, ["a", "b"], {
+        kind: "percent",
+        percents: { a: 60, b: 50 },
+      }),
+    ).toThrow(SplitError);
+  });
+});
+
+describe("splitStrategyKey", () => {
+  it("devuelve una clave i18n, no texto en español", () => {
+    expect(splitStrategyKey({ kind: "equal" })).toBe("expense:splitEqual");
+    expect(splitStrategyKey({ kind: "amount", amounts: {} })).toBe(
+      "expense:splitByAmount",
     );
-    expect(splitStrategyLabel({ kind: "shares", shares: {} })).toBe("Partes");
+    expect(splitStrategyKey({ kind: "percent", percents: {} })).toBe(
+      "expense:splitByPercent",
+    );
+    expect(splitStrategyKey({ kind: "shares", shares: {} })).toBe(
+      "expense:splitByShares",
+    );
+  });
+});
+
+describe("errores de reparto tipados", () => {
+  it("amountMismatch trae los importes en unidades mínimas para que la UI los formatee", () => {
+    try {
+      splitByAmounts(10000, ["a", "b"], { a: 6000, b: 6000 });
+      throw new Error("debería haber fallado");
+    } catch (e) {
+      expect(e).toBeInstanceOf(SplitError);
+      expect((e as SplitError).code).toBe("amountMismatch");
+      expect((e as SplitError).params).toEqual({
+        assignedMinor: 12000,
+        totalMinor: 10000,
+      });
+    }
+  });
+
+  it("sin participantes tiene su propio código", () => {
+    try {
+      splitEqually(1000, []);
+      throw new Error("debería haber fallado");
+    } catch (e) {
+      expect((e as SplitError).code).toBe("noParticipants");
+    }
   });
 });

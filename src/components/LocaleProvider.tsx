@@ -37,15 +37,26 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
+    const onChanged = (lng: string) => {
+      const next = isLang(lng) ? lng : "es";
+      setLangState(next);
+      document.documentElement.lang = next;
+    };
+
+    // El listener va PRIMERO. Con los recursos embebidos `changeLanguage`
+    // resuelve de inmediato y emite `languageChanged` en el acto: si se
+    // registraba después, el evento inicial se perdía y el estado de React
+    // quedaba en "es" mientras i18next ya estaba en "en". De ahí el desfasaje
+    // que se veía: textos en inglés, `<html lang="en">`, pero el selector
+    // marcando "Español" y las fechas en español.
+    i18n.on("languageChanged", onChanged);
+
     const initial = detectInitialLang();
     if (initial !== i18n.language) void i18n.changeLanguage(initial);
-    document.documentElement.lang = initial;
+    // Y además se fija explícitamente, por si el idioma ya era el correcto y
+    // `changeLanguage` no emite nada.
+    onChanged(initial);
 
-    const onChanged = (lng: string) => {
-      setLangState(isLang(lng) ? lng : "es");
-      document.documentElement.lang = isLang(lng) ? lng : "es";
-    };
-    i18n.on("languageChanged", onChanged);
     return () => {
       i18n.off("languageChanged", onChanged);
     };

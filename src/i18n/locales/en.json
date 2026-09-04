@@ -64,7 +64,17 @@
     "descriptionRequired": "Enter a description",
     "splitMismatch": "The split doesn't add up to the total",
     "samePerson": "Choose two different people",
-    "formHasErrors": "Check the highlighted fields"
+    "formHasErrors": "Check the highlighted fields",
+    "splitNoParticipants": "Pick at least one person to split the expense",
+    "splitAmountNegative": "Amounts cannot be negative",
+    "splitAmountMismatch": "The assigned amounts add up to {{assigned}} and the expense is {{total}}.",
+    "splitPercentSum": "Percentages must add up to 100%. They currently add up to {{sum}}%.",
+    "splitPercentZero": "Give each person a percentage: they are all at zero.",
+    "splitPercentNegative": "Percentages cannot be negative",
+    "splitSharesZero": "Give at least one share to someone: they are all at zero.",
+    "splitSharesNegative": "Shares cannot be negative",
+    "groupNameTooLong": "The group name cannot be longer than {{max}} characters",
+    "descriptionTooLong": "The description cannot be longer than {{max}} characters"
   },
   "onboarding": {
     "title": "Organize shared expenses without loose ends",
@@ -112,7 +122,10 @@
     "byCurrency": "By currency",
     "fxInfo": "Where this conversion comes from",
     "fxStale": "Estimated with the rate from {{date}}",
-    "fxDetail": "Rate updated {{date}} · Source: {{provider}}"
+    "fxDetail": "Rate from {{date}} · Source: {{provider}} ({{kind}})",
+    "fxOfficial": "official",
+    "fxAlternative": "alternative source, not official",
+    "fxNotOfficialNote": "This is not an official or central-bank source: it is a market reference used to estimate the total. The original amounts in each currency do not change."
   },
   "group": {
     "newTitle": "New group",
@@ -164,7 +177,8 @@
     "wiz2": "People",
     "wiz3": "Done",
     "youAreOwed": "You are owed",
-    "pendingSync": "Unsynced changes"
+    "pendingSync": "Unsynced changes",
+    "nameCount": "{{count}}/{{max}} characters"
   },
   "expense": {
     "listTitle": "Expenses",
@@ -230,7 +244,9 @@
     "quickFood": "Food",
     "quickCoffee": "Coffee",
     "quickDrink": "Drinks",
-    "quickTransport": "Transport"
+    "quickTransport": "Transport",
+    "percentTotal": "Assigned: {{sum}}% of 100%",
+    "sharesTotal": "Total: {{sum}} shares"
   },
   "payment": {
     "title": "Record payment",
@@ -286,7 +302,7 @@
     "emptyBody": "Add the people who share the expenses.",
     "addFirstHint": "Add everyone who shares expenses. They don't need an account.",
     "pastTitle": "Add {{name}} to expenses already logged?",
-    "pastHint": "The split is recalculated for the ones you pick. Custom-split expenses aren't listed here.",
+    "pastHint": "The split is recalculated for the ones you pick. Custom-split expenses are listed separately: those have to be edited by hand.",
     "pastBetween": "between {{names}}",
     "pastApply_one": "Add to {{count}} expense",
     "pastApply_other": "Add to {{count}} expenses",
@@ -295,7 +311,11 @@
     "pastNotNow": "Not now",
     "pastOpen": "Past expenses",
     "removePerson": "Remove from group",
-    "backToPeople": "Back to people"
+    "backToPeople": "Back to people",
+    "pastNoneTitle": "There are no past expenses to add {{name}} to",
+    "pastCustomTitle": "Expenses with a custom split",
+    "pastCustomHint": "These cannot be re-split automatically: open the expense and assign {{name}} the amount or percentage that corresponds.",
+    "pastCustomOpen": "Edit expense"
   },
   "activity": {
     "title": "Activity",
