@@ -13,6 +13,24 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.16.8] - 2026-09-04
+
+### Changed
+
+- **El ícono de ajustes ahora está SIEMPRE presente**, en cualquier pantalla
+  (antes sólo en el inicio): pasó del header de la pantalla de inicio al
+  componente compartido de la barra superior (`AppBar`), así que aparece en
+  todo lado sin que cada pantalla lo tenga que declarar — incluida, por
+  ejemplo, la del detalle de un gasto, que convive sin problema con su propio
+  menú contextual (editar/duplicar/borrar). Su nombre accesible es "Ajustes
+  generales" (no "Ajustes"): la Configuración de un grupo también se llama
+  "Ajustes"/"Settings" en algunas pantallas, y un nombre corto colisionaba con
+  ese link.
+- **El botón de apoyo (Cafecito) también está en Ajustes generales**, no sólo
+  en el menú "Más" de cada grupo: es contenido de nivel app, no de un grupo en
+  particular. Se extrajo a un componente compartido (`CafecitoSupport`) para no
+  duplicar el markup entre las dos pantallas.
+
 ## [0.16.7] - 2026-09-04
 
 ### Added

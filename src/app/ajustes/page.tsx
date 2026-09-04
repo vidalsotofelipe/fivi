@@ -1,14 +1,15 @@
 "use client";
 
 /**
- * Ajustes generales de la app: idioma y apariencia. Son preferencias del
- * dispositivo (`LocaleProvider` / `ThemeProvider`), no de un grupo — hasta acá
- * sólo se podían cambiar entrando a un grupo y abriendo su Configuración.
- * "¿Cómo te llamás?" y "Moneda principal" siguen en el inicio: ya eran
- * accesibles sin entrar a un grupo.
+ * Ajustes generales de la app: idioma, apariencia y apoyo al proyecto. Son
+ * todas preferencias/contenido de nivel app, no de un grupo — Idioma y
+ * Apariencia hasta acá sólo se podían cambiar entrando a un grupo y abriendo
+ * su Configuración. "¿Cómo te llamás?" y "Moneda principal" siguen en el
+ * inicio: ya eran accesibles sin entrar a un grupo.
  */
 import { useTranslation } from "react-i18next";
 import { AppShell } from "@/components/AppShell";
+import { CafecitoSupport } from "@/components/CafecitoSupport";
 import { useLocale } from "@/components/LocaleProvider";
 import { useTheme } from "@/components/ThemeProvider";
 import { SegmentedControl } from "@/components/ui/primitives";
@@ -52,6 +53,8 @@ export default function GeneralSettingsPage() {
         />
         <p className="text-xs text-muted">{t("settings:appearanceHint")}</p>
       </section>
+
+      <CafecitoSupport />
     </AppShell>
   );
 }

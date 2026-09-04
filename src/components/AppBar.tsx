@@ -8,7 +8,30 @@ import { AppMark } from "./Logo";
 import { SyncBadge } from "./SyncBadge";
 
 /**
- * Barra superior: volver opcional, título, estado de sync y slot de menú.
+ * Ícono de ajustes generales de la app (idioma, apariencia, apoyar el
+ * proyecto): SIEMPRE presente en el nav superior, en cualquier pantalla — no
+ * es una acción de la página actual, así que vive acá y no en el slot `menu`
+ * (que es contextual: kebab de un gasto, etc.) ni en una sola pantalla.
+ */
+function SettingsLink() {
+  const { t } = useTranslation();
+  return (
+    <Link
+      href="/ajustes"
+      // Nombre accesible completo ("Ajustes generales"), no "Ajustes": la
+      // Configuración de un grupo también se llama "Ajustes"/"Settings" en
+      // algunas pantallas, y un nombre corto colisionaría con ese link.
+      aria-label={t("settings:generalTitle")}
+      className="flex h-11 w-11 shrink-0 items-center justify-center border-2 border-transparent text-lg text-text hover:bg-accent-weak"
+    >
+      <span aria-hidden="true">⚙</span>
+    </Link>
+  );
+}
+
+/**
+ * Barra superior: volver opcional, título, estado de sync, slot de menú
+ * contextual y el ícono de ajustes generales (siempre presente).
  * Sticky, respeta el ancho del contenedor.
  */
 export function AppBar({
@@ -64,6 +87,7 @@ export function AppBar({
 
       {showSync ? <SyncBadge /> : null}
       {menu ? <span className="shrink-0">{menu}</span> : null}
+      <SettingsLink />
     </header>
   );
 }

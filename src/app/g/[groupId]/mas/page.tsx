@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { AppShell } from "@/components/AppShell";
 import { AppVersion } from "@/components/AppVersion";
 import { BottomNav } from "@/components/BottomNav";
+import { CafecitoSupport } from "@/components/CafecitoSupport";
 import { MePicker } from "@/components/MePicker";
 import { ShareButton } from "@/components/ShareButton";
 import { useGroupContext } from "@/components/GroupProvider";
@@ -63,23 +64,7 @@ export default function MorePage() {
         <p className="text-sm text-muted">{t("settings:helpBody")}</p>
       </section>
 
-      <section className="flex flex-col gap-2">
-        <h2 className="label-caps">{t("settings:sectionSupport")}</h2>
-        <p className="text-sm text-muted">{t("settings:supportBody")}</p>
-        <a
-          href="https://cafecito.app/vidalsotofelipe"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          {/* Badge SVG de terceros (Cafecito): nada que next/image optimice. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="https://cdn.cafecito.app/imgs/buttons/button_1.svg"
-            alt={t("settings:supportButtonAlt")}
-            className="h-auto max-w-full"
-          />
-        </a>
-      </section>
+      <CafecitoSupport />
 
       <AppVersion />
 

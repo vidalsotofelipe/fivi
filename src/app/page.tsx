@@ -192,19 +192,6 @@ export default function HomePage() {
   const fx = useExchangeTable(needsFx);
   const archiveCheckDone = useRef(false);
 
-  // Ícono de ajustes generales (idioma, apariencia) arriba a la derecha: es el
-  // menú de LA APP, no de un grupo en particular, así que vive en el header de
-  // inicio y no en la navegación inferior (que sólo aparece dentro de un grupo).
-  const settingsMenu = (
-    <Link
-      href="/ajustes"
-      aria-label={t("common:generalSettings")}
-      className="flex h-11 w-11 shrink-0 items-center justify-center border-2 border-transparent text-lg text-text hover:bg-accent-weak"
-    >
-      <span aria-hidden="true">⚙</span>
-    </Link>
-  );
-
   // Archivado automático + reconocerse en los grupos donde ya hay un
   // participante con el nombre del usuario. Una vez por sesión, al abrir la app.
   useEffect(() => {
@@ -233,7 +220,7 @@ export default function HomePage() {
 
   if (groups.length === 0 && archived.length === 0) {
     return (
-      <AppShell title={t("common:appName")} menu={settingsMenu}>
+      <AppShell title={t("common:appName")}>
         <div className="flex flex-1 flex-col">
           <AppMark className="mt-2 h-14 w-14" />
           <h1 className="font-display mt-5 text-[32px] font-bold leading-[1.1] tracking-tightest text-text">
@@ -271,7 +258,7 @@ export default function HomePage() {
     : null;
 
   return (
-    <AppShell title={t("common:appName")} menu={settingsMenu}>
+    <AppShell title={t("common:appName")}>
       <GroupsSummaryHeader summary={summary} global={global} />
 
       <h2 className="label-caps">{t("myGroups")}</h2>

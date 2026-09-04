@@ -22,8 +22,7 @@
     "yesterday": "Yesterday",
     "person_one": "{{count}} person",
     "person_other": "{{count}} people",
-    "currencyLabel": "{{code}} — {{name}}",
-    "generalSettings": "Settings"
+    "currencyLabel": "{{code}} — {{name}}"
   },
   "nav": {
     "summary": "Summary",

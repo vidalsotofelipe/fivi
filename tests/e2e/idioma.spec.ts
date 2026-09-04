@@ -58,8 +58,9 @@ test("cambio de idioma instantáneo y persistente", async ({ page }) => {
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page.getByRole("link", { name: "More" })).toBeVisible();
 
-  // Volver a español desde Configuración.
-  await page.getByRole("link", { name: "Settings" }).click();
+  // Volver a español desde Configuración. Exact: "Settings" (sin exact)
+  // también matchea el ícono global de ajustes ("General settings").
+  await page.getByRole("link", { name: "Settings", exact: true }).click();
   await page.waitForURL(/\/config$/);
   await page.getByRole("tab", { name: "Español" }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "es");
