@@ -417,8 +417,8 @@
     "shareInviteText": "Join the group “{{name}}” on fivi",
     "shareCopyPrompt": "Copy the link to share the group:",
     "sectionSupport": "Support the project",
-    "supportBody": "fivi's development runs on voluntary support from the community that uses it: if you'd like to chip in, you can buy me a coffee — it's not required to use the app.",
-    "supportButtonAlt": "Buy me a coffee on cafecito.app"
+    "supportBody": "fivi's development runs on voluntary support from the community that uses it: if you'd like to chip in, you can send a Cafecito — it's not required to use the app.",
+    "supportButtonAlt": "Support fivi on cafecito.app"
   },
   "a11y": {
     "goBack": "Back",

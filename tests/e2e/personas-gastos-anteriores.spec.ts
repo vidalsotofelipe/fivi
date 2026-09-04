@@ -60,8 +60,14 @@ test("sumar a alguien nuevo a un gasto anterior de partes iguales", async ({
   await page.getByRole("button", { name: "Agregar", exact: true }).click();
 
   // El panel se abre solo, con el gasto anterior listado y pre-seleccionado.
-  await expect(page.getByText("¿Sumar a Cami a gastos ya registrados?")).toBeVisible();
+  const pastPanelTitle = page.getByText("¿Sumar a Cami a gastos ya registrados?");
+  await expect(pastPanelTitle).toBeVisible();
   await page.getByRole("button", { name: /Sumar a 1 gasto/ }).click();
+
+  // `confirm()` recalcula el reparto ANTES de cerrar el panel: hay que
+  // esperar a que se cierre (no sólo a que el click se despache) antes de
+  // navegar, o la navegación puede interrumpir la escritura en IndexedDB.
+  await expect(pastPanelTitle).toHaveCount(0);
 
   // Ahora el gasto se reparte entre tres: 100 cada uno.
   await page.goto(`/g/${id}/balance`);
@@ -153,6 +159,11 @@ test("sumarse al grupo desde '¿Quién sos?' cuando no se está en la lista", as
 
   await page.getByPlaceholder("Tu nombre").fill("Dani");
   await page.getByRole("button", { name: "Sumarme al grupo" }).click();
+
+  // Sin gastos anteriores, `AddToPastExpenses` cierra el sheet sola (consulta
+  // async a IndexedDB de por medio): hay que esperar a que se cierre antes de
+  // navegar, no alcanza con que el click se haya despachado.
+  await expect(page.getByRole("dialog")).toHaveCount(0);
 
   // Queda como participante del grupo y como "yo".
   await page.goto(`/g/${id}/personas`);
