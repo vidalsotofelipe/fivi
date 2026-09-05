@@ -275,6 +275,68 @@ describe("expenseRepo", () => {
     }
   });
 
+  it("replaceExpense guarda previous_snapshot sólo cuando cambia descripción/monto/división", async () => {
+    const g = await groupRepo.createGroup(
+      { name: "G", currency_code: "ARS" },
+      db,
+    );
+    const a = await participantRepo.addParticipant(g.id, "Ana", db);
+    const b = await participantRepo.addParticipant(g.id, "Beto", db);
+    const { expense } = await expenseRepo.createExpense(
+      {
+        group_id: g.id,
+        description: "Cena",
+        amount_minor_units: 10000,
+        paid_by: a.id,
+        participant_ids: [a.id, b.id],
+      },
+      db,
+    );
+    expect((await db.expenses.get(expense.id))?.previous_snapshot).toBeUndefined();
+
+    const base = {
+      paid_by: a.id,
+      participant_ids: [a.id, b.id],
+      expense_date: expense.expense_date,
+      split_strategy: { kind: "equal" as const },
+    };
+
+    // Cambiar sólo el pagador (no descripción/monto/división): no se guarda snapshot.
+    await expenseRepo.replaceExpense(
+      expense.id,
+      { ...base, description: "Cena", amount_minor_units: 10000, paid_by: b.id },
+      db,
+    );
+    expect((await db.expenses.get(expense.id))?.previous_snapshot).toBeFalsy();
+
+    // Cambiar el monto: guarda los valores de ANTES de esta edición.
+    await expenseRepo.replaceExpense(
+      expense.id,
+      { ...base, description: "Cena", amount_minor_units: 15000 },
+      db,
+    );
+    let row = await db.expenses.get(expense.id);
+    expect(row?.amount_minor_units).toBe(15000);
+    expect(row?.previous_snapshot).toMatchObject({
+      description: "Cena",
+      amount_minor_units: 10000,
+    });
+
+    // Otra edición que no toca esos campos: el snapshot de la edición
+    // anterior no se pisa (sigue siendo el paso previo a la última edición
+    // que sí cambió algo).
+    await expenseRepo.replaceExpense(
+      expense.id,
+      { ...base, description: "Cena", amount_minor_units: 15000 },
+      db,
+    );
+    row = await db.expenses.get(expense.id);
+    expect(row?.previous_snapshot).toMatchObject({
+      description: "Cena",
+      amount_minor_units: 10000,
+    });
+  });
+
   it("sacar a alguien del gasto lo marca borrado; volver a sumarlo revive la MISMA fila", async () => {
     const g = await groupRepo.createGroup(
       { name: "G", currency_code: "ARS" },

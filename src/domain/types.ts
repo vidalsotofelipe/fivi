@@ -82,6 +82,18 @@ export interface Expense extends SyncableRecord {
   created_by?: string | null;
   expense_date: IsoDate;
   split_strategy: SplitStrategy;
+  /**
+   * Valores de descripción/monto/división justo ANTES de la última edición
+   * que cambió alguno de los tres. Sólo guarda un paso atrás (no es un
+   * historial completo) — alcanza para responder "¿qué cambió?" sin agregar
+   * una tabla de auditoría nueva. `null`/ausente si el gasto nunca se editó,
+   * o si la última edición no tocó ninguno de estos tres campos.
+   */
+  previous_snapshot?: {
+    description: string;
+    amount_minor_units: number;
+    split_strategy: SplitStrategy;
+  } | null;
 }
 
 /**

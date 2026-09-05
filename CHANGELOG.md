@@ -13,6 +13,24 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.18.1] - 2026-09-05
+
+### Added
+
+- **"¿Qué cambió?" al editar un gasto** (Etapa C del roadmap post-auditoría
+  QA). Antes un gasto editado solo mostraba "Editado el {{fecha}}", sin decir
+  qué. Ahora, si la edición cambió la descripción, el monto o la división,
+  un detalle expandible muestra los valores de antes. Guarda solo el último
+  paso (no un historial completo): columna nueva `previous_snapshot` en
+  `expenses` (migración `0019`), sin tabla nueva ni cambios de sync.
+
+### Migración pendiente (acción manual)
+
+- Aplicar `supabase/migrations/0019_expense_previous_snapshot.sql` en el
+  editor SQL de Supabase antes de que esta versión quede completamente
+  operativa en producción (aditiva, no rompe nada si tarda en aplicarse: el
+  campo sólo queda vacío hasta entonces).
+
 ## [0.18.0] - 2026-09-05
 
 ### Added

@@ -90,6 +90,35 @@ export default function ExpenseDetailPage() {
             {t("expense:editedOn", { date: formatDate(e.updated_at, lang) })}
           </p>
         ) : null}
+        {e.previous_snapshot ? (
+          <details className="mt-1 text-xs text-muted">
+            <summary className="cursor-pointer list-none underline underline-offset-2 marker:hidden">
+              {t("expense:whatChanged")}
+            </summary>
+            <ul className="mt-1.5 flex flex-col gap-1">
+              {e.previous_snapshot.description !== e.description ? (
+                <li>
+                  {t("expense:previousDescription", {
+                    description: e.previous_snapshot.description,
+                  })}
+                </li>
+              ) : null}
+              {e.previous_snapshot.amount_minor_units !== e.amount_minor_units ? (
+                <li>
+                  {t("expense:previousAmountLabel")}{" "}
+                  <Money
+                    minor={e.previous_snapshot.amount_minor_units}
+                    currency={cc}
+                  />
+                </li>
+              ) : null}
+              {JSON.stringify(e.previous_snapshot.split_strategy) !==
+              JSON.stringify(e.split_strategy) ? (
+                <li>{t("expense:splitChanged")}</li>
+              ) : null}
+            </ul>
+          </details>
+        ) : null}
       </section>
 
       <section className="flex flex-col gap-2">

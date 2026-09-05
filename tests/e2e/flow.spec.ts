@@ -99,6 +99,10 @@ test("flujo completo: grupo → personas → gasto → balance → pago → edit
     page.getByRole("heading", { name: "Cena editada" }),
   ).toBeVisible();
 
+  // --- historial: "¿Qué cambió?" muestra la descripción anterior ---
+  await page.getByText("¿Qué cambió?").click();
+  await expect(page.getByText(/Antes decía .*Cena/)).toBeVisible();
+
   // --- borrar el gasto ---
   await page.getByRole("button", { name: "Editar" }).click();
   await page.getByRole("button", { name: "Eliminar", exact: true }).click();

@@ -217,17 +217,36 @@ export async function replaceExpense(
     database.expense_participants,
     database.sync_queue,
     async () => {
+      const current = await database.expenses.get(id);
+      if (!current) throw new Error(`No existe expense con id ${id}`);
+
+      const patch: Partial<Expense> = {
+        description,
+        amount_minor_units: input.amount_minor_units,
+        paid_by: input.paid_by,
+        expense_date: input.expense_date,
+        split_strategy: strategy,
+      };
+      // Sólo se guarda un paso atrás (la última edición que haya tocado
+      // descripción/monto/división), no un historial completo — ver el
+      // comentario de `previous_snapshot` en `domain/types.ts`.
+      const changed =
+        current.description !== description ||
+        current.amount_minor_units !== input.amount_minor_units ||
+        JSON.stringify(current.split_strategy) !== JSON.stringify(strategy);
+      if (changed) {
+        patch.previous_snapshot = {
+          description: current.description,
+          amount_minor_units: current.amount_minor_units,
+          split_strategy: current.split_strategy,
+        };
+      }
+
       const expense = await updateRecord<Expense>(
         database.expenses,
         "expense",
         id,
-        {
-          description,
-          amount_minor_units: input.amount_minor_units,
-          paid_by: input.paid_by,
-          expense_date: input.expense_date,
-          split_strategy: strategy,
-        },
+        patch,
         database,
       );
 
