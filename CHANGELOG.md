@@ -13,6 +13,26 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.19.1] - 2026-09-05
+
+### Added
+
+- **"Guardar mi FIVI" — vincular un email opcional a la sesión anónima**
+  (Etapa F del roadmap post-auditoría QA, sólo R1 de
+  `docs/ACCOUNT_RECOVERY.md`). Nueva sección "Cuenta" en Ajustes generales:
+  vincula un email a la sesión actual (`auth.updateUser`) sin cambiar de
+  `uid` ni migrar nada — la app sigue funcionando 100% anónima si no se usa.
+  Recuperar el acceso en OTRO dispositivo (`signInWithOtp` + rescatar grupos
+  huérfanos) queda para una próxima etapa (R2-R4), documentada pero no
+  implementada todavía.
+
+### Configuración pendiente (acción manual)
+
+- Habilitar el proveedor **Email** en el dashboard de Supabase
+  (Authentication → Providers → Email, "Confirm email" ON) — sin esto, el
+  botón "Guardar mi FIVI" falla porque Supabase no manda el enlace de
+  confirmación.
+
 ## [0.19.0] - 2026-09-05
 
 ### Added

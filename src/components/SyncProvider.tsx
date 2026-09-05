@@ -52,6 +52,15 @@ export interface SyncActions {
   syncNow: () => Promise<void>;
   /** id del usuario anónimo actual (Supabase), o `null` (modo local o sin sesión). */
   userId: string | null;
+  /** Email vinculado a esta sesión ("Guardé mi FIVI"), o `null` si sigue anónima. */
+  userEmail: string | null;
+  /**
+   * Vincula un email a la sesión anónima actual (`auth.updateUser`). NO
+   * cambia el `uid` ni la membresía de ningún grupo — sólo agrega una
+   * credencial de reingreso. Supabase manda un enlace de confirmación al
+   * email; hasta que se confirme, `userEmail` sigue en `null`.
+   */
+  linkEmail: (email: string) => Promise<void>;
   /** Canjea un token de invitación; devuelve el id del grupo al que da acceso. */
   redeemInvite: (token: string) => Promise<string>;
   /** Crea una invitación para un grupo; devuelve el token crudo (se muestra una vez). */
@@ -74,6 +83,9 @@ const NOOP_ACTIONS: SyncActions = {
   requestGroup: () => {},
   syncNow: () => Promise.resolve(),
   userId: null,
+  userEmail: null,
+  linkEmail: () =>
+    Promise.reject(new Error("Vincular un email requiere Supabase configurado")),
   redeemInvite: () =>
     Promise.reject(new Error("Las invitaciones requieren Supabase configurado")),
   createInvite: () =>
@@ -102,6 +114,7 @@ const supabaseConfig = readSupabaseConfig();
  */
 export function SyncProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const clientRef = useRef<SupabaseClient | null>(null);
   const backend: SyncBackend = supabaseConfig ? "cloud" : "local";
   // El panel de administración (`/administracion`, y `/admin` que redirige a ella)
@@ -162,7 +175,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
           const tryAuth = async () => {
             try {
               const session = await ensureAnonymousSession(client);
-              if (!cancelled) setUserId(session?.user.id ?? null);
+              if (!cancelled) {
+                setUserId(session?.user.id ?? null);
+                setUserEmail(session?.user.email ?? null);
+              }
             } catch (err) {
               console.warn("No se pudo iniciar sesión anónima en Supabase:", err);
             }
@@ -179,6 +195,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
           const { data } = client.auth.onAuthStateChange((event, session) => {
             if (session) client.realtime.setAuth(session.access_token);
             setUserId(session?.user.id ?? null);
+            setUserEmail(session?.user.email ?? null);
             // Sesión nueva: cambian las condiciones, así que se les da otra
             // chance a los cambios que el servidor había rechazado (típico
             // cuando la sesión anterior quedó inválida y todo se "agotó").
@@ -245,6 +262,14 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         await engine.retryFailed();
       },
       userId,
+      userEmail,
+      linkEmail: async (email) => {
+        if (!clientRef.current) {
+          throw new Error("Vincular un email requiere Supabase configurado");
+        }
+        const { error } = await clientRef.current.auth.updateUser({ email });
+        if (error) throw error;
+      },
       redeemInvite: (token) => engine.redeemInvite(token),
       createInvite: (groupId, opts) => engine.createInvite(groupId, opts),
       listInvites: (groupId) => engine.listInvites(groupId),
@@ -255,7 +280,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         return result?.data.session?.access_token ?? null;
       },
     }),
-    [engine, userId],
+    [engine, userId, userEmail],
   );
 
   return (

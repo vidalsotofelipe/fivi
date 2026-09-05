@@ -8,6 +8,7 @@
  * inicio: ya eran accesibles sin entrar a un grupo.
  */
 import { useTranslation } from "react-i18next";
+import { AccountSection } from "@/components/AccountSection";
 import { AppShell } from "@/components/AppShell";
 import { CafecitoSupport } from "@/components/CafecitoSupport";
 import { FeedbackSupport } from "@/components/FeedbackSupport";
@@ -59,6 +60,8 @@ export default function GeneralSettingsPage() {
         />
         <p className="text-xs text-muted">{t("settings:appearanceHint")}</p>
       </section>
+
+      <AccountSection />
 
       <FeedbackSupport />
 

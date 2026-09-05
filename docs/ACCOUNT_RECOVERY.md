@@ -1,7 +1,10 @@
 # Cuenta y recuperación opcional — diseño
 
-> Estado: **diseñado, no implementado.** Este documento define la solución y el
-> plan por etapas. La implementación va en PRs separadas (ver § Etapas).
+> Estado: **R1 implementado.** R2-R4 siguen diseñados, no implementados — ver
+> § Etapas. R1: `updateUser({ email })` + UI "Guardar mi FIVI" en Ajustes
+> generales (`src/components/AccountSection.tsx`, `SyncActions.linkEmail` en
+> `src/components/SyncProvider.tsx`). Sin migración, sin cambio de `uid` —
+> exactamente como se diseñó abajo.
 
 ## Objetivo
 
@@ -118,7 +121,7 @@ Escenario: instalo FIVI nueva, la uso un rato como anónimo (creo un grupo local
 
 | Etapa | Alcance | Riesgo |
 | --- | --- | --- |
-| **R1** | Habilitar proveedor Email en Supabase. `updateUser({ email })` + UI "Guardar mi FIVI" en Más. Sólo **agrega** email al uid actual; no cambia de sesión. Reingreso en el MISMO dispositivo ya anda (sesión persistida). | Bajo. Sin esquema. Reversible (quitar la UI). |
+| **R1** ✅ | Habilitar proveedor Email en Supabase. `updateUser({ email })` + UI "Guardar mi FIVI" en Ajustes generales. Sólo **agrega** email al uid actual; no cambia de sesión. Reingreso en el MISMO dispositivo ya anda (sesión persistida). — **Implementado.** Falta el paso manual: activar el proveedor Email en el dashboard de Supabase (Authentication → Providers). | Bajo. Sin esquema. Reversible (quitar la UI). |
 | **R2** | `/recuperar` con `signInWithOtp` + `/auth/callback`. Push de la cola pendiente ANTES del cambio de sesión. Primer pull completo tras `SIGNED_IN`. Grupos remotos de la cuenta aparecen. | Medio. Cambia el `uid` de la sesión. Cubierto por tests de "acceso por membresía" y "pull completo". |
 | **R3** | Diálogo "Llevar grupos locales a mi cuenta" + RPC `claim_group` (migración **aditiva**: sólo la función). Manejo de huérfanos. | Medio. La RPC valida `created_by` + ausencia de otros miembros con email antes de re-asignar. Migración con rollback. |
 | **R4** | Pulido: "Cambiar email", "Cerrar sesión" (→ nuevo anónimo), reintentos de OTP, rate-limit visible, textos. | Bajo. |
