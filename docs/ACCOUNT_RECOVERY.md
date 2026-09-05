@@ -59,6 +59,30 @@ el email sólo es una credencial de reingreso a ese uid.
   un email ya conocido tampoco es un signup.
 - `SITE_URL` / redirect URLs → el dominio de producción (para el magic link).
 
+#### Qué plantilla de email dispara "Guardar mi FIVI"
+
+`updateUser({ email })` sobre una sesión anónima manda la plantilla
+**"Change Email Address"** (`email_change`), NO la de "Confirm signup" — el
+texto por defecto dice "Confirm your new email address". Se edita en
+Authentication → **Emails → Templates → Change Email Address**. Está sólo en
+el dashboard: no hay `supabase/config.toml` en el repo, así que no se
+versiona acá.
+
+Variables disponibles: `{{ .ConfirmationURL }}`, `{{ .Email }}` (el anterior,
+vacío si venía de una sesión anónima), `{{ .NewEmail }}`, `{{ .Token }}`
+(código de 6 dígitos, para el fallback de R4 en PWA instalada),
+`{{ .TokenHash }}`, `{{ .SiteURL }}`.
+
+#### SMTP: el default NO sirve para producción
+
+El SMTP incluido de Supabase manda desde una dirección genérica y tiene un
+límite de unos pocos mails por hora — es para probar, no para usuarios
+reales. Antes de que esto sea una vía de recuperación de la que la gente
+dependa, hay que configurar SMTP propio en Project Settings → Authentication
+→ SMTP (Resend, SendGrid, SES, Postmark…). Si el límite se agota, el usuario
+toca "Guardar mi FIVI" y el mail simplemente no llega, sin error visible en
+la app.
+
 ### 2. Endurecer RLS para cuentas con email
 
 Con el modelo actual (0005–0007) el acceso ya depende de `group_members`. Hay un
