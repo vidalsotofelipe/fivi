@@ -10,6 +10,7 @@
 import { useTranslation } from "react-i18next";
 import { AppShell } from "@/components/AppShell";
 import { CafecitoSupport } from "@/components/CafecitoSupport";
+import { FeedbackSupport } from "@/components/FeedbackSupport";
 import { useLocale } from "@/components/LocaleProvider";
 import { useTheme } from "@/components/ThemeProvider";
 import { SegmentedControl } from "@/components/ui/primitives";
@@ -58,6 +59,8 @@ export default function GeneralSettingsPage() {
         />
         <p className="text-xs text-muted">{t("settings:appearanceHint")}</p>
       </section>
+
+      <FeedbackSupport />
 
       <CafecitoSupport />
     </AppShell>

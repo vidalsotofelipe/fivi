@@ -419,7 +419,10 @@
     "sectionSupport": "Support the project",
     "supportBody": "fivi's development runs on voluntary support from the community that uses it: if you'd like to chip in, you can send a Cafecito — it's not required to use the app.",
     "supportButtonAlt": "Support fivi on cafecito.app",
-    "generalTitle": "General settings"
+    "generalTitle": "General settings",
+    "sectionFeedback": "Help us improve",
+    "feedbackBody": "Found a problem or have an idea for fivi? Tell us. Your feedback helps us keep improving.",
+    "feedbackButton": "💬 Send feedback"
   },
   "a11y": {
     "goBack": "Back",
@@ -429,5 +432,41 @@
     "editField": "Edit {{field}}",
     "closeSheet": "Close panel",
     "step": "Step {{current}} of {{total}}: {{label}}"
+  },
+  "feedback": {
+    "pageTitle": "Send feedback",
+    "stepCategory": "Category",
+    "stepDetail": "Detail",
+    "questionPrompt": "What do you want to write about?",
+    "typeBug": "🐞 I found a problem",
+    "typeSuggestion": "💡 I have a suggestion",
+    "typeQuestion": "🙋 I have a question",
+    "typeOther": "💬 Other comment",
+    "titleLabel": "Title",
+    "titlePlaceholder": "E.g: I can't add a participant",
+    "descriptionLabel": "Description",
+    "descriptionLabelBug": "What happened?",
+    "descriptionPlaceholder": "Tell us what happened or what you'd like to see improved…",
+    "stepsToReproduceLabel": "What were you trying to do?",
+    "stepsToReproducePlaceholder": "E.g: I wanted to add someone new to the group",
+    "expectedBehaviorLabel": "What did you expect to happen?",
+    "expectedBehaviorPlaceholder": "E.g: That they get added to the people list",
+    "emailLabel": "Contact email",
+    "emailPlaceholder": "you@email.com",
+    "emailHint": "Only if you want us to be able to reply.",
+    "screenshotLabel": "Attach a screenshot",
+    "screenshotHint": "Optional. JPG, PNG or WEBP, up to 5 MB.",
+    "screenshotRemove": "Remove",
+    "screenshotPreviewAlt": "Preview of the attached screenshot",
+    "send": "Send",
+    "sending": "Sending…",
+    "successToast": "Thanks for helping us improve fivi! 💚",
+    "errorGeneric": "Could not send it. Please try again.",
+    "errorTooBig": "The screenshot cannot be larger than 5 MB",
+    "errorBadFormat": "The screenshot must be a JPG, PNG or WEBP image",
+    "errorRateLimit": "Too many submissions. Try again in a few minutes.",
+    "fieldTitleRequired": "Enter a title",
+    "fieldDescriptionRequired": "Tell us what happened",
+    "fieldEmailInvalid": "That email doesn't look valid"
   }
 }

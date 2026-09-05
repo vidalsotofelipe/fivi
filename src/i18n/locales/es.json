@@ -419,7 +419,10 @@
     "sectionSupport": "Apoyar el proyecto",
     "supportBody": "El desarrollo de fivi se sostiene con aportes voluntarios de la comunidad que la usa: si querés colaborar, invitame un cafecito — no hace falta para usar la app.",
     "supportButtonAlt": "Invitame un cafecito en cafecito.app",
-    "generalTitle": "Ajustes generales"
+    "generalTitle": "Ajustes generales",
+    "sectionFeedback": "Ayudanos a mejorar",
+    "feedbackBody": "¿Encontraste un problema o tenés una idea para fivi? Contanos. Tu opinión nos ayuda a seguir mejorando.",
+    "feedbackButton": "💬 Enviar comentario"
   },
   "a11y": {
     "goBack": "Volver",
@@ -429,5 +432,41 @@
     "editField": "Editar {{field}}",
     "closeSheet": "Cerrar panel",
     "step": "Paso {{current}} de {{total}}: {{label}}"
+  },
+  "feedback": {
+    "pageTitle": "Enviar comentario",
+    "stepCategory": "Categoría",
+    "stepDetail": "Detalle",
+    "questionPrompt": "¿Sobre qué querés escribir?",
+    "typeBug": "🐞 Encontré un problema",
+    "typeSuggestion": "💡 Tengo una sugerencia",
+    "typeQuestion": "🙋 Tengo una consulta",
+    "typeOther": "💬 Otro comentario",
+    "titleLabel": "Título",
+    "titlePlaceholder": "Ej: No puedo agregar un participante",
+    "descriptionLabel": "Descripción",
+    "descriptionLabelBug": "¿Qué ocurrió?",
+    "descriptionPlaceholder": "Contanos qué pasó o qué te gustaría mejorar…",
+    "stepsToReproduceLabel": "¿Qué estabas intentando hacer?",
+    "stepsToReproducePlaceholder": "Ej: Quería sumar a alguien nuevo al grupo",
+    "expectedBehaviorLabel": "¿Qué esperabas que ocurriera?",
+    "expectedBehaviorPlaceholder": "Ej: Que se agregue a la lista de personas",
+    "emailLabel": "Email de contacto",
+    "emailPlaceholder": "tu@email.com",
+    "emailHint": "Sólo si querés que podamos responderte.",
+    "screenshotLabel": "Adjuntar captura",
+    "screenshotHint": "Opcional. JPG, PNG o WEBP, hasta 5 MB.",
+    "screenshotRemove": "Quitar",
+    "screenshotPreviewAlt": "Vista previa de la captura adjunta",
+    "send": "Enviar",
+    "sending": "Enviando…",
+    "successToast": "¡Gracias por ayudarnos a mejorar fivi! 💚",
+    "errorGeneric": "No se pudo enviar. Probá de nuevo.",
+    "errorTooBig": "La captura no puede superar los 5 MB",
+    "errorBadFormat": "La captura debe ser una imagen JPG, PNG o WEBP",
+    "errorRateLimit": "Demasiados envíos. Probá de nuevo en unos minutos.",
+    "fieldTitleRequired": "Ingresá un título",
+    "fieldDescriptionRequired": "Contanos qué pasó",
+    "fieldEmailInvalid": "El email no parece válido"
   }
 }

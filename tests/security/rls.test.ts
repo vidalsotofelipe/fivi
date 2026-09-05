@@ -121,6 +121,7 @@ beforeAll(async () => {
     "0015_expense_participants_live_unique.sql",
     "0016_text_length_limits.sql",
     "0017_exchange_rates_sources.sql",
+    "0018_feedback.sql",
   ]) {
     await pg.exec(migration(file));
   }
@@ -987,5 +988,163 @@ describe("límites de longitud en el servidor (0016)", () => {
         ),
       ),
     ).rejects.toThrow(/participants_name_len/);
+  });
+});
+
+/**
+ * Feedback de usuarios (0018). Tabla server-only, sin políticas de RLS: sólo
+ * `service_role` (las funciones `admin_*` de abajo, o el endpoint público que
+ * en producción también usa service-role) puede tocarla. Nadie público puede
+ * listar, leer, insertar ni modificar feedback ajeno.
+ */
+describe("feedback de usuarios (0018)", () => {
+  it("authenticated no ve ninguna fila (RLS sin políticas); anon ni siquiera tiene GRANT", async () => {
+    await pg.exec("set role postgres");
+    await pg.query(
+      `insert into public.feedback (id, type, title, description)
+       values ($1, 'bug', 'x', 'y')`,
+      [randomUUID()],
+    );
+    await pg.exec("reset role");
+
+    // `authenticated` sí tiene GRANT de tabla (bootstrap del arnés, igual que
+    // en producción), pero RLS habilitada sin políticas filtra todo a 0 filas.
+    const authRows = await asUser(U1, (tx) =>
+      tx.query("select * from public.feedback"),
+    );
+    expect(authRows.rows).toHaveLength(0);
+
+    // `anon` no tiene ni siquiera GRANT de tabla sobre `feedback` (a diferencia
+    // de `groups`, que sí lo necesita para las invitaciones): el rechazo es más
+    // fuerte todavía, a nivel de permisos, antes de que RLS entre en juego.
+    await pg.exec("set role anon");
+    await expect(pg.query("select * from public.feedback")).rejects.toThrow(
+      /permission denied/,
+    );
+    await pg.exec("reset role");
+  });
+
+  it("authenticated no puede insertar feedback directamente", async () => {
+    await expect(
+      asUser(U1, (tx) =>
+        tx.query(
+          `insert into public.feedback (id, type, title, description)
+           values ($1, 'bug', 'x', 'y')`,
+          [randomUUID()],
+        ),
+      ),
+    ).rejects.toThrow();
+  });
+
+  /** Ejecuta una función SQL como `postgres` (equivalente a service_role). */
+  async function rpc<T = Record<string, unknown>>(
+    sql: string,
+    params: unknown[] = [],
+  ): Promise<T> {
+    await pg.exec("set role postgres");
+    try {
+      const r = await pg.query<{ out: T }>(`select ${sql} as out`, params);
+      return r.rows[0]!.out;
+    } finally {
+      await pg.exec("reset role");
+    }
+  }
+
+  async function seedFeedback(overrides: Partial<{
+    type: string;
+    title: string;
+    description: string;
+    status: string;
+  }> = {}): Promise<string> {
+    const id = randomUUID();
+    await pg.exec("set role postgres");
+    await pg.query(
+      `insert into public.feedback (id, type, title, description, status)
+       values ($1, $2, $3, $4, $5)`,
+      [
+        id,
+        overrides.type ?? "bug",
+        overrides.title ?? "No puedo agregar un participante",
+        overrides.description ?? "Pasa esto y aquello",
+        overrides.status ?? "new",
+      ],
+    );
+    await pg.exec("reset role");
+    return id;
+  }
+
+  it("admin_list_feedback pagina, cuenta por estado y busca por texto", async () => {
+    await pg.exec("set role postgres");
+    await pg.query("truncate public.feedback");
+    await pg.exec("reset role");
+    await seedFeedback({ title: "Buscarme por acá", status: "new" });
+    await seedFeedback({ title: "Otro más", status: "reviewing" });
+    await seedFeedback({ title: "Tercero", status: "resolved" });
+
+    const all = await rpc<{
+      total: number;
+      counts: { total: number; new: number; reviewing: number; resolved: number };
+      rows: { title: string; status: string }[];
+    }>("public.admin_list_feedback(null,null,null,null,null,null,null,$1,$2,$3,$4)", [
+      "created_at",
+      "desc",
+      10,
+      0,
+    ]);
+    expect(all.total).toBe(3);
+    expect(all.counts).toMatchObject({ total: 3, new: 1, reviewing: 1, resolved: 1 });
+
+    const filtered = await rpc<{ total: number; rows: { title: string }[] }>(
+      "public.admin_list_feedback($1,null,null,null,null,null,null,$2,$3,$4,$5)",
+      ["reviewing", "created_at", "desc", 10, 0],
+    );
+    expect(filtered.total).toBe(1);
+    expect(filtered.rows[0]?.title).toBe("Otro más");
+
+    const searched = await rpc<{ total: number }>(
+      "public.admin_list_feedback(null,null,$1,null,null,null,null,$2,$3,$4,$5)",
+      ["Buscarme", "created_at", "desc", 10, 0],
+    );
+    expect(searched.total).toBe(1);
+  });
+
+  it("admin_get_feedback trae el detalle completo; null si no existe", async () => {
+    const id = await seedFeedback({ title: "Detalle" });
+    const detail = await rpc<{ id: string; title: string } | null>(
+      "public.admin_get_feedback($1)",
+      [id],
+    );
+    expect(detail?.title).toBe("Detalle");
+
+    const missing = await rpc<null>("public.admin_get_feedback($1)", [randomUUID()]);
+    expect(missing).toBeNull();
+  });
+
+  it("admin_set_feedback_status cambia el estado y actualiza updated_at", async () => {
+    const id = await seedFeedback({ status: "new" });
+    const before = await rpc<{ updated_at: string }>("public.admin_get_feedback($1)", [id]);
+
+    await new Promise((r) => setTimeout(r, 5));
+    const updated = await rpc<{ status: string; updated_at: string }>(
+      "public.admin_set_feedback_status($1, $2)",
+      [id, "resolved"],
+    );
+    expect(updated.status).toBe("resolved");
+    expect(new Date(updated.updated_at).getTime()).toBeGreaterThan(
+      new Date(before.updated_at).getTime(),
+    );
+  });
+
+  it("admin_set_feedback_status rechaza un estado inválido", async () => {
+    const id = await seedFeedback();
+    await expect(
+      rpc("public.admin_set_feedback_status($1, $2)", [id, "en-el-limbo"]),
+    ).rejects.toThrow();
+  });
+
+  it("admin_set_feedback_status en un id inexistente falla (no crea nada)", async () => {
+    await expect(
+      rpc("public.admin_set_feedback_status($1, 'resolved')", [randomUUID()]),
+    ).rejects.toThrow();
   });
 });

@@ -13,6 +13,56 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.17.0] - 2026-09-04
+
+### Added
+
+- **Feedback de usuarios (Etapa 1 — app pública).** Nueva sección "Ayudanos a
+  mejorar" en Ajustes generales, entre Apariencia y Apoyar el proyecto, con un
+  botón que lleva a un formulario dedicado (`/ajustes/feedback`, no un modal:
+  con varios campos y una imagen opcional, una pantalla normal se comporta
+  mejor en mobile que un sheet que puede quedar más alto que el teclado).
+  - Primero pregunta sobre qué se quiere escribir (🐞 problema / 💡 sugerencia /
+    🙋 consulta / 💬 otro comentario). "Encontré un problema" agrega dos campos
+    extra (qué se intentaba hacer, qué se esperaba que pasara) y relabela la
+    descripción a "¿Qué ocurrió?".
+  - Título, descripción y email de contacto (opcional, sin exigir cuenta) +
+    captura de pantalla opcional (JPG/PNG/WEBP hasta 5 MB), con vista previa y
+    opción de quitarla.
+  - Se guarda automáticamente metadata técnica (versión de fivi, entorno,
+    idioma, tema, navegador, sistema operativo, tipo de dispositivo, viewport,
+    página de origen) — nunca datos del grupo (nombres, montos, alias, emails
+    de terceros). La versión y el entorno los decide el servidor (no se
+    confía en lo que declare el cliente); el resto de la metadata "no
+    falsificable" (navegador/SO/dispositivo) se deriva del header
+    `User-Agent`, no de JS del cliente.
+  - La captura se sube a un bucket privado de Storage; nunca se expone por
+    URL pública fija — el diseño reserva las signed URLs de corta vida para
+    cuando el feedback se pueda revisar (etapa siguiente). El formato se
+    valida por los bytes reales del archivo ("magic numbers"), no por el
+    `Content-Type` declarado, que es trivial de falsificar.
+  - Antispam liviano sin infraestructura nueva: máx. 5 envíos cada 10 minutos,
+    por un id anónimo de dispositivo (si `localStorage` lo permite; nunca se
+    crea uno para otra cosa) o, si no hay, por IP en memoria del proceso —
+    la IP nunca se persiste.
+
+### Changed
+
+- **Base de datos:** nueva tabla `feedback` (migración `0018`), fuera del
+  motor de sync offline-first (no tiene versión/cola: se crea una vez desde el
+  endpoint público). RLS habilitada sin políticas, mismo patrón que
+  `admin_audit_log`: sólo `service_role` puede tocarla, ningún usuario público
+  puede listar ni leer feedback ajeno. La migración también deja preparadas
+  (sin usar todavía) las funciones de agregación y el bucket privado
+  `feedback-screenshots` que va a consumir el panel admin en la próxima
+  entrega — no-opea sola en entornos sin el schema `storage` de Supabase, como
+  el arnés de tests.
+
+### Pendiente
+
+- Gestión desde el panel admin (listado, filtros, detalle, cambio de estado):
+  próxima entrega, sobre esta misma base de datos.
+
 ## [0.16.9] - 2026-09-04
 
 ### Fixed
