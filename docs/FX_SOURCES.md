@@ -1,16 +1,25 @@
 # Fuentes de cotización
 
-Estado: **primera fuente oficial implementada (ARS)**. El resto de las monedas
-usa un proveedor de mercado (`open.er-api.com`), declarado como tal en la
-interfaz. Este documento tiene el relevamiento que pide el requerimiento —**qué
-fuente oficial cubre cada una de las 35 monedas soportadas**— y el diseño para ir
-sumándolas.
+Estado: **4 fuentes oficiales implementadas (ARS, USD, BRL, EUR)** — elegidas
+por volumen real de uso (`/api/admin/metrics`), no por tamaño de mercado. El
+resto de las monedas sigue con un proveedor de mercado (`open.er-api.com`),
+declarado como tal en la interfaz. Este documento tiene el relevamiento que
+pide el requerimiento —**qué fuente oficial cubre cada una de las 35 monedas
+soportadas**— y el diseño para ir sumándolas.
+
+> Se evaluó `dolarapi.com` como fuente para "el resto" de las monedas: es
+> específica de pesos argentinos (oficial/blue/MEP/CCL/tarjeta), no un
+> conversor multi-moneda — no cubre ninguna de las otras ~34 monedas, así que
+> no se usa acá. Ver la decisión en el historial de `CHANGELOG.md`.
 
 ## Implementado
 
 | Moneda | Fuente | Oficial | Valor usado |
 |---|---|---|---|
 | **ARS** | [Banco de la Nación Argentina](https://bna.com.ar/Cotizador/MonedasHistorico) — "Cotizaciones de divisas en el Mercado Libre de Cambios, Valor Hoy" | Sí (banco público) | **Punto medio entre compra y venta** |
+| **USD** | Identidad (USD es la moneda base de la tabla) | Sí (no depende de ninguna fuente externa) | 1 USD = 1 USD |
+| **BRL** | [Banco Central do Brasil — PTAX](https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata) (API Olinda) | Sí (banco central, API real) | Punto medio entre compra y venda del boletín de cierre |
+| **EUR** | [Banco Central Europeo — Euro foreign exchange reference rates](https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml) | Sí (banco central, feed XML) | Inverso de USD-por-EUR publicado |
 | Todas las demás | `open.er-api.com` | No — referencia de mercado | El que publica el proveedor |
 
 ### Por qué el punto medio
@@ -75,7 +84,7 @@ en un formato consumible.
 |---|---|---|---|---|
 | **ARS** | Argentina | **BNA — Cotizador de divisas** (implementado) · BCRA Com. A 3500 como alternativa | Sí (BNA por HTML; BCRA por API REST) | Ver arriba. El BCRA queda como opción si se prefiere el mayorista o si el BNA cambia el marcado. |
 | BOB | Bolivia | BCB — Tipo de cambio oficial | Parcial | Publicado en web; sin API estable documentada. |
-| BRL | Brasil | Banco Central do Brasil — PTAX | Sí (API Olinda, REST) | Fuente oficial de referencia, muy bien documentada. |
+| **BRL** | Brasil | **Banco Central do Brasil — PTAX** (implementado) | Sí (API Olinda, REST) | Fuente oficial de referencia, muy bien documentada. |
 | CLP | Chile | Banco Central de Chile — Dólar observado | Sí (API con registro gratuito) | Requiere credenciales de la BDE. |
 | COP | Colombia | Banco de la República / TRM (Superfinanciera) | Sí (datos abiertos datos.gov.co) | La TRM es la tasa oficial. |
 | CRC | Costa Rica | BCCR — Indicadores económicos | Sí (servicio web con registro) | Compra/venta oficiales. |
@@ -93,7 +102,7 @@ en un formato consumible.
 
 | Moneda | Fuente oficial | Accesible | Notas |
 |---|---|---|---|
-| EUR | BCE — Euro foreign exchange reference rates | Sí (XML/CSV público) | Base natural para todo el bloque. Cubre además GBP, CHF, SEK, NOK, DKK, PLN, CZK, TRY y las asiáticas de abajo, todas contra EUR. |
+| **EUR** | **BCE — Euro foreign exchange reference rates** (implementado) | Sí (XML/CSV público) | Base natural para todo el bloque. Cubre además GBP, CHF, SEK, NOK, DKK, PLN, CZK, TRY y las asiáticas de abajo, todas contra EUR. |
 | GBP | Bank of England — Statistical Database | Sí | También cubierta por el BCE. |
 | CHF | BNS/SNB | Sí | También por BCE. |
 | SEK | Sveriges Riksbank | Sí (API) | |
@@ -107,7 +116,7 @@ en un formato consumible.
 
 | Moneda | Fuente oficial | Accesible | Notas |
 |---|---|---|---|
-| USD | Federal Reserve H.10 | Sí (CSV) | Base actual de la tabla. |
+| **USD** | **Identidad** (implementado) — es la moneda base de la tabla, no requiere fuente externa | Sí (no aplica) | Base actual de la tabla. |
 | CAD | Bank of Canada — Valet API | Sí (REST público) | |
 | AUD | Reserve Bank of Australia | Sí (CSV/XML) | |
 | NZD | Reserve Bank of New Zealand | Sí | |
@@ -159,6 +168,10 @@ de `src/lib/exchangeRates.ts` cambia.
 - `src/lib/fx/bna.ts` — cotización oficial del dólar del BNA: fetch con timeout,
   parser defensivo y validaciones. Exporta el parser aparte para testearlo sin
   red.
+- `src/lib/fx/bcbPtax.ts` — cotización oficial del BCB (API Olinda, real —no
+  scraping—), con reintento día por día para saltar fines de semana/feriados.
+- `src/lib/fx/ecb.ts` — cotización oficial del BCE (feed XML diario), invierte
+  USD-por-EUR a EUR-por-USD.
 - `src/lib/exchangeRates.ts` — interfaz `Provider` (base) con `official` y
   `homepage`, registro `PROVIDERS`, `isOfficialProvider()`, y `OVERRIDES` con las
   fuentes oficiales por moneda.

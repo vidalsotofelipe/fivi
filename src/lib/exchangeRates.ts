@@ -31,6 +31,8 @@ import { CURRENCIES } from "@/domain/currencies";
 import type { RateSource, RateTable } from "@/domain/convert";
 import { getAdminClient } from "@/lib/supabaseAdmin";
 import { BNA_NAME, BNA_URL, fetchBnaUsd } from "@/lib/fx/bna";
+import { BCB_NAME, fetchBcbPtax } from "@/lib/fx/bcbPtax";
+import { ECB_NAME, fetchEcbRates } from "@/lib/fx/ecb";
 
 /** Monedas que a FIVI le interesa cotizar. */
 export const FX_SYMBOLS = Object.keys(CURRENCIES);
@@ -136,7 +138,61 @@ const bnaArs: CurrencyOverride = {
   },
 };
 
-const OVERRIDES: CurrencyOverride[] = [bnaArs];
+/**
+ * USD es la moneda base de la tabla del proveedor de mercado: 1 USD = 1 USD
+ * es una identidad, no una cotización que se pueda cotizar mal. No hace
+ * falta red ni parser; se marca oficial porque no depende de ninguna fuente
+ * externa que pueda fallar o mentir.
+ */
+const usdIdentity: CurrencyOverride = {
+  currency: "USD",
+  async fetchPerUsd() {
+    return {
+      perUsd: 1,
+      source: {
+        provider: "Identidad (USD es la moneda base)",
+        official: true,
+        quoted_at: new Date().toISOString().slice(0, 10),
+        note: "1 USD = 1 USD, no requiere cotización",
+      },
+    };
+  },
+};
+
+const bcbBrl: CurrencyOverride = {
+  currency: "BRL",
+  async fetchPerUsd() {
+    const q = await fetchBcbPtax();
+    if (!q) return null;
+    return {
+      perUsd: q.brlPerUsd,
+      source: {
+        provider: BCB_NAME,
+        official: true,
+        quoted_at: q.quoted_at,
+        note: "mid (PTAX)",
+      },
+    };
+  },
+};
+
+const ecbEur: CurrencyOverride = {
+  currency: "EUR",
+  async fetchPerUsd() {
+    const q = await fetchEcbRates();
+    if (!q) return null;
+    return {
+      perUsd: q.eurPerUsd,
+      source: {
+        provider: ECB_NAME,
+        official: true,
+        quoted_at: q.quoted_at,
+      },
+    };
+  },
+};
+
+const OVERRIDES: CurrencyOverride[] = [bnaArs, usdIdentity, bcbBrl, ecbEur];
 
 export { BNA_URL };
 

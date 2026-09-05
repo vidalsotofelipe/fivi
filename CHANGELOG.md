@@ -13,6 +13,26 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.18.0] - 2026-09-05
+
+### Added
+
+- **Fuentes oficiales de cambio para USD, BRL y EUR** (Etapa B del roadmap
+  post-auditoría QA). Antes solo ARS tenía una fuente oficial (BNA); el
+  resto usaba `open.er-api.com` (referencia de mercado). Se eligieron estas
+  3 monedas por volumen real de uso en producción (`/api/admin/metrics`),
+  no por tamaño de mercado:
+  - **USD**: es la moneda base de la tabla de cambio — 1 USD = 1 USD es una
+    identidad, se marca oficial sin necesitar ninguna fuente externa.
+  - **BRL**: Banco Central do Brasil (PTAX, vía la API pública Olinda —una
+    API real, no scraping—), con reintento día por día para saltar fines de
+    semana y feriados sin boletín.
+  - **EUR**: Banco Central Europeo (feed XML diario de referencia).
+  - Se evaluó `dolarapi.com` para "el resto" de las monedas según lo pedido,
+    pero es específica de pesos argentinos (oficial/blue/MEP/CCL) — no
+    cubre ninguna otra moneda, así que no se usó. Documentado en
+    `docs/FX_SOURCES.md`.
+
 ## [0.17.7] - 2026-09-05
 
 ### Changed

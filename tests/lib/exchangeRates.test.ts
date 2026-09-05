@@ -79,6 +79,61 @@ describe("getRateTable", () => {
     expect(table.rates.ARS).toBe(1400);
   });
 
+  it("con las 4 fuentes oficiales respondiendo, sources trae las 4 marcadas oficiales", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.includes("bna.com.ar")) {
+          return {
+            ok: true,
+            text: async () => `
+              <p>Fecha: 4/9/2026</p>
+              <table class="cotizador"><tbody>
+                <tr><td>Dolar U.S.A</td><td>1499.0000</td><td>1508.0000</td></tr>
+              </tbody></table>`,
+          };
+        }
+        if (url.includes("olinda.bcb.gov.br")) {
+          return {
+            ok: true,
+            json: async () => ({
+              value: [
+                {
+                  cotacaoCompra: 5.1247,
+                  cotacaoVenda: 5.1253,
+                  dataHoraCotacao: "2026-09-04 13:03:59",
+                },
+              ],
+            }),
+          };
+        }
+        if (url.includes("ecb.europa.eu")) {
+          return {
+            ok: true,
+            text: async () =>
+              "<Cube time='2026-09-04'><Cube currency='USD' rate='1.1622'/></Cube>",
+          };
+        }
+        return {
+          ok: true,
+          json: async () => ({
+            result: "success",
+            rates: { USD: 1, ARS: 1450, EUR: 0.92, BRL: 5.3, GTQ: 7.75 },
+            time_last_update_unix: 1_756_800_000,
+          }),
+        };
+      }),
+    );
+    const { table } = await getRateTable();
+    expect(table.sources!.ARS).toMatchObject({ official: true });
+    expect(table.sources!.USD).toMatchObject({ official: true });
+    expect(table.sources!.BRL).toMatchObject({ official: true, quoted_at: "2026-09-04" });
+    expect(table.sources!.EUR).toMatchObject({ official: true, quoted_at: "2026-09-04" });
+    expect(table.rates.ARS).toBeCloseTo(1503.5, 4);
+    expect(table.rates.BRL).toBeCloseTo(5.125, 3);
+    expect(table.rates.EUR).toBeCloseTo(1 / 1.1622, 6);
+  });
+
   it("cache tibio fresco: se usa sin llamar al proveedor", async () => {
     maybeSingle.mockResolvedValue({
       data: {
