@@ -121,7 +121,7 @@ export function TransferRow({
       </span>
       <Link
         href={settleHref}
-        className="min-h-touch shrink-0 border-2 border-accent bg-accent px-4 py-1.5 text-sm font-bold text-accent-fg hover:bg-accent-strong hover:border-accent-strong"
+        className="inline-flex min-h-touch shrink-0 items-center justify-center border-2 border-accent bg-accent px-4 py-1.5 text-sm font-bold text-accent-fg hover:bg-accent-strong hover:border-accent-strong"
       >
         {t("settle")}
       </Link>

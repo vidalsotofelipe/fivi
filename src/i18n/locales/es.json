@@ -316,7 +316,9 @@
     "pastNoneTitle": "No hay gastos anteriores donde sumar a {{name}}",
     "pastCustomTitle": "Gastos con división a medida",
     "pastCustomHint": "Estos no se pueden repartir de nuevo en forma automática: abrí el gasto y asignale a {{name}} el monto o porcentaje que le corresponde.",
-    "pastCustomOpen": "Editar gasto"
+    "pastCustomOpen": "Editar gasto",
+    "pastSection": "Gastos anteriores a su ingreso",
+    "pastSectionHint": "Si esta persona se sumó después de registrar algunos gastos, podés incluirla ahora en los que corresponda."
   },
   "activity": {
     "title": "Actividad",

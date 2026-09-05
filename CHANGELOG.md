@@ -13,6 +13,22 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.17.2] - 2026-09-04
+
+### Fixed
+
+- **El texto del botón "Saldar" no estaba centrado.** Tenía `min-h-touch`
+  (altura mínima de 44px) pero le faltaba `items-center justify-center`, así
+  que el texto quedaba pegado arriba en vez de centrado en esa altura.
+- **No había forma de sumar a alguien a gastos anteriores a su ingreso**, salvo
+  el instante en que se lo agrega (o desde Configuración → Participantes, un
+  lugar poco intuitivo para esto). Si esa oferta automática se pasaba por alto
+  o se elegía "Ahora no", no quedaba ningún camino evidente para retomarlo.
+  Ahora el detalle de cada persona (`/personas/[id]`) tiene su propia sección
+  "Gastos anteriores a su ingreso", con el mismo mecanismo ya existente
+  (`AddToPastExpenses`): permite sumarla a algunos o todos los gastos de
+  división equitativa que no la incluyen, en cualquier momento.
+
 ## [0.17.1] - 2026-09-04
 
 ### Added

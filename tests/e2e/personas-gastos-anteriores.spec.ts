@@ -232,3 +232,31 @@ test("sumarse por invitación y elegir 'Ahora no': cierra igual, sin tocar el re
   await expect(page.getByText(/150,00/).first()).toBeVisible();
   await expect(page.getByText(/100,00/)).toHaveCount(0);
 });
+
+test("desde el detalle de la persona se puede sumarla a gastos previos a su ingreso", async ({
+  page,
+}) => {
+  const id = await seedGroup(page);
+  await addEqualExpense(page, id, "Cena", "300");
+
+  // Cami llega después; esta vez el usuario dice "Ahora no" al ofrecimiento
+  // automático (simula haberlo pasado por alto u olvidado en su momento).
+  await page.goto(`/g/${id}/config`);
+  await page.getByPlaceholder("Ej.: Ana").fill("Cami");
+  await page.getByRole("button", { name: "Agregar", exact: true }).click();
+  await expect(page.getByText("¿Sumar a Cami a gastos ya registrados?")).toBeVisible();
+  await page.getByRole("button", { name: "Ahora no" }).click();
+
+  // Va a Personas -> el detalle de Cami: ahí tiene que poder retomarlo.
+  await page.goto(`/g/${id}/personas`);
+  await page.getByRole("link").filter({ hasText: "Cami" }).click();
+  await page.waitForURL(/\/personas\/[0-9a-f-]{36}$/);
+
+  await expect(page.getByText("Gastos anteriores a su ingreso")).toBeVisible();
+  await page.getByRole("button", { name: "Gastos anteriores" }).click();
+  await expect(page.getByText("¿Sumar a Cami a gastos ya registrados?")).toBeVisible();
+  await page.getByRole("button", { name: /Sumar a 1 gasto/ }).click();
+
+  // El reparto se recalculó: "Le correspondía" pasa de $0,00 a $100,00.
+  await expect(page.getByText(/100,00/).first()).toBeVisible();
+});

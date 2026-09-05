@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useTranslation } from "react-i18next";
 import { AppShell } from "@/components/AppShell";
+import { AddToPastExpenses } from "@/components/AddToPastExpenses";
 import { Button, LinkButton } from "@/components/Button";
 import { EmptyState, Loading } from "@/components/EmptyState";
 import { Money } from "@/components/Money";
@@ -34,6 +35,7 @@ export default function PersonDetailPage() {
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [showPast, setShowPast] = useState(false);
 
   const cc = group.currency_code;
   const back = `/g/${group.id}/personas`;
@@ -122,6 +124,24 @@ export default function PersonDetailPage() {
               />
             ))}
           </ul>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <h2 className="label-caps">{t("people:pastSection")}</h2>
+        <p className="text-xs text-muted">{t("people:pastSectionHint")}</p>
+        {showPast ? (
+          <AddToPastExpenses
+            groupId={group.id}
+            participant={person}
+            currency={cc}
+            explicit
+            onDone={() => setShowPast(false)}
+          />
+        ) : (
+          <Button variant="secondary" onClick={() => setShowPast(true)}>
+            {t("people:pastOpen")}
+          </Button>
         )}
       </section>
 

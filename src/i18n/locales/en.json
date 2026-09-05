@@ -316,7 +316,9 @@
     "pastNoneTitle": "There are no past expenses to add {{name}} to",
     "pastCustomTitle": "Expenses with a custom split",
     "pastCustomHint": "These cannot be re-split automatically: open the expense and assign {{name}} the amount or percentage that corresponds.",
-    "pastCustomOpen": "Edit expense"
+    "pastCustomOpen": "Edit expense",
+    "pastSection": "Expenses before they joined",
+    "pastSectionHint": "If this person joined after some expenses were already logged, you can add them to the ones that apply now."
   },
   "activity": {
     "title": "Activity",
