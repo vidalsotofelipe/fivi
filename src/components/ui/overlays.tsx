@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/Button";
 
@@ -38,6 +39,7 @@ export function BottomSheet({
   children: ReactNode;
   labelledBy?: string;
 }) {
+  const { t } = useTranslation(["a11y"]);
   const panelRef = useRef<HTMLDivElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
 
@@ -90,9 +92,33 @@ export function BottomSheet({
           className="mx-auto mt-1 mb-2 block h-1 w-9 rounded-full bg-text/20"
         />
         {title ? (
-          <h2 className="px-4 pb-2 text-base font-semibold">{title}</h2>
+          // `pr-12` deja libre la esquina donde va la ✕.
+          <h2 className="px-4 pr-12 pb-2 text-base font-semibold">{title}</h2>
         ) : null}
         <div className="px-4">{children}</div>
+        {/*
+          Va DESPUÉS de los hijos en el DOM aunque se vea arriba a la derecha
+          (posición absoluta): el efecto de apertura enfoca el primer elemento
+          focuseable del panel, y si la ✕ fuera primera se llevaría el foco en
+          vez del primer control real de cada hoja. Además, último en el orden
+          de tabulación es lo esperable para "cerrar".
+
+          El nombre accesible es "Cerrar panel", no "Cerrar": hay hojas que ya
+          traen su propio botón "Cerrar" adentro (`AddToPastExpenses` dentro de
+          `MePicker`), y dos controles con el mismo nombre en el mismo diálogo
+          son ambiguos tanto para un lector de pantalla como para los tests.
+        */}
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={t("a11y:closeSheet")}
+          className={cn(
+            "absolute right-1 top-1 flex h-11 w-11 items-center justify-center",
+            "text-lg text-muted hover:text-text",
+          )}
+        >
+          <span aria-hidden="true">✕</span>
+        </button>
       </div>
     </div>,
     document.body,

@@ -13,6 +13,21 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.20.1] - 2026-09-05
+
+### Fixed
+
+- **Las hojas inferiores no tenían forma visible de cerrarse.** Sólo se
+  salía tocando el fondo o con Escape (que en el teléfono no existe). Ahora
+  todas llevan una ✕ arriba a la derecha: el QR, "¿Quién sos?", el menú de
+  un gasto y el resto. Se arregló en `BottomSheet`, no sólo en la del QR,
+  porque el hueco era de todas.
+- Detalles: la ✕ va después de los hijos en el DOM (posicionada con
+  `absolute`) para no robarle el foco inicial al primer control de cada
+  hoja; su nombre accesible es "Cerrar panel" y no "Cerrar" porque hay hojas
+  que ya traen un botón "Cerrar" propio adentro y dos controles con el mismo
+  nombre son ambiguos.
+
 ## [0.20.0] - 2026-09-05
 
 ### Added
