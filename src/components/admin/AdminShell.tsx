@@ -15,6 +15,7 @@ const NAV: { href: string; label: string }[] = [
   { href: "/administracion/usuarios", label: "Usuarios" },
   { href: "/administracion/grupos", label: "Grupos" },
   { href: "/administracion/movimientos", label: "Movimientos" },
+  { href: "/administracion/feedback", label: "Feedback" },
   { href: "/administracion/auditoria", label: "Auditoría" },
   { href: "/administracion/estado", label: "Estado" },
   { href: "/administracion/configuracion", label: "Configuración" },

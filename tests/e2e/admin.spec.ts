@@ -22,6 +22,7 @@ const API_ENDPOINTS = [
   "/api/admin/audit",
   "/api/admin/status",
   "/api/admin/settings",
+  "/api/admin/feedback",
 ];
 
 test("los endpoints admin responden 401 sin token", async ({ request }) => {
@@ -40,6 +41,11 @@ test("acciones admin (POST/PATCH) también exigen autenticación", async ({ requ
     data: { key: "default_currency", value: "USD" },
   });
   expect(patch.status()).toBe(401);
+
+  const status = await request.post(`/api/admin/feedback/${uuid}/status`, {
+    data: { status: "resolved" },
+  });
+  expect(status.status()).toBe(401);
 });
 
 test("acceso no autorizado a /administracion y sus subrutas: no exponen nada", async ({
@@ -53,6 +59,7 @@ test("acceso no autorizado a /administracion y sus subrutas: no exponen nada", a
     "/administracion/auditoria",
     "/administracion/estado",
     "/administracion/configuracion",
+    "/administracion/feedback",
   ]) {
     await page.goto(path);
     // Sin backend configurado el guard muestra "Panel no disponible" y NUNCA la

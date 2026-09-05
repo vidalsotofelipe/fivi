@@ -93,3 +93,26 @@ export function roleLabel(role: string): string {
   };
   return map[role] ?? role;
 }
+
+/** Tipo de feedback, con su emoji (mismo lenguaje visual que el formulario). */
+export function feedbackTypeLabel(type: string): string {
+  const map: Record<string, string> = {
+    bug: "🐞 Problema",
+    suggestion: "💡 Sugerencia",
+    question: "🙋 Consulta",
+    other: "💬 Comentario",
+  };
+  return map[type] ?? type;
+}
+
+/** Estado de feedback, en castellano. */
+export function feedbackStatusLabel(status: string): string {
+  const map: Record<string, string> = {
+    new: "Nuevo",
+    reviewing: "Revisando",
+    planned: "Planificado",
+    resolved: "Resuelto",
+    discarded: "Descartado",
+  };
+  return map[status] ?? status;
+}

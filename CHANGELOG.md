@@ -13,6 +13,29 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.17.1] - 2026-09-04
+
+### Added
+
+- **Feedback de usuarios (Etapa 2 — panel admin).** Nueva sección "Feedback" en
+  la navegación del panel, sobre la tabla que ya trajo `0.17.0`.
+  - Listado con contadores (Total / Nuevos / Revisando / Planificados /
+    Resueltos), filtros por estado, tipo y rango de fechas, y búsqueda por
+    texto en título/descripción.
+  - Detalle: tipo, título, descripción, contacto (si lo dejaron), el
+    formulario extendido de "Encontré un problema" cuando aplica, la captura
+    (si hay) mostrada con una signed URL de corta vida — nunca la ruta interna
+    del bucket —, y un bloque de metadata técnica expandible (versión, entorno,
+    idioma, tema, navegador, SO, dispositivo, viewport, página de origen,
+    User-Agent aparte, al final).
+  - Cambio de estado con un click (Nuevo/Revisando/Planificado/Resuelto de
+    inmediato; Descartado pide confirmación), con auditoría en
+    `admin_audit_log` igual que el resto de las acciones del panel.
+  - Endpoints separados: `/api/feedback` (público, sólo crear) y
+    `/api/admin/feedback/*` (listar/detalle/cambiar estado, protegidos por
+    `requireAdmin` como el resto del panel — sin tocar su autenticación, que
+    sigue siendo la llave compartida provisoria).
+
 ## [0.17.0] - 2026-09-04
 
 ### Added
