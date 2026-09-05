@@ -13,6 +13,32 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.19.0] - 2026-09-05
+
+### Added
+
+- **Notificaciones push por saldo pendiente** (Etapa E del roadmap
+  post-auditoría QA). Nueva sección "Notificaciones" en Configuración del
+  grupo: avisa a este dispositivo cuando el saldo propio en el grupo pasa a
+  negativo (sólo lado deudor). Arquitectura: dos rutas de servidor nuevas
+  (`/api/notifications/subscribe`, `/api/notifications/send-debt`, ambas con
+  `service_role` y verificación de JWT — nunca PostgREST directo), tabla
+  `push_subscriptions` default-deny (migración `0020`), disparador en
+  `SyncEngine` justo después de un push exitoso, de-duplicación por saldo ya
+  avisado para no repetir el aviso en cada sync. Detalle completo en
+  `docs/PUSH_NOTIFICATIONS.md`.
+- En iPhone/iPad, un aviso explica que hace falta instalar la PWA a la
+  pantalla de inicio primero (limitación de Safari, no de la app).
+
+### Migración y configuración pendientes (acción manual)
+
+- Aplicar `supabase/migrations/0020_push_subscriptions.sql` en el editor SQL
+  de Supabase — sin esto, las dos rutas nuevas devuelven error al intentar
+  usar la tabla (aditiva, no rompe nada más mientras tanto).
+- Claves VAPID: generadas y cargadas en Vercel (producción) como parte de
+  este deploy — sin ellas, `/api/notifications/send-debt` no manda nada
+  (falla cerrado, no rompe el sync).
+
 ## [0.18.2] - 2026-09-05
 
 ### Added

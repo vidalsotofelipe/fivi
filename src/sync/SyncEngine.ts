@@ -335,6 +335,48 @@ export class SyncEngine {
         : null;
   }
 
+  /**
+   * Dispara `/api/notifications/send-debt` para cada grupo con un gasto/pago
+   * que se acaba de sincronizar — quien sync-ea es casi siempre otro
+   * dispositivo que el destinatario del aviso, así que el momento correcto
+   * para chequear "¿alguien quedó debiendo?" es justo después de un push
+   * propio, no de un pull (evita que todos los dispositivos de un grupo
+   * disparen el mismo chequeo en cada sync). Nunca lanza: un fallo acá no
+   * puede ensuciar el resultado del sync.
+   */
+  private async notifyAffectedGroups(
+    pending: SyncQueueItem[],
+    acceptedIds: string[],
+  ): Promise<void> {
+    try {
+      const accepted = new Set(acceptedIds);
+      const groupIds = new Set<string>();
+      for (const item of pending) {
+        if (!accepted.has(item.id)) continue;
+        if (item.entity_type === "expense" || item.entity_type === "payment") {
+          const groupId = (item.payload as { group_id?: string } | null)?.group_id;
+          if (groupId) groupIds.add(groupId);
+        } else if (item.entity_type === "expense_participant") {
+          const expenseId = (item.payload as { expense_id?: string } | null)
+            ?.expense_id;
+          if (expenseId) {
+            const expense = await this.db.expenses.get(expenseId);
+            if (expense) groupIds.add(expense.group_id);
+          }
+        }
+      }
+      for (const groupId of groupIds) {
+        fetch("/api/notifications/send-debt", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ groupId }),
+        }).catch(() => {});
+      }
+    } catch {
+      /* nunca debe afectar el resultado del sync */
+    }
+  }
+
   private async emitQueueCounts(patch: Partial<SyncState> = {}) {
     const stats = await getQueueStats(this.db);
     this.emit({
@@ -433,6 +475,9 @@ export class SyncEngine {
           throw pushErr;
         }
         await markStatus(result.accepted_ids, "synced", this.db);
+        // Aviso de deuda pendiente (fire-and-forget): nunca debe afectar el
+        // resultado del sync en sí, por eso no se espera ni se propaga error.
+        void this.notifyAffectedGroups(pending, result.accepted_ids);
         // Rechazo por item (el servidor rechazó esa fila puntual, p. ej. una
         // constraint o una policy de RLS): sí cuenta `attempts` y agota tras
         // `MAX_ATTEMPTS`. El cambio local NO se borra (sólo `purgeSynced` limpia,

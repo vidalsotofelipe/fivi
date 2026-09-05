@@ -10,6 +10,7 @@ import { AddPersonRow } from "@/components/AddPersonRow";
 import { Button, IconButton } from "@/components/Button";
 import { CurrencySelect } from "@/components/CurrencySelect";
 import { InvitesSection } from "@/components/InvitesSection";
+import { NotificationsSection } from "@/components/NotificationsSection";
 import { TextAreaField, TextField } from "@/components/ui/TextField";
 import { ConfirmDialog } from "@/components/ui/overlays";
 import { useToast } from "@/components/ui/toast";
@@ -230,6 +231,8 @@ export default function GroupConfigPage() {
       </section>
 
       <InvitesSection groupId={group.id} />
+
+      <NotificationsSection groupId={group.id} />
 
       {/* Archivar / restaurar (reversible) */}
       <section className="mt-2 flex flex-col gap-1.5 border-t border-border pt-4">

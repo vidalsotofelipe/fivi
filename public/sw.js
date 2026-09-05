@@ -28,7 +28,7 @@
  * Los datos de la app NO se cachean acá: viven en IndexedDB y los maneja la app.
  */
 
-const VERSION = "v10";
+const VERSION = "v11";
 const APP_SHELL = `fivi-shell-${VERSION}`;
 const RUNTIME = `fivi-runtime-${VERSION}`;
 const SHELL_URLS = ["/", "/nuevo", "/manifest.webmanifest"];
@@ -129,6 +129,51 @@ self.addEventListener("activate", (event) => {
         ),
       )
       .then(() => self.clients.claim()),
+  );
+});
+
+/**
+ * Notificaciones push (saldo pendiente por grupo, ver
+ * `/api/notifications/send-debt`). El payload es JSON: `{title, body, url}`.
+ * Ante un payload distinto o corrupto, se muestra un aviso genérico en vez de
+ * fallar en silencio (el usuario igual espera VER algo cuando llega un push).
+ */
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (_) {
+    data = {};
+  }
+  const title = data.title || "fivi";
+  const options = {
+    body: data.body || "",
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
+    data: { url: data.url || "/" },
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+/** Tocar la notificación enfoca una pestaña ya abierta en esa URL, o abre una. */
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || "/";
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clients) => {
+        for (const client of clients) {
+          if (client.url.includes(url) && "focus" in client) {
+            return client.focus();
+          }
+        }
+        if (clients.length > 0 && "focus" in clients[0]) {
+          if ("navigate" in clients[0]) clients[0].navigate(url);
+          return clients[0].focus();
+        }
+        return self.clients.openWindow(url);
+      }),
   );
 });
 

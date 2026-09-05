@@ -5,9 +5,11 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { usePathname } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/data/db";
@@ -60,6 +62,12 @@ export interface SyncActions {
   listInvites: (groupId: string) => Promise<InviteInfo[]>;
   revokeInvite: (inviteId: string) => Promise<void>;
   getGroupRole: (groupId: string) => Promise<GroupRole | null>;
+  /**
+   * Access token de la sesión anónima actual, para las rutas de servidor que
+   * necesitan verificar el JWT ellas mismas (`/api/notifications/subscribe`).
+   * `null` en modo local o sin sesión todavía.
+   */
+  getAccessToken: () => Promise<string | null>;
 }
 
 const NOOP_ACTIONS: SyncActions = {
@@ -73,6 +81,7 @@ const NOOP_ACTIONS: SyncActions = {
   listInvites: () => Promise.resolve([]),
   revokeInvite: () => Promise.resolve(),
   getGroupRole: () => Promise.resolve(null),
+  getAccessToken: () => Promise.resolve(null),
 };
 
 const SyncActionsContext = createContext<SyncActions>(NOOP_ACTIONS);
@@ -93,6 +102,7 @@ const supabaseConfig = readSupabaseConfig();
  */
 export function SyncProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
+  const clientRef = useRef<SupabaseClient | null>(null);
   const backend: SyncBackend = supabaseConfig ? "cloud" : "local";
   // El panel de administración (`/administracion`, y `/admin` que redirige a ella)
   // no usa el motor local-first ni la sesión anónima de la app: tiene su propia
@@ -145,6 +155,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
           if (cancelled) return;
           const { getSupabaseClient, ensureAnonymousSession } = mod;
           const client = getSupabaseClient(supabaseConfig);
+          clientRef.current = client;
 
           // Sesión anónima. Si falla (deshabilitada, o sin red al arrancar) se
           // sigue igual: los push/pull fallarán por RLS y quedarán pendientes.
@@ -239,6 +250,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       listInvites: (groupId) => engine.listInvites(groupId),
       revokeInvite: (inviteId) => engine.revokeInvite(inviteId),
       getGroupRole: (groupId) => engine.getGroupRole(groupId),
+      getAccessToken: async () => {
+        const result = await clientRef.current?.auth.getSession();
+        return result?.data.session?.access_token ?? null;
+      },
     }),
     [engine, userId],
   );

@@ -111,6 +111,12 @@ export function rememberLastCurrency(code: string, database: FiviDatabase = db):
 export const meKey = (groupId: string) => `me:${groupId}`;
 export const lastPayerKey = (groupId: string) => `last_payer:${groupId}`;
 export const setupSeenKey = (groupId: string) => `setup_seen:${groupId}`;
+/**
+ * "¿Activé el aviso push de deuda pendiente en este grupo, en este
+ * dispositivo?" — informativo, para la UI del toggle. La suscripción real
+ * (endpoint/claves) vive en el servidor (`push_subscriptions`), no acá.
+ */
+export const notifyKey = (groupId: string) => `notify:${groupId}`;
 
 /** id del participante que sos vos en este grupo (o `null` si no elegiste). */
 export function useMe(groupId: string): string | null | undefined {
@@ -129,4 +135,12 @@ export function useLastPayer(groupId: string): string | null | undefined {
 
 export function rememberLastPayer(groupId: string, participantId: string) {
   return setSetting(lastPayerKey(groupId), participantId);
+}
+
+export function useNotify(groupId: string): boolean | null | undefined {
+  return useSetting<boolean>(notifyKey(groupId));
+}
+
+export function setNotify(groupId: string, on: boolean) {
+  return setSetting(notifyKey(groupId), on);
 }

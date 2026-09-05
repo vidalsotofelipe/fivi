@@ -123,6 +123,7 @@ beforeAll(async () => {
     "0017_exchange_rates_sources.sql",
     "0018_feedback.sql",
     "0019_expense_previous_snapshot.sql",
+    "0020_push_subscriptions.sql",
   ]) {
     await pg.exec(migration(file));
   }
@@ -1146,6 +1147,64 @@ describe("feedback de usuarios (0018)", () => {
   it("admin_set_feedback_status en un id inexistente falla (no crea nada)", async () => {
     await expect(
       rpc("public.admin_set_feedback_status($1, 'resolved')", [randomUUID()]),
+    ).rejects.toThrow();
+  });
+});
+
+/**
+ * Suscripciones push (0020): default-deny, igual que feedback. Nadie llega a
+ * esta tabla por PostgREST/RLS — sólo las rutas de servidor (service_role)
+ * de /api/notifications/*. Un dispositivo (`authenticated`) no puede ver ni
+ * tocar la suscripción de otro, y `anon` ni siquiera tiene GRANT de tabla.
+ */
+describe("suscripciones push (0020)", () => {
+  it("authenticated no ve ninguna fila (RLS sin políticas); anon ni siquiera tiene GRANT", async () => {
+    const groupId = await createGroupAs(U1, "G push");
+    const participantId = randomUUID();
+    await pg.exec("set role postgres");
+    await pg.query(
+      "insert into public.participants (id, group_id, name) values ($1, $2, 'Ana')",
+      [participantId, groupId],
+    );
+    await pg.query(
+      `insert into public.push_subscriptions
+         (id, user_id, group_id, participant_id, endpoint, p256dh, auth_key)
+       values ($1, $2, $3, $4, 'https://push.example/x', 'p256dh', 'auth')`,
+      [randomUUID(), U1, groupId, participantId],
+    );
+    await pg.exec("reset role");
+
+    const authRows = await asUser(U2, (tx) =>
+      tx.query("select * from public.push_subscriptions"),
+    );
+    expect(authRows.rows).toHaveLength(0);
+
+    await pg.exec("set role anon");
+    await expect(
+      pg.query("select * from public.push_subscriptions"),
+    ).rejects.toThrow(/permission denied/);
+    await pg.exec("reset role");
+  });
+
+  it("authenticated no puede insertar ni actualizar una suscripción directamente", async () => {
+    const groupId = await createGroupAs(U1, "G push 2");
+    const participantId = randomUUID();
+    await pg.exec("set role postgres");
+    await pg.query(
+      "insert into public.participants (id, group_id, name) values ($1, $2, 'Ana')",
+      [participantId, groupId],
+    );
+    await pg.exec("reset role");
+
+    await expect(
+      asUser(U1, (tx) =>
+        tx.query(
+          `insert into public.push_subscriptions
+             (id, user_id, group_id, participant_id, endpoint, p256dh, auth_key)
+           values ($1, $2, $3, $4, 'https://push.example/x', 'p256dh', 'auth')`,
+          [randomUUID(), U1, groupId, participantId],
+        ),
+      ),
     ).rejects.toThrow();
   });
 });
