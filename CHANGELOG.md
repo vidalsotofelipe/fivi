@@ -13,6 +13,24 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.17.6] - 2026-09-05
+
+### Fixed
+
+- **En la lista de grupos, un grupo saldado mostraba el total gastado por
+  todo el grupo en verde, como si fuera plata a favor del usuario.** La fila
+  de un grupo con balance $0 mostraba `total_spent_minor` (el total gastado
+  por todos, no el saldo propio) con el mismo color que usa un balance
+  positivo. Ahora, saldado muestra sólo "Estás al día", sin ningún monto.
+
+### Changed
+
+- **Se sacaron Idioma y Apariencia de Configuración del grupo.** Quedaban
+  duplicados con Ajustes generales (⚙, siempre presente en cualquier
+  pantalla) — son preferencias del dispositivo, no del grupo. Configuración
+  del grupo ahora sólo tiene lo que es del grupo: nombre, descripción,
+  moneda, participantes, invitaciones, archivado y borrado.
+
 ## [0.17.5] - 2026-09-05
 
 ### Changed

@@ -11,13 +11,10 @@ import { Button, IconButton } from "@/components/Button";
 import { CurrencySelect } from "@/components/CurrencySelect";
 import { InvitesSection } from "@/components/InvitesSection";
 import { TextAreaField, TextField } from "@/components/ui/TextField";
-import { SegmentedControl } from "@/components/ui/primitives";
 import { ConfirmDialog } from "@/components/ui/overlays";
 import { useToast } from "@/components/ui/toast";
 import { useGroupContext } from "@/components/GroupProvider";
 import { useLocale } from "@/components/LocaleProvider";
-import { useTheme } from "@/components/ThemeProvider";
-import { SUPPORTED_LANGS } from "@/i18n/config";
 import { useGroupHasMovements } from "@/lib/db-hooks";
 import { db } from "@/data/db";
 import { ARCHIVE_AFTER_DAYS } from "@/data/autoArchive";
@@ -49,8 +46,7 @@ export default function GroupConfigPage() {
     "errors",
     "a11y",
   ]);
-  const { lang, setLang } = useLocale();
-  const { theme, setTheme } = useTheme();
+  const { lang } = useLocale();
   const { group, participants } = useGroupContext();
   const hasMovements = useGroupHasMovements(group.id);
   const toast = useToast();
@@ -113,14 +109,6 @@ export default function GroupConfigPage() {
     setPastFor(created);
   }
 
-  const langOptions = SUPPORTED_LANGS.map((l) => ({
-    value: l,
-    label:
-      l === "es"
-        ? t("settings:languageSpanish")
-        : t("settings:languageEnglish"),
-  }));
-
   return (
     <AppShell title={t("settings:configTitle")} back={`/g/${group.id}/mas`}>
       {/* Datos del grupo */}
@@ -152,34 +140,6 @@ export default function GroupConfigPage() {
         >
           {t("settings:saveData")}
         </Button>
-      </section>
-
-      {/* Idioma — Más → Configuración → Idioma */}
-      <section className="flex flex-col gap-2">
-        <h2 className="label-caps">{t("settings:sectionLanguage")}</h2>
-        <SegmentedControl
-          label={t("settings:languageLabel")}
-          options={langOptions}
-          value={lang}
-          onChange={setLang}
-        />
-        <p className="text-xs text-muted">{t("settings:languageHint")}</p>
-      </section>
-
-      {/* Apariencia — Sistema / Claro / Oscuro */}
-      <section className="flex flex-col gap-2">
-        <h2 className="label-caps">{t("settings:sectionAppearance")}</h2>
-        <SegmentedControl
-          label={t("settings:sectionAppearance")}
-          options={[
-            { value: "system", label: t("settings:appearanceSystem") },
-            { value: "light", label: t("settings:appearanceLight") },
-            { value: "dark", label: t("settings:appearanceDark") },
-          ]}
-          value={theme}
-          onChange={setTheme}
-        />
-        <p className="text-xs text-muted">{t("settings:appearanceHint")}</p>
       </section>
 
       {/* Moneda */}

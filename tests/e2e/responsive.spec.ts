@@ -208,9 +208,9 @@ test("mobile: los controles miden >= 16px y no hay autofocus al cargar (evita el
 
 test("responsive: también en inglés (390 px)", async ({ page }) => {
   const id = await seedGroup(page);
-  // cambiar idioma en Configuración
+  // cambiar idioma en Ajustes generales
   await page.setViewportSize({ width: 390, height: 812 });
-  await page.goto(`/g/${id}/config`);
+  await page.goto("/ajustes");
   await page.getByRole("tab", { name: "English" }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
 

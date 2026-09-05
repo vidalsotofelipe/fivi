@@ -139,12 +139,9 @@ function GroupRow({
               {t("onboarding:whoAreYouCta")}
             </span>
           ) : bal === 0 ? (
-            <>
-              <span className="block font-semibold text-positive">
-                <Money minor={item.total_spent_minor} currency={cc} />
-              </span>
-              <span className="block label-caps">{t("group:settledUp")}</span>
-            </>
+            <span className="block max-w-[7.5rem] font-semibold text-positive">
+              {t("group:settledUp")}
+            </span>
           ) : (
             <>
               <span

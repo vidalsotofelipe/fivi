@@ -84,8 +84,8 @@ test("con la interfaz en inglés, 10.50 son diez con cincuenta (mismo grupo en A
 }) => {
   const id = await createGroup(page, "Idioma monto", "ARS");
 
-  // Cambiar la interfaz a inglés desde Configuración.
-  await page.goto(`/g/${id}/config`);
+  // Cambiar la interfaz a inglés desde Ajustes generales.
+  await page.goto("/ajustes");
   await page.getByRole("tab", { name: "English" }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
 

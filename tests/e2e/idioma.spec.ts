@@ -1,9 +1,11 @@
 import { test, expect, type Page } from "@playwright/test";
 
 /**
- * Selector de idioma en Más → Configuración → Idioma. Cambia la interfaz al
- * instante (sin recarga) y persiste entre recargas. La moneda del grupo no
- * cambia con el idioma.
+ * Selector de idioma en Ajustes generales (ícono ⚙, siempre presente). Cambia
+ * la interfaz al instante (sin recarga) y persiste entre recargas. La moneda
+ * del grupo no cambia con el idioma. Antes vivía duplicado también en
+ * Más → Configuración; se sacó de ahí porque es una preferencia del
+ * dispositivo, no del grupo.
  */
 
 async function seedGroup(page: Page): Promise<string> {
@@ -35,17 +37,23 @@ test("cambio de idioma instantáneo y persistente", async ({ page }) => {
   ).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("lang", "es");
 
-  // Más → Configuración → Idioma → English.
-  await page.getByRole("link", { name: "Configuración" }).click();
-  await page.waitForURL(/\/config$/);
+  // Ajustes generales (⚙, siempre presente) → Idioma → English.
+  await page.getByRole("link", { name: "Ajustes generales" }).click();
+  await page.waitForURL(/\/ajustes$/);
   await page.getByRole("tab", { name: "English" }).click();
 
   // Cambia al instante, sin recarga.
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(
+    page.getByRole("heading", { name: "General settings" }),
+  ).toBeVisible();
+
+  // La moneda del grupo NO cambió con el idioma: el selector de Configuración
+  // (del grupo, no de Ajustes) sigue en ARS.
+  await page.goto(`/g/${id}/config`);
+  await expect(
     page.getByRole("heading", { name: "Group details" }),
   ).toBeVisible();
-  // La moneda del grupo NO cambió con el idioma: el selector sigue en ARS.
   await expect(page.getByLabel("Currency")).toHaveValue("ARS");
 
   // La navegación inferior también quedó en inglés.
@@ -58,22 +66,22 @@ test("cambio de idioma instantáneo y persistente", async ({ page }) => {
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page.getByRole("link", { name: "More" })).toBeVisible();
 
-  // Volver a español desde Configuración. Exact: "Settings" (sin exact)
-  // también matchea el ícono global de ajustes ("General settings").
-  await page.getByRole("link", { name: "Settings", exact: true }).click();
-  await page.waitForURL(/\/config$/);
+  // Volver a español desde Ajustes generales (ya en inglés: "General
+  // settings").
+  await page.getByRole("link", { name: "General settings" }).click();
+  await page.waitForURL(/\/ajustes$/);
   await page.getByRole("tab", { name: "Español" }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "es");
   await expect(
-    page.getByRole("heading", { name: "Datos del grupo" }),
+    page.getByRole("heading", { name: "Ajustes generales" }),
   ).toBeVisible();
 });
 
 test("tema Sistema / Claro / Oscuro: cambio instantáneo y persistente", async ({
   page,
 }) => {
-  const id = await seedGroup(page);
-  await page.goto(`/g/${id}/config`);
+  await seedGroup(page);
+  await page.goto("/ajustes");
 
   const html = page.locator("html");
   // Por defecto: "Sistema" → sin data-theme.

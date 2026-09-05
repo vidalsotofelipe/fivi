@@ -54,8 +54,9 @@ test("navegador en inglés: interfaz, <html lang>, selector, fechas y monedas, t
   await page.getByRole("button", { name: "Go to summary" }).click();
   await page.waitForURL(new RegExp(`/g/${id}$`));
 
-  // 3 · El selector de idioma marca "English", no "Español".
-  await page.goto(`/g/${id}/config`);
+  // 3 · El selector de idioma (en Ajustes generales) marca "English", no
+  // "Español".
+  await page.goto("/ajustes");
   await expect(page.getByRole("tab", { name: "English" })).toHaveAttribute(
     "aria-selected",
     "true",
