@@ -212,7 +212,7 @@ export default function HomePage() {
 
   if (!hydrated || groups === undefined || archived === undefined) {
     return (
-      <AppShell>
+      <AppShell showHomeMark={false}>
         <Loading />
       </AppShell>
     );
@@ -220,9 +220,14 @@ export default function HomePage() {
 
   if (groups.length === 0 && archived.length === 0) {
     return (
-      <AppShell>
+      <AppShell showHomeMark={false}>
         <div className="flex flex-1 flex-col">
-          <AppMark className="mt-2 h-14 w-14" />
+          <div className="mt-2 flex items-center gap-3">
+            <AppMark className="h-14 w-14 shrink-0" />
+            <span className="font-display text-2xl font-bold tracking-tightest text-text">
+              {t("common:appName")}
+            </span>
+          </div>
           <h1 className="font-display mt-5 text-[32px] font-bold leading-[1.1] tracking-tightest text-text">
             {t("title")}
           </h1>
@@ -258,7 +263,7 @@ export default function HomePage() {
     : null;
 
   return (
-    <AppShell>
+    <AppShell showHomeMark={false}>
       <GroupsSummaryHeader summary={summary} global={global} />
 
       <h2 className="label-caps">{t("myGroups")}</h2>

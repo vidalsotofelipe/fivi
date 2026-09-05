@@ -13,6 +13,17 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.17.5] - 2026-09-05
+
+### Changed
+
+- **La marca "fivi" aparecía dos veces en la pantalla de inicio.** Arriba en
+  el nav (ícono + texto) y abajo, en el ícono grande del onboarding. La marca
+  del nav era redundante en esta única pantalla (es la única desde la que no
+  hace falta "volver al inicio", porque ya estás ahí), así que se oculta sólo
+  acá. El ícono grande del onboarding ahora suma el nombre "fivi" al lado,
+  para no perder la marca por completo.
+
 ## [0.17.4] - 2026-09-05
 
 ### Fixed

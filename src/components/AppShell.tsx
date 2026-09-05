@@ -15,6 +15,7 @@ export function AppShell({
   menu,
   bottomNav,
   showSync = true,
+  showHomeMark = true,
   children,
 }: {
   title?: ReactNode;
@@ -24,6 +25,8 @@ export function AppShell({
   /** `<BottomNav>` cuando hay grupo activo. */
   bottomNav?: ReactNode;
   showSync?: boolean;
+  /** Ocultar la marca "fivi": sólo en el inicio, donde ya está de sobra. */
+  showHomeMark?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -32,7 +35,13 @@ export function AppShell({
     // saltos de layout tras navegar (p. ej. al crear un grupo). `min-h-screen`
     // queda de fallback para navegadores sin `svh`.
     <div className="mx-auto flex min-h-screen min-h-[100svh] w-full max-w-app flex-col bg-bg">
-      <AppBar title={title} back={back} menu={menu} showSync={showSync} />
+      <AppBar
+        title={title}
+        back={back}
+        menu={menu}
+        showSync={showSync}
+        showHomeMark={showHomeMark}
+      />
       <main className="flex flex-1 flex-col gap-5 px-4 py-5">
         {showSync ? <SyncBanner /> : null}
         {children}

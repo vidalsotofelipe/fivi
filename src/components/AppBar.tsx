@@ -70,6 +70,7 @@ export function AppBar({
   back,
   menu,
   showSync = true,
+  showHomeMark = true,
 }: {
   title?: ReactNode;
   /** href para volver, o `true` para usar el historial. */
@@ -77,6 +78,8 @@ export function AppBar({
   /** Normalmente un `IconButton` que abre un `BottomSheet`. */
   menu?: ReactNode;
   showSync?: boolean;
+  /** Ocultar la marca "fivi": sólo en el inicio, donde ya está de sobra. */
+  showHomeMark?: boolean;
 }) {
   const router = useRouter();
   const { t } = useTranslation();
@@ -103,7 +106,7 @@ export function AppBar({
         )
       ) : null}
 
-      <HomeMark compact={!!menu} />
+      {showHomeMark ? <HomeMark compact={!!menu} /> : null}
 
       <h1 className="min-w-0 flex-1 truncate px-1 text-base font-bold text-text">
         {title}
