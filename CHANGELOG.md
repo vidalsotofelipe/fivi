@@ -13,6 +13,23 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.20.0] - 2026-09-05
+
+### Added
+
+- **Compartir el grupo por QR.** Además de "Crear enlace de invitación",
+  ahora hay "Mostrar QR" en Más → Compartir grupo: abre el código para que
+  lo escaneen con la cámara y entren al grupo, sin pasar por un chat. Debajo
+  va el mismo enlace en texto, con botón para copiar (un QR no le sirve a
+  quien no tiene la cámara a mano).
+- El QR se genera **en el dispositivo** (`uqr`, sin dependencias
+  transitivas) y funciona sin conexión. **No** se usa ningún generador de QR
+  de terceros a propósito: el enlace lleva el token de invitación, así que
+  pedirle la imagen a un servidor ajeno sería entregarle el acceso al grupo.
+- El código se dibuja siempre en blanco y negro, no con la paleta del tema:
+  un QR tintado o invertido en modo oscuro pierde contraste y hay lectores
+  que no lo levantan.
+
 ## [0.19.2] - 2026-09-05
 
 ### Fixed

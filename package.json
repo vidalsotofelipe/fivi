@@ -1,6 +1,6 @@
 {
   "name": "fivi",
-  "version": "0.19.2",
+  "version": "0.20.0",
   "private": true,
   "description": "PWA offline-first para dividir gastos compartidos entre un grupo de personas.",
   "engines": {
@@ -27,6 +27,7 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-i18next": "^15.7.4",
+    "uqr": "^0.1.3",
     "web-push": "^3.6.7"
   },
   "devDependencies": {
