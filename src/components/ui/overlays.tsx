@@ -67,13 +67,19 @@ export function BottomSheet({
   if (!open || typeof document === "undefined") return null;
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div aria-hidden="true" className="absolute inset-0 bg-black/50" />
+    <div className="fixed inset-0 z-50 flex items-end justify-center">
+      {/*
+        El cierre va acá, en el fondo gris, y no en el contenedor de afuera
+        comparando `e.target === e.currentTarget`: este div lo cubre entero
+        (`inset-0`), así que SIEMPRE es él quien recibe el clic y aquella
+        comparación nunca daba verdadero — tocar el fondo no cerraba nada.
+        Es decorativo (`aria-hidden`), un atajo además de la ✕ y de Escape.
+      */}
+      <div
+        aria-hidden="true"
+        onMouseDown={onClose}
+        className="absolute inset-0 bg-black/50"
+      />
       <div
         ref={panelRef}
         role="dialog"

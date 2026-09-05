@@ -138,9 +138,17 @@ test("'grupo listo' muestra las dos acciones; llegar con ?join=1 pide quién sos
   await expect(sheet.getByRole("button", { name: "Sumarme al grupo" })).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`/g/${id}$`)); // sin ?join=1
 
-  // La ✕ cierra la hoja. Su nombre accesible es "Cerrar panel" y no "Cerrar"
-  // a propósito: esta hoja ya trae un botón "Cerrar" propio adentro, y dos
+  // Tocar el fondo gris cierra la hoja. Regresión real: el handler estaba en
+  // el contenedor de afuera comparando `e.target === e.currentTarget`, pero el
+  // fondo gris es un div que lo tapa entero, así que el clic nunca llegaba y
+  // no pasaba nada. Se toca bien arriba, lejos del panel (que va abajo).
+  await page.mouse.click(200, 60);
+  await expect(sheet).toBeHidden();
+
+  // La ✕ también. Su nombre accesible es "Cerrar panel" y no "Cerrar" a
+  // propósito: esta hoja ya trae un botón "Cerrar" propio adentro, y dos
   // controles con el mismo nombre serían ambiguos.
+  await page.goto(`/g/${id}?join=1`);
   await sheet.getByRole("button", { name: "Cerrar panel" }).click();
   await expect(sheet).toBeHidden();
 

@@ -13,6 +13,18 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.20.2] - 2026-09-05
+
+### Fixed
+
+- **Tocar el fondo gris no cerraba las hojas inferiores.** El cierre estaba
+  cableado en el contenedor de afuera comparando `e.target ===
+  e.currentTarget`, pero el fondo gris es un div que lo cubre entero: el
+  clic siempre lo recibía él, la comparación nunca daba verdadero y no
+  pasaba nada. El handler pasó al fondo gris, que es lo que se toca. Venía
+  roto desde que existe el componente; se notó recién ahora porque hasta
+  v0.20.1 tampoco había ✕ y las hojas se cerraban sólo con Escape.
+
 ## [0.20.1] - 2026-09-05
 
 ### Fixed
