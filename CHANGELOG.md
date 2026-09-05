@@ -13,6 +13,15 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.18.2] - 2026-09-05
+
+### Added
+
+- **Exportar un grupo a CSV** (Etapa D del roadmap post-auditoría QA). Nueva
+  entrada "Exportar" en Más: descarga los gastos y pagos del grupo en un
+  archivo CSV, con fechas y montos formateados igual que en pantalla. 100%
+  client-side (`Blob` + descarga), sin backend ni dependencias nuevas.
+
 ## [0.18.1] - 2026-09-05
 
 ### Added

@@ -29,6 +29,7 @@ export default function MorePage() {
     <AppShell title={t("settings:title")} back={base} bottomNav={bottomNav}>
       <nav className="flex flex-col gap-2" aria-label={t("settings:menuTitle")}>
         <MenuLink href={`${base}/actividad`} label={t("activity:title")} />
+        <MenuLink href={`${base}/exportar`} label={t("group:exportTitle")} />
         <MenuLink
           href={`${base}/config`}
           label={t("settings:configTitle")}

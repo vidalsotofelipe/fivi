@@ -179,7 +179,15 @@
     "wiz3": "Listo",
     "youAreOwed": "Te deben",
     "pendingSync": "Cambios sin sincronizar",
-    "nameCount": "{{count}}/{{max}} caracteres"
+    "nameCount": "{{count}}/{{max}} caracteres",
+    "exportTitle": "Exportar",
+    "exportHint": "Descargá los gastos y pagos de este grupo en un archivo CSV, para guardarlo o abrirlo en una planilla de cálculo.",
+    "exportButton": "Descargar CSV",
+    "exportGroupLabel": "Grupo",
+    "exportExpensesSection": "Gastos",
+    "exportPaymentsSection": "Pagos",
+    "exportNoExpenses": "Sin gastos registrados.",
+    "exportNoPayments": "Sin pagos registrados."
   },
   "expense": {
     "listTitle": "Gastos",

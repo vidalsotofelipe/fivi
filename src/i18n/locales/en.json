@@ -179,7 +179,15 @@
     "wiz3": "Done",
     "youAreOwed": "You are owed",
     "pendingSync": "Unsynced changes",
-    "nameCount": "{{count}}/{{max}} characters"
+    "nameCount": "{{count}}/{{max}} characters",
+    "exportTitle": "Export",
+    "exportHint": "Download this group's expenses and payments as a CSV file, to keep or open in a spreadsheet.",
+    "exportButton": "Download CSV",
+    "exportGroupLabel": "Group",
+    "exportExpensesSection": "Expenses",
+    "exportPaymentsSection": "Payments",
+    "exportNoExpenses": "No expenses recorded.",
+    "exportNoPayments": "No payments recorded."
   },
   "expense": {
     "listTitle": "Expenses",
