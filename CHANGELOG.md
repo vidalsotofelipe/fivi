@@ -13,6 +13,18 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.17.3] - 2026-09-04
+
+### Fixed
+
+- **La tabla de Feedback del panel admin tenía las columnas desalineadas.**
+  El encabezado tenía 5 celdas (Fecha, Tipo, Estado, Título, Estado — "Estado"
+  quedaba dos veces: una por ser columna ordenable, otra fija al final) pero el
+  cuerpo sólo tenía 4, así que a partir de la tercera columna el título quedaba
+  debajo del encabezado "Estado" y el estado quedaba debajo de una celda vacía.
+  Encabezado y celdas del cuerpo ahora tienen el mismo orden explícito (Fecha,
+  Tipo, Título, Estado).
+
 ## [0.17.2] - 2026-09-04
 
 ### Fixed

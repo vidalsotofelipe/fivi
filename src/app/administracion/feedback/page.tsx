@@ -48,11 +48,25 @@ interface FeedbackResp {
   rows: FeedbackRow[];
 }
 
-const SORTS: { col: string; label: string }[] = [
-  { col: "created_at", label: "Fecha" },
-  { col: "type", label: "Tipo" },
-  { col: "status", label: "Estado" },
-];
+/** Header de columna ordenable (Fecha/Tipo/Estado, no "Título"). */
+function SortTh({
+  col,
+  label,
+  lp,
+}: {
+  col: string;
+  label: string;
+  lp: ReturnType<typeof useListParams>;
+}) {
+  return (
+    <Th>
+      <button type="button" onClick={() => lp.setSort(col)} className="label-caps hover:text-text">
+        {label}
+        {lp.sort === col ? (lp.dir === "asc" ? " ▲" : " ▼") : ""}
+      </button>
+    </Th>
+  );
+}
 
 function statusTone(status: string): "neutral" | "accent" | "warm" | "positive" | "danger" {
   switch (status) {
@@ -173,17 +187,14 @@ export default function AdminFeedbackPage() {
         <>
           <TableWrap>
             <thead>
+              {/* El orden de los headers tiene que calzar exactamente con el de
+                  las celdas del cuerpo: Fecha, Tipo, Título, Estado. "Título"
+                  no es ordenable, por eso va suelto entre los otros tres. */}
               <tr>
-                {SORTS.map((s) => (
-                  <Th key={s.col}>
-                    <button type="button" onClick={() => lp.setSort(s.col)} className="label-caps hover:text-text">
-                      {s.label}
-                      {lp.sort === s.col ? (lp.dir === "asc" ? " ▲" : " ▼") : ""}
-                    </button>
-                  </Th>
-                ))}
+                <SortTh col="created_at" label="Fecha" lp={lp} />
+                <SortTh col="type" label="Tipo" lp={lp} />
                 <Th>Título</Th>
-                <Th>Estado</Th>
+                <SortTh col="status" label="Estado" lp={lp} />
               </tr>
             </thead>
             <tbody>
