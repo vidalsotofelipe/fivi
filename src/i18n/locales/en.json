@@ -387,7 +387,7 @@
     "helpBody": "fivi works offline: changes are saved on the device and synced when there's internet.",
     "deleteGroup": "Delete group",
     "deleteGroupConfirmTitle": "Delete “{{name}}”",
-    "deleteGroupConfirmBody": "This removes the group for everyone in it, not just this device. This can't be undone.",
+    "deleteGroupConfirmBody": "This removes the group for everyone in it ({{people}}, {{expenses}}), not just this device. This can't be undone.",
     "whoAreYouLabel": "You in this group",
     "whoAreYouChange": "Change",
     "version": "Version {{version}}",

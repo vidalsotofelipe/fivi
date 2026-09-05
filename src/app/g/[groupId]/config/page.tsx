@@ -15,7 +15,7 @@ import { ConfirmDialog } from "@/components/ui/overlays";
 import { useToast } from "@/components/ui/toast";
 import { useGroupContext } from "@/components/GroupProvider";
 import { useLocale } from "@/components/LocaleProvider";
-import { useGroupHasMovements } from "@/lib/db-hooks";
+import { useExpenses, useGroupHasMovements } from "@/lib/db-hooks";
 import { db } from "@/data/db";
 import { ARCHIVE_AFTER_DAYS } from "@/data/autoArchive";
 import type { Participant } from "@/domain/types";
@@ -49,6 +49,7 @@ export default function GroupConfigPage() {
   const { lang } = useLocale();
   const { group, participants } = useGroupContext();
   const hasMovements = useGroupHasMovements(group.id);
+  const expenses = useExpenses(group.id);
   const toast = useToast();
 
   const [name, setName] = useState(group.name);
@@ -305,7 +306,10 @@ export default function GroupConfigPage() {
           router.replace("/");
         }}
         title={t("settings:deleteGroupConfirmTitle", { name: group.name })}
-        body={t("settings:deleteGroupConfirmBody")}
+        body={t("settings:deleteGroupConfirmBody", {
+          people: t("common:person", { count: participants.length }),
+          expenses: t("onboarding:expenseCount", { count: expenses?.length ?? 0 }),
+        })}
         confirmLabel={t("settings:deleteGroup")}
         cancelLabel={t("common:cancel")}
         busy={deleting}

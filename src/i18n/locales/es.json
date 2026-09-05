@@ -387,7 +387,7 @@
     "helpBody": "fivi funciona sin conexión: los cambios se guardan en el dispositivo y se sincronizan cuando hay internet.",
     "deleteGroup": "Eliminar grupo",
     "deleteGroupConfirmTitle": "Eliminar “{{name}}”",
-    "deleteGroupConfirmBody": "Se elimina el grupo para todas las personas que participan, no solo de este dispositivo. Esta acción no se puede deshacer.",
+    "deleteGroupConfirmBody": "Se elimina el grupo para todas las personas que participan ({{people}}, {{expenses}}), no solo de este dispositivo. Esta acción no se puede deshacer.",
     "whoAreYouLabel": "Sos en este grupo",
     "whoAreYouChange": "Cambiar",
     "version": "Versión {{version}}",

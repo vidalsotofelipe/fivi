@@ -171,3 +171,23 @@ test("escritura local sin conexión (IndexedDB, sin red)", async ({
 
   await context.setOffline(false);
 });
+
+test("eliminar grupo avisa cuántas personas y gastos se pierden", async ({
+  page,
+}) => {
+  const id = await createGroup(page, "Grupo a borrar");
+  await addPeopleDuringSetup(page, ["Ana", "Beto"]);
+  await page.getByRole("button", { name: "Ir al resumen" }).click();
+  await page.waitForURL(new RegExp(`/g/${id}$`));
+  await addExpense(page, id, { description: "Cena", amount: "300", payer: "Ana" });
+
+  await page.goto(`/g/${id}/config`);
+  await page.getByRole("button", { name: "Eliminar grupo" }).click();
+
+  // Ana y Beto (sin "quién soy" seteado en este test) y 1 gasto.
+  await expect(page.getByText(/2 personas/)).toBeVisible();
+  await expect(page.getByText(/1 gasto\b/)).toBeVisible();
+
+  await page.getByRole("button", { name: "Cancelar" }).click();
+  await expect(page.getByText(/2 personas/)).toHaveCount(0);
+});

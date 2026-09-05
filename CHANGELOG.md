@@ -13,6 +13,15 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.17.7] - 2026-09-05
+
+### Changed
+
+- **"Eliminar grupo" ahora dice cuántas personas y gastos se pierden.** El
+  aviso ya decía que la baja es para todo el grupo, no solo el dispositivo
+  (v0.17.4); ahora suma la cantidad real ("2 personas, 1 gasto") antes de
+  confirmar una acción irreversible.
+
 ## [0.17.6] - 2026-09-05
 
 ### Fixed
