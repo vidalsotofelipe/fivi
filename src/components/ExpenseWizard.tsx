@@ -509,7 +509,9 @@ export function ExpenseWizard({
             </p>
           ) : null}
 
-          <p className="text-xs text-muted">{t("expense:willUpdateBalances")}</p>
+          <p className="text-xs text-muted">
+            {t(initial ? "expense:willUpdateBalancesEdit" : "expense:willUpdateBalances")}
+          </p>
           {saveError ? <FormError messages={[saveError]} /> : null}
         </div>
       ) : null}

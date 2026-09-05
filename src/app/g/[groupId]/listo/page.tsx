@@ -33,14 +33,14 @@ export default function GroupReadyPage() {
 
   if (!hydrated) {
     return (
-      <AppShell title={t("common:appName")} showSync={false}>
+      <AppShell showSync={false}>
         <Loading />
       </AppShell>
     );
   }
 
   return (
-    <AppShell title={t("common:appName")} showSync={false}>
+    <AppShell showSync={false}>
       <div className="flex flex-col items-center gap-4 pt-6 text-center">
         <span
           aria-hidden="true"

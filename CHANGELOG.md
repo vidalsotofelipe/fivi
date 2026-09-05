@@ -13,6 +13,23 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.17.4] - 2026-09-05
+
+### Fixed
+
+- **"Eliminar grupo" no avisaba que la baja es para todo el grupo, no solo
+  para el dispositivo.** El diálogo decía "Se elimina el grupo de este
+  dispositivo", pero `deleteGroup()` hace un soft-delete que se sincroniza a
+  todos los participantes. El texto ahora aclara que el grupo desaparece para
+  todos y que la acción no se puede deshacer.
+- **Header duplicado "fivi · fivi" en la pantalla "Grupo listo".** Pasaba
+  `title={t("common:appName")}` a `AppShell`, que ya muestra la marca "fivi"
+  de forma persistente — quedaba repetida. Se saca el título redundante,
+  igual que ya se había hecho en la pantalla de inicio.
+- **Al editar un gasto, el aviso decía "se creará" en vez de "se
+  actualizará".** El texto de confirmación era el mismo para crear y editar
+  un gasto (afectaba ES y EN); ahora cada modo usa su propio texto.
+
 ## [0.17.3] - 2026-09-04
 
 ### Fixed
