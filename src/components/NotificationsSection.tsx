@@ -12,19 +12,21 @@ import { useSyncActions, useSyncState } from "./SyncProvider";
 import { useMe, setNotify, useNotify } from "@/data/settings";
 import { isPushSupported, needsIosInstall, subscribeToPush } from "@/lib/push";
 
+/** `status` viaja al mensaje de error: un 401 y un 500 se arreglan distinto. */
 async function callSubscribeApi(
   token: string,
   body: Record<string, unknown>,
-): Promise<boolean> {
+): Promise<{ ok: boolean; status: number | string }> {
   try {
     const res = await fetch("/api/notifications/subscribe", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify(body),
     });
-    return res.ok;
+    return { ok: res.ok, status: res.status };
   } catch {
-    return false;
+    // Ni siquiera salió el pedido (sin conexión, DNS, etc.).
+    return { ok: false, status: "sin respuesta" };
   }
 }
 
@@ -53,20 +55,20 @@ export function NotificationsSection({ groupId }: { groupId: string }) {
     setError(null);
     const token = await getAccessToken();
     if (!token) {
-      setError(t("settings:notificationsError"));
+      setError(t("settings:notificationsErrorSession"));
       return;
     }
 
     if (next === "off") {
       setBusy(true);
-      const ok = await callSubscribeApi(token, {
+      const res = await callSubscribeApi(token, {
         groupId,
         participantId: me,
         enabled: false,
       });
       setBusy(false);
-      if (!ok) {
-        setError(t("settings:notificationsError"));
+      if (!res.ok) {
+        setError(t("settings:notificationsErrorServer", { status: res.status }));
         return;
       }
       await setNotify(groupId, false);
@@ -76,18 +78,28 @@ export function NotificationsSection({ groupId }: { groupId: string }) {
     setBusy(true);
     try {
       const sub = await subscribeToPush();
-      if (!sub) {
-        setError(t("settings:notificationsError"));
+      if (!sub.ok) {
+        setError(
+          sub.reason === "unsupported"
+            ? t("settings:notificationsErrorUnsupported")
+            : sub.reason === "no-vapid-key"
+              ? t("settings:notificationsErrorNoKey")
+              : sub.reason === "permission-denied"
+                ? t("settings:notificationsErrorPermission")
+                : t("settings:notificationsErrorBrowser", {
+                    detail: sub.detail ?? "?",
+                  }),
+        );
         return;
       }
-      const ok = await callSubscribeApi(token, {
+      const res = await callSubscribeApi(token, {
         groupId,
         participantId: me,
-        subscription: sub,
+        subscription: sub.subscription,
         enabled: true,
       });
-      if (!ok) {
-        setError(t("settings:notificationsError"));
+      if (!res.ok) {
+        setError(t("settings:notificationsErrorServer", { status: res.status }));
         return;
       }
       await setNotify(groupId, true);

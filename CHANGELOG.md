@@ -13,6 +13,25 @@ rollback.
 
 _(sin cambios pendientes de release)_
 
+## [0.19.2] - 2026-09-05
+
+### Fixed
+
+- **Activar las notificaciones fallaba con un mensaje que no decía nada.**
+  Todos los caminos de error mostraban "No se pudo activar. Revisá el
+  permiso…", incluso cuando el permiso estaba bien y el problema era otro:
+  había que abrir la consola del navegador para saber qué pasó.
+  `subscribeToPush()` ya no devuelve `null` a secas, devuelve el motivo, y
+  cada uno tiene su mensaje:
+  - permiso bloqueado (aclarando que hay que **recargar la página**, porque
+    el permiso no se aplica a una pestaña ya abierta — la causa más común);
+  - el navegador no pudo suscribirse, con el nombre del error
+    (`AbortError` = bloqueador/VPN/firewall, `NotAllowedError` = permiso);
+  - navegador sin soporte;
+  - faltan las claves VAPID en el servidor;
+  - sin sesión;
+  - el servidor rechazó la suscripción, con el código de estado.
+
 ## [0.19.1] - 2026-09-05
 
 ### Added

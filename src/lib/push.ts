@@ -41,23 +41,43 @@ export interface WebPushSubscription {
 }
 
 /**
- * Pide permiso (si hace falta) y devuelve la suscripción push del
- * dispositivo, reusando la existente si ya había una. `null` si el
- * navegador no soporta push, si el permiso queda denegado, o ante cualquier
- * error — nunca lanza.
+ * Por qué no se pudo suscribir. Cada motivo tiene una acción distinta del
+ * lado del usuario, así que se devuelven separados en vez de un `null`
+ * opaco: "no se pudo activar" a secas obliga a abrir la consola para saber
+ * si el problema es el permiso, el navegador o el servidor.
  */
-export async function subscribeToPush(): Promise<WebPushSubscription | null> {
-  if (!isPushSupported()) return null;
-  const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-  if (!vapidKey) return null;
+export type PushFailureReason =
+  | "unsupported"
+  | "no-vapid-key"
+  | "permission-denied"
+  | "browser-error";
 
+export type PushSubscribeResult =
+  | { ok: true; subscription: WebPushSubscription }
+  | { ok: false; reason: PushFailureReason; detail?: string };
+
+/**
+ * Pide permiso (si hace falta) y devuelve la suscripción push del
+ * dispositivo, reusando la existente si ya había una. Nunca lanza: ante
+ * cualquier problema devuelve `ok: false` con el motivo.
+ */
+export async function subscribeToPush(): Promise<PushSubscribeResult> {
+  if (!isPushSupported()) return { ok: false, reason: "unsupported" };
+  const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  if (!vapidKey) return { ok: false, reason: "no-vapid-key" };
+
+  let permission: NotificationPermission;
   try {
-    const permission =
+    permission =
       Notification.permission === "granted"
         ? "granted"
         : await Notification.requestPermission();
-    if (permission !== "granted") return null;
+  } catch (err) {
+    return { ok: false, reason: "browser-error", detail: errorName(err) };
+  }
+  if (permission !== "granted") return { ok: false, reason: "permission-denied" };
 
+  try {
     const registration = await navigator.serviceWorker.ready;
     const existing = await registration.pushManager.getSubscription();
     const subscription =
@@ -68,12 +88,25 @@ export async function subscribeToPush(): Promise<WebPushSubscription | null> {
       }));
 
     const json = subscription.toJSON();
-    if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) return null;
+    if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
+      return { ok: false, reason: "browser-error", detail: "suscripción incompleta" };
+    }
     return {
-      endpoint: json.endpoint,
-      keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
+      ok: true,
+      subscription: {
+        endpoint: json.endpoint,
+        keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
+      },
     };
-  } catch {
-    return null;
+  } catch (err) {
+    // Los dos típicos: `NotAllowedError` (el permiso no llegó a esta pestaña,
+    // hay que recargar) y `AbortError` (el navegador no pudo hablar con su
+    // servicio de push: bloqueador, VPN o firewall).
+    return { ok: false, reason: "browser-error", detail: errorName(err) };
   }
+}
+
+function errorName(err: unknown): string {
+  if (err instanceof Error) return err.name || err.message;
+  return String(err);
 }
